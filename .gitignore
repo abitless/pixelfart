@@ -1,0 +1,31 @@
+# wp-content-repo: thema's, plugins, mu-plugins en talen gaan mee.
+# Alles wat WordPress of plugins zelf genereren niet.
+
+# Media
+/uploads/
+
+# Caches en tijdelijke bestanden
+/cache/
+/upgrade/
+/upgrade-temp-backup/
+/litespeed/
+/et-cache/
+/wflogs/
+
+# Drop-ins die door plugins (per omgeving) worden geschreven
+/advanced-cache.php
+/object-cache.php
+/db.php
+/.litespeed_conf.dat
+/.litespeed_conf.php
+
+# Back-ups
+/ai1wm-backups/
+/updraft/
+/backups/
+/backup-db/
+
+# Logs en systeembestanden
+*.log
+.DS_Store
+Thumbs.db
