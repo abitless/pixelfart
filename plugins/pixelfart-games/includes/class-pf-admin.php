@@ -23,6 +23,7 @@ class PF_Admin {
 		add_action( 'manage_' . PF_Games::CPT . '_posts_custom_column', [ __CLASS__, 'column' ], 10, 2 );
 		add_filter( 'manage_edit-' . PF_Games::CPT . '_sortable_columns', fn( $c ) => $c + [ 'pf_plays' => 'pf_plays' ] );
 		add_action( 'pre_get_posts', [ __CLASS__, 'sort_by_plays' ] );
+		add_action( 'admin_post_pf_restore_version', [ __CLASS__, 'restore_version' ] );
 	}
 
 	public static function form_enctype( WP_Post $post ) {
@@ -54,6 +55,7 @@ class PF_Admin {
 	public static function meta_boxes() {
 		add_meta_box( 'pf_game_file', 'Game en metadata', [ __CLASS__, 'box_game' ], PF_Games::CPT, 'normal', 'high' );
 		add_meta_box( 'pf_game_thumb', 'Thumbnail (4:3, pixelig)', [ __CLASS__, 'box_thumb' ], PF_Games::CPT, 'normal', 'high' );
+		add_meta_box( 'pf_game_versions', 'Versies', [ __CLASS__, 'box_versions' ], PF_Games::CPT, 'side', 'default' );
 		add_meta_box( 'pf_game_stats', 'Statistieken', [ __CLASS__, 'box_stats' ], PF_Games::CPT, 'side', 'low' );
 	}
 
@@ -113,8 +115,81 @@ class PF_Admin {
 				<textarea name="pf_description" id="pf_description" rows="3" maxlength="240"><?php echo esc_textarea( $g['description'] ?? '' ); ?></textarea>
 				<p class="description">Eén of twee zinnen, max. 240 tekens. Categorieën kies je rechts.</p>
 			</div>
+
+			<div class="pf-field pf-wide">
+				<label for="pf_changelog_note">Wat is er nieuw?</label>
+				<textarea name="pf_changelog_note" id="pf_changelog_note" rows="2" maxlength="500" placeholder="<?php echo $has_file ? 'Bijv. Snellere scooter, bug bij level 3 opgelost.' : 'Eerste versie'; ?>"></textarea>
+				<p class="description">Alleen nodig als je een nieuw HTML-bestand uploadt. De vorige versie wordt bewaard; is de versie niet opgehoogd, dan doen we dat (1.0.0 → 1.0.1).</p>
+			</div>
+
+			<div class="pf-field">
+				<label for="pf_score_order">Topscorelijst</label>
+				<select name="pf_score_order" id="pf_score_order">
+					<option value="" <?php selected( $g['score']['order'] ?? '', '' ); ?>>Geen</option>
+					<option value="desc" <?php selected( $g['score']['order'] ?? '', 'desc' ); ?>>Hoger is beter</option>
+					<option value="asc" <?php selected( $g['score']['order'] ?? '', 'asc' ); ?>>Lager is beter (bijv. tijd)</option>
+				</select>
+				<p class="description">Werkt als de game <code>Pixelfart.score()</code> aanroept.</p>
+			</div>
+
+			<div class="pf-field">
+				<label for="pf_score_label">Eenheid</label>
+				<input type="text" name="pf_score_label" id="pf_score_label" value="<?php echo esc_attr( $g['score']['label'] ?? 'punten' ); ?>" maxlength="20" placeholder="punten">
+			</div>
 		</div>
 		<?php
+	}
+
+	public static function box_versions( WP_Post $post ) {
+		$g = PF_Games::get( $post );
+		if ( ! $g || ! $g['code'] ) {
+			echo '<p>Na de eerste upload zie je hier de versies.</p>';
+			return;
+		}
+		echo '<p>Nu online: <strong>' . esc_html( $g['version'] ) . '</strong></p>';
+		if ( $g['changelog'] ) {
+			echo '<ul class="pf-changelog">';
+			foreach ( array_slice( $g['changelog'], 0, 8 ) as $c ) {
+				printf( '<li><strong>%s</strong> <span>%s</span><br>%s</li>', esc_html( $c['version'] ), esc_html( wp_date( 'j M Y', strtotime( $c['date'] ) ) ), esc_html( $c['notes'] ) );
+			}
+			echo '</ul>';
+		}
+		$versions = PF_Games::versions( $g['code'] );
+		if ( $versions && current_user_can( 'unfiltered_html' ) ) {
+			echo '<p><strong>Eerdere bestanden</strong></p><ul class="pf-versions">';
+			foreach ( $versions as $file => $version ) {
+				$url = wp_nonce_url( admin_url( 'admin-post.php?action=pf_restore_version&post=' . $post->ID . '&file=' . rawurlencode( $file ) ), 'pf_restore_' . $post->ID );
+				printf( '<li><code>%s</code> · <a href="%s" onclick="return confirm(%s)">terugzetten</a></li>', esc_html( $version ), esc_url( $url ), esc_attr( wp_json_encode( "Versie $version terugzetten? De huidige versie wordt eerst bewaard." ) ) );
+			}
+			echo '</ul>';
+		}
+	}
+
+	/** Een eerdere versie terugzetten (de huidige wordt eerst bewaard). */
+	public static function restore_version() {
+		$id   = absint( $_GET['post'] ?? 0 );
+		$file = sanitize_file_name( wp_unslash( $_GET['file'] ?? '' ) );
+		check_admin_referer( 'pf_restore_' . $id );
+		if ( ! current_user_can( 'edit_post', $id ) || ! current_user_can( 'unfiltered_html' ) ) {
+			wp_die( 'Geen rechten.' );
+		}
+		$code = (string) PF_Games::meta( $id, 'code' );
+		$src  = PF_Games::versions_dir( $code ) . $file;
+		if ( ! $code || ! preg_match( '/^[\w.\-]+\.html$/', $file ) || ! is_file( $src ) ) {
+			wp_die( 'Versie niet gevonden.' );
+		}
+		$version = preg_replace( '/(-\d+)?\.html$/', '', $file );
+		$current = (string) PF_Games::meta( $id, 'version', '1.0.0' );
+		$html    = file_get_contents( $src );
+		PF_Games::archive_current( $id, $current );
+		PF_Games::install_html( $id, $html );
+		update_post_meta( $id, '_pf_version', $version );
+		PF_Games::add_changelog( $id, $version, "Teruggezet (was $current)." );
+		PF_Games::write_json( $id );
+		set_transient( 'pf_notes_' . get_current_user_id(), [ [ 'success', "Versie $version staat weer online. Versie $current is bewaard." ] ], 60 );
+		do_action( 'litespeed_purge_post', $id );
+		wp_safe_redirect( get_edit_post_link( $id, 'url' ) );
+		exit;
 	}
 
 	public static function box_thumb( WP_Post $post ) {
@@ -165,7 +240,8 @@ class PF_Admin {
 		if ( ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) || wp_is_post_revision( $id ) || ! current_user_can( 'edit_post', $id ) ) {
 			return;
 		}
-		$notes = [];
+		$notes       = [];
+		$old_version = (string) PF_Games::meta( $id, 'version', '1.0.0' );
 
 		// Gamecode
 		$old  = (string) PF_Games::meta( $id, 'code' );
@@ -195,6 +271,9 @@ class PF_Admin {
 		update_post_meta( $id, '_pf_author', sanitize_text_field( wp_unslash( $_POST['pf_author'] ?? '' ) ) );
 		$age = sanitize_text_field( wp_unslash( $_POST['pf_age'] ?? 'ALL' ) );
 		update_post_meta( $id, '_pf_age', in_array( $age, PF_Games::AGES, true ) ? $age : 'ALL' );
+		$order = sanitize_key( wp_unslash( $_POST['pf_score_order'] ?? '' ) );
+		update_post_meta( $id, '_pf_score_order', in_array( $order, [ 'desc', 'asc' ], true ) ? $order : '' );
+		update_post_meta( $id, '_pf_score_label', mb_substr( sanitize_text_field( wp_unslash( $_POST['pf_score_label'] ?? '' ) ), 0, 20 ) ?: 'punten' );
 
 		// Game-HTML: voert eigen JavaScript uit op de site, dus alleen voor wie ongefilterde HTML mag plaatsen.
 		if ( ! empty( $_FILES['pf_html']['tmp_name'] ) && UPLOAD_ERR_OK === $_FILES['pf_html']['error'] ) {
@@ -206,11 +285,32 @@ class PF_Admin {
 			} elseif ( $_FILES['pf_html']['size'] > self::MAX_HTML_BYTES ) {
 				$notes[] = [ 'error', 'Het HTML-bestand is groter dan 15 MB.' ];
 			} else {
-				$html = file_get_contents( $_FILES['pf_html']['tmp_name'] ); // phpcs:ignore
+				$html     = file_get_contents( $_FILES['pf_html']['tmp_name'] ); // phpcs:ignore
+				$manifest = PF_Format::manifest( $html ) ?? [];
+				$note     = sanitize_textarea_field( wp_unslash( $_POST['pf_changelog_note'] ?? '' ) );
+				$note     = $note ?: sanitize_textarea_field( (string) ( $manifest['changelog'] ?? '' ) );
+				$version  = (string) PF_Games::meta( $id, 'version', '1.0.0' );
+				$is_update = file_exists( PF_Games::dir( $code ) . 'game.html' );
+
+				if ( $is_update ) {
+					if ( $version === $old_version ) {
+						$version = PF_Games::bump( $old_version );
+						update_post_meta( $id, '_pf_version', $version );
+						$notes[] = [ 'info', sprintf( 'Versie automatisch opgehoogd naar %s.', $version ) ];
+					}
+					$archived = PF_Games::archive_current( $id, $old_version );
+					$notes[]  = [ 'info', sprintf( 'Vorige versie %s bewaard (terugzetten kan onder Versies).', $old_version ) ];
+				}
+				PF_Games::add_changelog( $id, $version, mb_substr( $note ?: ( $is_update ? 'Nieuwe versie.' : 'Eerste versie.' ), 0, 500 ) );
+
 				foreach ( PF_Games::install_html( $id, $html ) as $w ) {
 					$notes[] = [ 'warning', $w ];
 				}
-				$notes[] = [ 'success', sprintf( 'Game geüpload als %s/game.html.', $code ) ];
+				foreach ( PF_Format::check( $html ) as [ $level, $msg ] ) {
+					$notes[] = [ $level, 'Formatcheck: ' . $msg ];
+				}
+				$notes[] = [ 'success', sprintf( 'Game %s geüpload als %s/game.html.', $version, $code ) ];
+				do_action( 'litespeed_purge_post', $id );
 			}
 		}
 

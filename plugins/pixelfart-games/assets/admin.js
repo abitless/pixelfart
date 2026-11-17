@@ -15,6 +15,41 @@
 		});
 	}
 
+	/* ---------- manifest: formulier invullen vanuit de game ----------
+	 * Een game in het Pixelfart-format heeft <script type="application/json" id="pixelfart">{…}</script>.
+	 * Lege velden vullen we daarmee; wat je zelf al invulde blijft staan.
+	 */
+	const htmlIn = $('pf_html');
+	htmlIn && htmlIn.addEventListener('change', async () => {
+		const f = htmlIn.files[0];
+		if (!f) return;
+		const m = (await f.text()).match(/<script\b[^>]*\bid=["']pixelfart["'][^>]*>([\s\S]*?)<\/script>/i);
+		let man = null;
+		try { man = m ? JSON.parse(m[1]) : null; } catch (e) { /* ongeldig: server meldt het */ }
+		if (!man) return;
+		const filled = [];
+		const fill = (el, val, force) => {
+			if (!el || val === undefined || val === null || val === '') return;
+			if (force || !el.value.trim()) { el.value = String(val); filled.push(el.id); el.dispatchEvent(new Event('input')); }
+		};
+		fill(title, man.title);
+		if (code && code.dataset.autosuggest) fill(code, (man.code || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5), true);
+		fill($('pf_version'), man.version, true);
+		fill($('pf_description'), man.description);
+		fill($('pf_author'), man.author);
+		fill($('pf_changelog_note'), man.changelog);
+		if (man.age && [...$('pf_age').options].some((o) => o.value === man.age)) { $('pf_age').value = man.age; filled.push('pf_age'); }
+		if (man.score && man.score.order) { $('pf_score_order').value = man.score.order === 'asc' ? 'asc' : 'desc'; filled.push('pf_score_order'); }
+		if (man.score && man.score.label) fill($('pf_score_label'), man.score.label, true);
+		const cats = (man.categories || []).map((c) => String(c).toLowerCase());
+		document.querySelectorAll('#pf_categoriechecklist label').forEach((l) => {
+			if (cats.includes(l.textContent.trim().toLowerCase())) { const cb = l.querySelector('input'); if (!cb.checked) { cb.checked = true; filled.push('cat'); } }
+		});
+		let note = $('pf_manifest_note');
+		if (!note) { note = document.createElement('p'); note.id = 'pf_manifest_note'; note.className = 'pf-manifest-note'; htmlIn.after(note); }
+		note.textContent = filled.length ? `✓ ${filled.length} velden ingevuld uit het manifest van de game. Controleer ze even.` : 'Manifest gevonden; alle velden waren al ingevuld.';
+	});
+
 	/* ---------- thumbnails ---------- */
 	const W = 96, H = 72, SCALE = 4; // 96×72 pixels, 4× opgeschaald = 384×288
 

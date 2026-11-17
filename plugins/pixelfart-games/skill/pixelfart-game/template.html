@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pixelvanger</title>
+<script src="pixelfart.js"></script>
+<script type="application/json" id="pixelfart">
+{
+	"title": "Pixelvanger",
+	"code": "VANGR",
+	"version": "1.0.0",
+	"description": "Vang de vallende pixels met je bakje. Mis je er drie, dan is het game over.",
+	"categories": ["Arcade", "Snel"],
+	"age": "ALL",
+	"author": "",
+	"changelog": "Eerste versie.",
+	"score": { "order": "desc", "label": "punten" }
+}
+</script>
+<style>
+	/* Het hele venster is van de game; het canvas wordt door Pixelfart.fit() geschaald. */
+	html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+	body { display: grid; place-items: center; }
+	canvas { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="game" width="160" height="120" aria-label="Pixelvanger"></canvas>
+<script>
+(() => {
+	'use strict';
+	const W = 160, H = 120;                 // vaste lage resolutie: echte pixels
+	const cv = document.getElementById('game');
+	const g = cv.getContext('2d');
+	Pixelfart.fit(cv, { mode: 'integer' });  // schermvullend, scherp, ook bij draaien/fullscreen
+
+	// ---------- toestand ----------
+	let state = 'title';                     // title | play | over
+	let bak, drops, score, lives, spawn, best = Pixelfart.store.get('best', 0);
+	const keys = new Set();
+	let pointerX = null;
+
+	function reset() {
+		bak = { x: W / 2 - 10, w: 20 };
+		drops = []; score = 0; lives = 3; spawn = 0;
+	}
+
+	// ---------- invoer: toetsenbord, muis en aanraken ----------
+	addEventListener('keydown', (e) => {
+		keys.add(e.key);
+		if ((e.key === ' ' || e.key === 'Enter') && state !== 'play') start();
+		if (e.key === 'Escape') Pixelfart.back();
+	});
+	addEventListener('keyup', (e) => keys.delete(e.key));
+	const toGame = (e) => { const r = cv.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * W; };
+	cv.addEventListener('pointerdown', (e) => { if (state !== 'play') start(); pointerX = toGame(e); });
+	cv.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') pointerX = toGame(e); });
+	addEventListener('pointerup', () => { pointerX = null; });
+
+	function start() { reset(); state = 'play'; }
+
+	function gameOver() {
+		state = 'over';
+		if (score > best) { best = score; Pixelfart.store.set('best', best); }
+		Pixelfart.score(score);              // eindscore naar de site (één keer per potje)
+	}
+
+	// Muziek of timers zou je hier stilzetten; de loop pauzeert zelf.
+	Pixelfart.onPause(() => keys.clear());
+
+	// ---------- spel ----------
+	function update(dt) {
+		if (state !== 'play') return;
+		const speed = 90;
+		if (keys.has('ArrowLeft') || keys.has('a')) bak.x -= speed * dt;
+		if (keys.has('ArrowRight') || keys.has('d')) bak.x += speed * dt;
+		if (pointerX !== null) bak.x += (pointerX - bak.w / 2 - bak.x) * Math.min(1, dt * 12);
+		bak.x = Math.max(0, Math.min(W - bak.w, bak.x));
+
+		spawn -= dt;
+		if (spawn <= 0) {
+			drops.push({ x: 4 + Math.random() * (W - 8), y: -4, v: 30 + Math.min(score, 60) });
+			spawn = Math.max(0.35, 1.1 - score * 0.02);
+		}
+		for (const d of drops) d.y += d.v * dt;
+		drops = drops.filter((d) => {
+			if (d.y > H - 12 && d.y < H - 6 && d.x > bak.x - 2 && d.x < bak.x + bak.w + 2) { score++; return false; }
+			if (d.y > H) { lives--; return false; }
+			return true;
+		});
+		if (lives <= 0) gameOver();
+	}
+
+	const text = (s, x, y, c = '#f2f2f2') => { g.fillStyle = c; g.fillText(s, x, y); };
+
+	function draw() {
+		g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+		g.font = '8px monospace'; g.textBaseline = 'top'; g.textAlign = 'left';
+		if (state === 'title') {
+			g.textAlign = 'center';
+			text('PIXELVANGER', W / 2, 40, '#ffcf4a');
+			text('pijltjes of slepen', W / 2, 62, '#bdbdbd');
+			text('spatie / tik = start', W / 2, 74, '#5dde7a');
+			if (best) text('record ' + best, W / 2, 96, '#8a8a8a');
+			return;
+		}
+		g.fillStyle = '#5dde7a';
+		for (const d of drops) g.fillRect(Math.round(d.x) - 2, Math.round(d.y) - 2, 4, 4);
+		g.fillStyle = '#f2f2f2';
+		g.fillRect(Math.round(bak.x), H - 8, bak.w, 4);
+		g.fillRect(Math.round(bak.x), H - 12, 2, 4);
+		g.fillRect(Math.round(bak.x) + bak.w - 2, H - 12, 2, 4);
+		text(String(score), 4, 4);
+		g.textAlign = 'right'; text('♥'.repeat(Math.max(0, lives)), W - 4, 4, '#ff5c8a');
+		if (state === 'over') {
+			g.fillStyle = 'rgba(0,0,0,.75)'; g.fillRect(0, 0, W, H);
+			g.textAlign = 'center';
+			text('GAME OVER', W / 2, 44, '#ff5c8a');
+			text(score + ' punten', W / 2, 60);
+			text('spatie / tik = opnieuw', W / 2, 80, '#5dde7a');
+		}
+	}
+
+	reset();
+	Pixelfart.loop(update, { fps: 60, draw });
+})();
+</script>
+</body>
+</html>

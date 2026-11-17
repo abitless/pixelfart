@@ -41,7 +41,11 @@
 		clear();
 		let src;
 		if (typeof d.html === 'string') {
-			blob = URL.createObjectURL(new Blob([d.html], { type: 'text/html' }));
+			// Nog niet geüpload: geef de nieuwste SDK mee (een blob kent geen relatieve paden).
+			const sdk = '<script src="' + new URL('../_sdk/pixelfart.js', location.href).href + '"><\/script>';
+			let html = d.html.replace(/<script\b[^>]*\bsrc=["'](?:\.\/)?pixelfart(?:\.min)?\.js[^"']*["'][^>]*>\s*<\/script>/gi, '');
+			html = /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, (m) => m + sdk) : sdk + html;
+			blob = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
 			src = blob;
 		} else if (/^[A-Z]{5}$/.test(d.code || '')) {
 			src = '../' + d.code + '/game.html?capture=' + Date.now();

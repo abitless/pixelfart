@@ -12,3 +12,8 @@
 .pf-thumb-stage { grid-column: 1 / -1; }
 .pf-thumb-stage iframe { width: 480px; max-width: 100%; aspect-ratio: 4 / 3; border: 4px solid #000; background: #000; }
 @media (max-width: 782px) { .pf-thumb { grid-template-columns: 1fr; } }
+
+.pf-manifest-note { color: #00a32a; font-weight: 600; margin: 6px 0 0; }
+.pf-changelog, .pf-versions { margin: 0 0 12px; }
+.pf-changelog li { margin-bottom: 8px; }
+.pf-changelog span { color: #646970; }

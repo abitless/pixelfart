@@ -161,6 +161,11 @@ class PF_Games {
 			'game_url'    => $game_v ? self::url( $code ) . 'game.html?v=' . $game_v : '',
 			'thumb_url'   => $thumb_v ? self::url( $code ) . 'thumb.png?v=' . $thumb_v : '',
 			'color'       => $cats[0]['color'] ?? '#5dde7a',
+			'score'       => [
+				'order' => (string) self::meta( $id, 'score_order' ), // desc = hoger is beter, asc = lager is beter, '' = geen lijst
+				'label' => (string) self::meta( $id, 'score_label', 'punten' ),
+			],
+			'changelog'   => (array) ( get_post_meta( $id, '_pf_changelog', true ) ?: [] ),
 		];
 	}
 
@@ -190,6 +195,8 @@ class PF_Games {
 			'age'         => $g['age'],
 			'thumbnail'   => 'thumb.png',
 			'file'        => 'game.html',
+			'score'       => $g['score']['order'] ? $g['score'] : null,
+			'changelog'   => $g['changelog'],
 		];
 	}
 
@@ -215,9 +222,58 @@ class PF_Games {
 		$code = (string) self::meta( $id, 'code' );
 		wp_mkdir_p( self::dir( $code ) );
 		$warnings = [];
-		$html     = PF_Hosting::prepare_html( PF_Fonts::localize( $html, $warnings ) );
+		$html     = PF_Hosting::prepare_html( PF_Format::strip_local_sdk( PF_Fonts::localize( $html, $warnings ) ) );
 		file_put_contents( self::dir( $code ) . 'game.html', $html );
 		return $warnings;
+	}
+
+	/* ---------- versies ---------- */
+
+	/** Map met eerdere versies: <CODE>/versions/<versie>.html */
+	public static function versions_dir( string $code ): string {
+		return self::dir( $code ) . 'versions/';
+	}
+
+	/** Eerdere versies, nieuwste eerst: [ bestandsnaam => versie ]. */
+	public static function versions( string $code ): array {
+		$files = glob( self::versions_dir( $code ) . '*.html' ) ?: [];
+		usort( $files, fn( $a, $b ) => filemtime( $b ) <=> filemtime( $a ) );
+		$out = [];
+		foreach ( $files as $f ) {
+			$out[ basename( $f ) ] = preg_replace( '/(-\d+)?\.html$/', '', basename( $f ) );
+		}
+		return $out;
+	}
+
+	/** Bewaar de huidige game.html als versions/<versie>.html (voordat hij vervangen wordt). */
+	public static function archive_current( int $id, string $version ): ?string {
+		$code = (string) self::meta( $id, 'code' );
+		$file = self::dir( $code ) . 'game.html';
+		if ( ! $code || ! file_exists( $file ) ) {
+			return null;
+		}
+		wp_mkdir_p( self::versions_dir( $code ) );
+		$name = sanitize_file_name( $version ?: 'onbekend' );
+		$dest = self::versions_dir( $code ) . $name . '.html';
+		if ( file_exists( $dest ) ) {
+			$dest = self::versions_dir( $code ) . $name . '-' . time() . '.html';
+		}
+		copy( $file, $dest );
+		return basename( $dest );
+	}
+
+	public static function add_changelog( int $id, string $version, string $notes ): void {
+		$log = (array) ( get_post_meta( $id, '_pf_changelog', true ) ?: [] );
+		array_unshift( $log, [ 'version' => $version, 'date' => current_time( 'Y-m-d' ), 'notes' => $notes ] );
+		update_post_meta( $id, '_pf_changelog', array_slice( $log, 0, 50 ) );
+	}
+
+	/** 1.2.3 → 1.2.4 (of "1.0.0" als het geen versienummer is). */
+	public static function bump( string $version ): string {
+		if ( preg_match( '/^(\d+)\.(\d+)\.(\d+)$/', $version, $m ) ) {
+			return $m[1] . '.' . $m[2] . '.' . ( $m[3] + 1 );
+		}
+		return '1.0.0';
 	}
 
 	/** Zet een thumbnail (PNG/JPG/WebP-bytes) om naar thumb.png. */
@@ -276,9 +332,10 @@ class PF_Games {
 		if ( ! $code || ! is_dir( self::dir( $code ) ) ) {
 			return;
 		}
-		foreach ( glob( self::dir( $code ) . '*' ) as $f ) {
+		foreach ( array_merge( glob( self::versions_dir( $code ) . '*' ) ?: [], glob( self::dir( $code ) . '*' ) ?: [] ) as $f ) {
 			is_file( $f ) && unlink( $f );
 		}
+		@rmdir( self::versions_dir( $code ) );
 		@rmdir( self::dir( $code ) );
 	}
 }
