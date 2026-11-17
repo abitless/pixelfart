@@ -5,7 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PF_THEME_VERSION = '1.0.0';
+const PF_THEME_VERSION = '1.1.0';
 
 /** Pixel-bitmaps voor iconen in het thema ('#' = pixel). */
 const PF_BMP = [
@@ -22,10 +22,41 @@ add_action( 'after_setup_theme', function () {
 	add_theme_support( 'title-tag' );
 	add_theme_support( 'html5', [ 'style', 'script', 'navigation-widgets' ] );
 	add_theme_support( 'responsive-embeds' );
+
+	// Blokeditor: de editor ziet eruit als de site.
+	add_theme_support( 'editor-styles' );
+	add_editor_style( [ 'style.css', 'assets/content.css' ] );
+	remove_theme_support( 'core-block-patterns' ); // alleen onze eigen patronen
+} );
+
+// Geen patronen van wordpress.org ophalen (scheelt verzoeken naar buiten).
+add_filter( 'should_load_remote_block_patterns', '__return_false' );
+
+// Alleen de CSS van blokken die echt op de pagina staan.
+add_filter( 'should_load_separate_core_block_assets', '__return_true' );
+
+add_action( 'init', function () {
+	register_block_pattern_category( 'pixelfart', [ 'label' => 'Pixelfart' ] );
+
+	$styles = [
+		'core/group'     => [ 'pixelkader' => 'Pixelkader', 'streepjes' => 'Streepjes (plaatshouder)' ],
+		'core/image'     => [ 'pixelig' => 'Pixelig met kader' ],
+		'core/button'    => [ 'spook' => 'Spook (omlijnd)' ],
+		'core/separator' => [ 'pixels' => 'Pixels' ],
+		'core/list'      => [ 'pixelbolletjes' => 'Pixelbolletjes' ],
+	];
+	foreach ( $styles as $block => $list ) {
+		foreach ( $list as $name => $label ) {
+			register_block_style( $block, [ 'name' => $name, 'label' => $label ] );
+		}
+	}
 } );
 
 add_action( 'wp_enqueue_scripts', function () {
 	wp_enqueue_style( 'pixelfart', get_stylesheet_uri(), [], PF_THEME_VERSION );
+	if ( is_page() || is_single() ) {
+		wp_enqueue_style( 'pixelfart-content', get_theme_file_uri( 'assets/content.css' ), [ 'pixelfart' ], PF_THEME_VERSION );
+	}
 	wp_enqueue_script( 'pixelfart', get_theme_file_uri( 'assets/site.js' ), [], PF_THEME_VERSION, [ 'strategy' => 'defer', 'in_footer' => true ] );
 	wp_localize_script( 'pixelfart', 'PF', [
 		'rest' => esc_url_raw( rest_url( 'pixelfart/v1/' ) ),
@@ -38,10 +69,7 @@ add_action( 'wp_enqueue_scripts', function () {
 		],
 	] );
 
-	// Geen blok-CSS nodig: de paar blokken in pagina's stylen we zelf.
-	wp_dequeue_style( 'wp-block-library' );
-	wp_dequeue_style( 'classic-theme-styles' );
-	wp_dequeue_style( 'global-styles' );
+	wp_dequeue_style( 'classic-theme-styles' ); // knopstijlen komen uit theme.json
 }, 20 );
 
 // Preload de twee fonts (klein, en zonder flits van een ander font).

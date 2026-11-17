@@ -1,0 +1,14 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "pixelfart/contact-form",
+	"title": "Contactformulier",
+	"category": "widgets",
+	"icon": "email-alt",
+	"description": "Formulier voor naam, e-mail en bericht, met robotcheck (ALTCHA). Berichten komen binnen onder Games › Berichten en worden gemaild.",
+	"keywords": [ "contact", "formulier", "mail" ],
+	"textdomain": "pixelfart",
+	"supports": { "html": false, "multiple": false, "reusable": false },
+	"editorScript": "file:./editor.js",
+	"render": "file:./render.php"
+}

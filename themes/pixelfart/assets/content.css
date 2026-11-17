@@ -1,0 +1,74 @@
+/*
+ * Pixelfart: opmaak van inhoud uit de blokeditor.
+ * Elke regel geldt op de site (.entry) én in de editor (.editor-styles-wrapper), zodat je ziet wat je krijgt.
+ */
+
+/* ---------- basis ---------- */
+.editor-styles-wrapper { background: #000; color: var(--wp--preset--color--ink); font-family: var(--wp--preset--font-family--terminal); font-size: 22px; line-height: 1.3; -webkit-font-smoothing: none; }
+.editor-styles-wrapper .editor-post-title, .editor-styles-wrapper .wp-block-post-title { font-family: var(--wp--preset--font-family--pixel); font-size: 16px; text-transform: uppercase; line-height: 1.4; }
+
+:is(.entry, .editor-styles-wrapper) p { text-wrap: pretty; }
+:is(.entry, .editor-styles-wrapper) :is(h1, h2, h3, h4, h5, h6) { font-weight: 400; text-wrap: balance; }
+.entry > * { margin-block: 0 24px; }
+.entry > *:last-child { margin-bottom: 0; }
+:is(.entry, .editor-styles-wrapper) .is-dim { color: var(--wp--preset--color--dim); }
+:is(.entry, .editor-styles-wrapper) strong { color: var(--wp--preset--color--yellow); font-weight: 400; }
+:is(.entry, .editor-styles-wrapper) img { image-rendering: pixelated; }
+
+/* knoppen: harde schaduw die "indrukt" */
+:is(.entry, .editor-styles-wrapper) .wp-element-button { transition: none; }
+:is(.entry, .editor-styles-wrapper) .wp-element-button:active { transform: translate(4px, 4px); box-shadow: none; }
+:is(.entry, .editor-styles-wrapper) .is-style-spook .wp-element-button { background: #000; color: var(--wp--preset--color--ink); box-shadow: 0 0 0 4px currentColor; padding: 10px 14px; font-size: 10px; margin: 4px; }
+:is(.entry, .editor-styles-wrapper) .is-style-spook .wp-element-button:hover { background: var(--wp--preset--color--ink); color: #000; }
+
+/* lijsten */
+:is(.entry, .editor-styles-wrapper) :is(ul, ol) { padding-left: 1.2em; }
+:is(.entry, .editor-styles-wrapper) ul.is-style-pixelbolletjes { list-style: none; padding-left: 0; }
+:is(.entry, .editor-styles-wrapper) ul.is-style-pixelbolletjes > li { position: relative; padding-left: 28px; margin-bottom: 6px; }
+:is(.entry, .editor-styles-wrapper) ul.is-style-pixelbolletjes > li::before { content: ''; position: absolute; left: 4px; top: .45em; width: 8px; height: 8px; background: var(--wp--preset--color--green); box-shadow: 4px 4px 0 0 #1f5a2c; }
+
+/* citaat */
+:is(.entry, .editor-styles-wrapper) .wp-block-quote { border-left: 4px solid var(--wp--preset--color--yellow); margin-inline: 0; padding: 4px 0 4px 20px; }
+:is(.entry, .editor-styles-wrapper) .wp-block-quote cite { font-size: 18px; color: var(--wp--preset--color--mute); font-style: normal; }
+
+/* scheidingslijn: rij blokjes */
+:is(.entry, .editor-styles-wrapper) hr.wp-block-separator { border: 0; height: 4px; background: var(--wp--preset--color--line); opacity: 1; margin-block: 32px; }
+:is(.entry, .editor-styles-wrapper) hr.wp-block-separator.has-text-color { background: currentColor; }
+:is(.entry, .editor-styles-wrapper) hr.wp-block-separator.is-style-pixels { background: repeating-linear-gradient(90deg, currentColor 0 8px, transparent 8px 16px); color: var(--wp--preset--color--line); height: 8px; }
+:is(.entry, .editor-styles-wrapper) hr.wp-block-separator.is-style-pixels.has-text-color { color: inherit; }
+
+/* afbeeldingen */
+:is(.entry, .editor-styles-wrapper) .wp-block-image.is-style-pixelig img { image-rendering: pixelated; box-shadow: 0 0 0 4px var(--wp--preset--color--ink); margin: 4px; }
+:is(.entry, .editor-styles-wrapper) .wp-block-image figcaption { margin-top: 10px; }
+
+/* groep "Pixelkader": vierkant kader van 4px; kleur via "Rand" of de tekstkleur */
+:is(.entry, .editor-styles-wrapper) .is-style-pixelkader { border: 4px solid var(--wp--preset--color--ink); padding: 20px; margin-inline: 4px; }
+:is(.entry, .editor-styles-wrapper) .is-style-pixelkader.has-border-color { border-style: solid; }
+:is(.entry, .editor-styles-wrapper) .is-style-pixelkader > :first-child { margin-top: 0; }
+:is(.entry, .editor-styles-wrapper) .is-style-pixelkader > :last-child { margin-bottom: 0; }
+
+/* groep "Streepjes": plek voor een plaatje dat er nog niet is (zoals in het ontwerp) */
+:is(.entry, .editor-styles-wrapper) .is-style-streepjes { background: repeating-linear-gradient(45deg, var(--wp--preset--color--dark) 0 8px, #000 8px 16px); box-shadow: 0 0 0 4px var(--wp--preset--color--ink); padding: 10px; margin: 4px; display: flex; flex-direction: column; justify-content: flex-end; font-family: ui-monospace, monospace; font-size: 12px; color: var(--wp--preset--color--dim); }
+
+/* kolommen: rustige tussenruimte */
+:is(.entry, .editor-styles-wrapper) .wp-block-columns { gap: 24px; }
+
+/* avatars (patroon "Wie zijn wij") */
+:is(.entry, .editor-styles-wrapper) .pf-avatars { max-width: 480px !important; margin-left: 0 !important; }
+:is(.entry, .editor-styles-wrapper) .pf-avatars .wp-block-image { margin: 0 0 12px; }
+:is(.entry, .editor-styles-wrapper) .pf-avatars .wp-block-image img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+:is(.entry, .editor-styles-wrapper) .pf-avatars h3 { margin: 0 0 4px; }
+:is(.entry, .editor-styles-wrapper) .pf-avatars p { margin: 0; color: var(--wp--preset--color--dim); }
+
+/* blok Contactformulier: in de editor alleen een voorbeeld */
+.editor-styles-wrapper .pf-contact { pointer-events: none; }
+
+/* tabel */
+:is(.entry, .editor-styles-wrapper) .wp-block-table table { border-collapse: collapse; width: 100%; }
+:is(.entry, .editor-styles-wrapper) .wp-block-table :is(td, th) { border: 0; box-shadow: inset 0 -4px 0 var(--wp--preset--color--dark); padding: 8px 12px 12px 0; text-align: left; }
+:is(.entry, .editor-styles-wrapper) .wp-block-table th { font-family: var(--wp--preset--font-family--pixel); font-size: 10px; font-weight: 400; color: var(--wp--preset--color--mute); }
+
+/* code */
+:is(.entry, .editor-styles-wrapper) :is(code, pre) { font-family: var(--wp--preset--font-family--terminal); background: var(--wp--preset--color--dark); color: var(--wp--preset--color--green); }
+:is(.entry, .editor-styles-wrapper) code { padding: 0 6px; }
+:is(.entry, .editor-styles-wrapper) pre { padding: 16px; box-shadow: 0 0 0 4px var(--wp--preset--color--line); margin-inline: 4px; overflow-x: auto; }

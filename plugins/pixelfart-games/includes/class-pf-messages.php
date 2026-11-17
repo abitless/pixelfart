@@ -20,6 +20,7 @@ class PF_Messages {
 	}
 
 	public static function register() {
+		register_block_type( PIXELFART_DIR . 'blocks/contact-form' );
 		register_post_type( self::CPT, [
 			'labels'          => [
 				'name'          => 'Berichten',
