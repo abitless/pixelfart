@@ -5,7 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PF_THEME_VERSION = '1.2.0';
+const PF_THEME_VERSION = '1.3.0';
 
 /** Pixel-bitmaps voor iconen in het thema ('#' = pixel). */
 const PF_BMP = [
@@ -16,6 +16,10 @@ const PF_BMP = [
 	'bulb'     => [ '...####...', '.########.', '##########', '##########', '##########', '##########', '.########.', '..######..', '...####...', '...####...' ],
 	'bulbHi'   => [ '..........', '..........', '..#.......', '.##.......', '.#........' ],
 	'bulbBase' => [ '..######..', '...####...', '..######..', '....##....' ],
+	'kLeft'    => [ '..#', '.##', '###', '.##', '..#' ],
+	'kRight'   => [ '#..', '##.', '###', '##.', '#..' ],
+	'kUp'      => [ '..#..', '.###.', '#####' ],
+	'kDown'    => [ '#####', '.###.', '..#..' ],
 	'mail'     => [ '##########', '##......##', '#.#....#.#', '#..#..#..#', '#...##...#', '#........#', '##########' ],
 ];
 
@@ -109,7 +113,7 @@ function pf_nav_items(): array {
 		$page    = get_page_by_path( $slug );
 		$items[] = [ 'label' => $label, 'url' => $page ? get_permalink( $page ) : home_url( "/$slug/" ), 'page' => $page ];
 	}
-	$active = is_page() || get_query_var( 'pf_nieuwsbrief' ) ? -1 : 0;
+	$active = is_page() || is_404() || get_query_var( 'pf_nieuwsbrief' ) ? -1 : 0;
 	foreach ( $items as $i => $item ) {
 		if ( $item['page'] && is_page( $item['page']->ID ) ) {
 			$active = $i;
@@ -126,6 +130,44 @@ function pf_num( $n ): string {
 /** Gemiddelde als "4,6", of "–" zonder stemmen. */
 function pf_avg( array $g ): string {
 	return $g['rating_cnt'] ? number_format( $g['rating'], 1, ',', '' ) : '–';
+}
+
+/**
+ * Rating als vijf pixelsterren, afgerond op halve sterren (3,5 = drie en een halve). Geen cijfer.
+ * site.js kan ze na een stem bijwerken via data-rating-stars.
+ */
+function pf_stars( float $avg, int $count, int $scale = 2 ): string {
+	$half = $count ? round( $avg * 2 ) / 2 : 0;
+	$out  = '';
+	for ( $i = 1; $i <= 5; $i++ ) {
+		$state = $half >= $i ? 'full' : ( $half >= $i - 0.5 ? 'half' : 'empty' );
+		$out  .= '<span class="rs is-' . $state . '">' . pf_icon( 'star', $scale ) . pf_icon( 'star', $scale, 'px-icon rs-fill' ) . '</span>';
+	}
+	return sprintf(
+		'<span class="rating-stars" data-rating-stars role="img" aria-label="%s" title="%s">%s</span>',
+		esc_attr( pf_stars_label( $half, $count ) ),
+		esc_attr( pf_stars_label( $half, $count ) ),
+		$out
+	);
+}
+
+/** Tekst voor schermlezers en tooltip bij de sterren. */
+function pf_stars_label( float $half, int $count ): string {
+	if ( ! $count ) {
+		return 'Nog geen sterren gegeven';
+	}
+	$n = fmod( $half, 1 ) ? number_format( $half, 1, ',', '' ) : (string) (int) $half;
+	return "$n van 5 sterren";
+}
+
+/**
+ * Toetsenbordtoets als pixel-icoon: pf_key( 'left' ) of pf_key( 'ENTER' ).
+ * Pijlen: left, right, up, down. Alles anders wordt als tekst op de toets gezet.
+ */
+function pf_key( string $key, int $scale = 2 ): string {
+	$map = [ 'left' => 'kLeft', 'right' => 'kRight', 'up' => 'kUp', 'down' => 'kDown' ];
+	$in  = isset( $map[ $key ] ) ? pf_icon( $map[ $key ], $scale ) : esc_html( $key );
+	return '<kbd class="key' . ( isset( $map[ $key ] ) ? '' : ' key-word' ) . '">' . $in . '</kbd>';
 }
 
 /** Categorie-chip zoals op de kaarten. */

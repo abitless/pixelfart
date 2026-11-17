@@ -1,4 +1,4 @@
-/* Pixelfart: grijpmachine-menu, games filteren/sorteren, geluksmachine, idee/nieuwsbrief/contact, speler. */
+/* Pixelfart: grijpmachine-menu, games filteren/sorteren, willekeurig spel, doolhof (404), idee/nieuwsbrief/contact, speler. */
 (() => {
 	'use strict';
 	const $ = (s, el = document) => el.querySelector(s);
@@ -9,7 +9,14 @@
 		get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
 		set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* privé-venster */ } },
 	};
-	const avgFmt = (v) => Number(v).toFixed(1).replace('.', ',');
+	// Gemiddelde als vijf sterren, afgerond op halve (zelfde regels als pf_stars() in PHP).
+	const paintAvg = (el, avg, count) => {
+		if (!el) return;
+		const h = count ? Math.round(avg * 2) / 2 : 0;
+		$$('.rs', el).forEach((s, i) => { s.className = 'rs is-' + (h >= i + 1 ? 'full' : h >= i + 0.5 ? 'half' : 'empty'); });
+		const label = count ? `${String(h).replace('.', ',')} van 5 sterren` : 'Nog geen sterren gegeven';
+		el.setAttribute('aria-label', label); el.title = label;
+	};
 
 	async function api(path, body) {
 		const res = await fetch(PF.rest + path, {
@@ -102,7 +109,7 @@
 		logo && intercept(logo, 0);
 		// pijltjes links/rechts bewegen de grijper (niet tijdens typen)
 		addEventListener('keydown', (e) => {
-			if (!['ArrowLeft', 'ArrowRight'].includes(e.key) || e.target.closest('input,textarea,select,dialog,[contenteditable]')) return;
+			if (e.defaultPrevented || !['ArrowLeft', 'ArrowRight'].includes(e.key) || e.target.closest('input,textarea,select,dialog,[contenteditable]')) return;
 			const links = $$('.claw-menu a', nav);
 			const cur = Math.max(0, links.findIndex((a) => a.classList.contains('is-active')));
 			const next = (cur + (e.key === 'ArrowRight' ? 1 : links.length - 1)) % links.length;
@@ -116,7 +123,7 @@
 	let currentList = () => [];
 	let clearWinner = () => {};
 	if (home) {
-		const PAGE = 11; // 4×3 op desktop: 11 games + de geluksmachine
+		const PAGE = 11; // 4×3 op desktop: Willekeurig spel + 11 games
 		const grid = $('[data-grid]', home);
 		const items = $$('li[data-slug]', grid);
 		const machine = $('.bandit-cell', grid);
@@ -143,13 +150,8 @@
 				grid.appendChild(li);
 				li.hidden = i < state.pg * PAGE || i >= (state.pg + 1) * PAGE;
 			});
-			// De geluksmachine als vierde kaartje (op desktop rechtsboven), of achteraan als er minder games zijn.
-			if (machine) {
-				const shown = list.slice(state.pg * PAGE, (state.pg + 1) * PAGE);
-				if (shown[3]) grid.insertBefore(machine, shown[3]);
-				else if (shown.length) shown[shown.length - 1].after(machine);
-				else grid.prepend(machine);
-			}
+			// Willekeurig spel staat altijd als eerste kaartje.
+			if (machine) grid.prepend(machine);
 			const active = tagLinks.find((a) => a.dataset.tag === state.tag);
 			tagLinks.forEach((a) => a.classList.toggle('is-active', a === active));
 			$('[data-heading]', home).textContent = state.tag && active ? active.dataset.name.toUpperCase() : 'ALLE GAMES';
@@ -192,7 +194,7 @@
 		render();
 	}
 
-	/* ---------- geluksmachine ---------- */
+	/* ---------- willekeurig spel ---------- */
 	const bandit = $('[data-bandit]');
 	if (bandit) {
 		const rows = $$('.reel-row', bandit);
@@ -249,6 +251,115 @@
 		};
 		$$('[data-spin]', bandit).forEach((b) => b.addEventListener('click', spin));
 		show(currentList(), 0);
+	}
+
+	/* ---------- 404: doolhof terug naar GAMES ---------- */
+	const maze = $('[data-maze]');
+	if (maze) {
+		const cv = $('[data-maze-canvas]', maze);
+		const g = cv.getContext('2d');
+		const status = $('[data-maze-status]', maze);
+		const P = 10;                                           // 2 px muur + 8 px gang
+		const wide = maze.clientWidth >= 560;
+		const C = wide ? 25 : 11, R = wide ? 13 : 15;
+		cv.width = C * P + 2; cv.height = R * P + 2;
+		const fit = () => {
+			const room = maze.clientWidth - (wide ? 200 : 0); // op brede schermen staan de knoppen ernaast
+			const s = Math.max(1, Math.min(4, Math.floor(room / cv.width)));
+			cv.style.width = cv.width * s + 'px'; cv.style.height = cv.height * s + 'px';
+		};
+		fit(); addEventListener('resize', fit);
+
+		// Doolhof maken (diepte-eerst): open[y][x] = { r, d } = gang naar rechts / naar beneden.
+		const open = Array.from({ length: R }, () => Array.from({ length: C }, () => ({ r: false, d: false })));
+		const seen = Array.from({ length: R }, () => new Array(C).fill(false));
+		const stack = [[0, 0]]; seen[0][0] = true;
+		while (stack.length) {
+			const [x, y] = stack[stack.length - 1];
+			const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [x + dx, y + dy])
+				.filter(([nx, ny]) => nx >= 0 && ny >= 0 && nx < C && ny < R && !seen[ny][nx]);
+			if (!nb.length) { stack.pop(); continue; }
+			const [nx, ny] = nb[Math.floor(Math.random() * nb.length)];
+			if (nx > x) open[y][x].r = true; else if (nx < x) open[y][nx].r = true;
+			else if (ny > y) open[y][x].d = true; else open[ny][x].d = true;
+			seen[ny][nx] = true; stack.push([nx, ny]);
+		}
+		// GAMES: een kamertje van drie vakjes rechtsonder.
+		const GX = C - 3, GY = R - 1;
+		open[GY][GX].r = open[GY][GX + 1].r = true;
+		const inGoal = (x, y) => y === GY && x >= GX;
+		const can = (x, y, dx, dy) => {
+			const nx = x + dx, ny = y + dy;
+			if (nx < 0 || ny < 0 || nx >= C || ny >= R) return false;
+			if (dx) return open[y][Math.min(x, nx)].r;
+			return open[Math.min(y, ny)][x].d;
+		};
+
+		const FONT = { // 3×5 (M is 5 breed), eigen pixelletters: geen font nodig
+			G: ['###', '#..', '#.#', '#.#', '###'], A: ['.#.', '#.#', '###', '#.#', '#.#'],
+			M: ['#...#', '##.##', '#.#.#', '#...#', '#...#'], E: ['###', '#..', '##.', '#..', '###'], S: ['###', '#..', '###', '..#', '###'],
+		};
+		const css = getComputedStyle(document.documentElement);
+		const col = (v, f) => css.getPropertyValue(v).trim() || f;
+		const K = { wall: col('--line', '#6a6a6a'), trail: col('--darker', '#2a2a2a'), me: col('--green', '#5dde7a'), goal: col('--yellow', '#ffcf4a') };
+		const me = { x: 0, y: 0 };
+		const trail = new Set(['0,0']);
+		let done = false;
+
+		const draw = () => {
+			g.fillStyle = K.wall; g.fillRect(0, 0, cv.width, cv.height);
+			for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
+				const px = x * P + 2, py = y * P + 2;
+				g.fillStyle = trail.has(x + ',' + y) && !inGoal(x, y) ? K.trail : '#000';
+				g.fillRect(px, py, 8, 8);
+				if (open[y][x].r) g.fillRect(px + 8, py, 2, 8);
+				if (open[y][x].d) g.fillRect(px, py + 8, 8, 2);
+			}
+			// kamer GAMES
+			const rx = GX * P + 2, ry = GY * P + 2, rw = 3 * P - 2;
+			g.fillStyle = done ? K.me : '#000'; g.fillRect(rx, ry, rw, 8);
+			g.fillStyle = done ? '#000' : K.goal;
+			let tx = rx + Math.floor((rw - 21) / 2);
+			for (const ch of 'GAMES') {
+				FONT[ch].forEach((row, j) => [...row].forEach((c, i) => { if (c === '#') g.fillRect(tx + i, ry + 2 + j - 1, 1, 1); }));
+				tx += FONT[ch][0].length + 1;
+			}
+			if (!done) { g.fillStyle = K.me; g.fillRect(me.x * P + 3, me.y * P + 3, 6, 6); }
+		};
+
+		const move = (dx, dy) => {
+			if (done || !can(me.x, me.y, dx, dy)) return;
+			me.x += dx; me.y += dy;
+			trail.add(me.x + ',' + me.y);
+			if (inGoal(me.x, me.y)) {
+				done = true;
+				status.textContent = 'Gevonden! Terug naar de games…';
+				setTimeout(() => { location.href = maze.dataset.target; }, reduced ? 0 : 700);
+			}
+			draw();
+		};
+		const DIRS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], a: [-1, 0], d: [1, 0], w: [0, -1], s: [0, 1] };
+		const PAD = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] };
+		// document vóór window: zo pakt het menu de pijltjes hier niet af.
+		document.addEventListener('keydown', (e) => {
+			const d = DIRS[e.key];
+			if (!d || e.metaKey || e.ctrlKey || e.altKey || e.target.closest('input,textarea,select,[contenteditable]')) return;
+			e.preventDefault();
+			move(...d);
+		});
+		// Knoppen (voor aanraakschermen): ingedrukt houden = blijven lopen.
+		$$('[data-dir]', maze).forEach((b) => {
+			let timer = 0;
+			const stop = () => { clearInterval(timer); timer = 0; };
+			b.addEventListener('pointerdown', (e) => {
+				e.preventDefault(); stop();
+				move(...PAD[b.dataset.dir]);
+				timer = setInterval(() => move(...PAD[b.dataset.dir]), 150);
+			});
+			['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => b.addEventListener(t, stop));
+			b.addEventListener('click', (e) => { if (e.detail === 0) move(...PAD[b.dataset.dir]); }); // toetsenbord op de knop
+		});
+		draw();
 	}
 
 	/* ---------- idee (footer op de homepage) ---------- */
@@ -476,7 +587,7 @@
 		const key = `pf_rate_${id}`;
 		let mine = +store.get(key) || 0;
 		const paint = (n) => stars.forEach((s) => s.classList.toggle('on', +s.dataset.star <= n));
-		const noteFor = (n, avg) => `Jij gaf ${n} ${n === 1 ? 'ster' : 'sterren'}.${avg ? ` Gemiddeld ${avgFmt(avg)}.` : ''}`;
+		const noteFor = (n) => `Jij gaf ${n} ${n === 1 ? 'ster' : 'sterren'}. Bedankt!`;
 		paint(mine);
 		if (mine) note.textContent = noteFor(mine);
 		stars.forEach((s) => {
@@ -486,9 +597,9 @@
 				mine = n; paint(n); store.set(key, n);
 				try {
 					const r = await api(`games/${id}/rate`, { stars: n });
-					$('[data-avg]', player).textContent = avgFmt(r.avg);
+					paintAvg($('[data-rating-stars]', player), r.avg, r.count);
 					$('[data-cnt]', player).textContent = r.count;
-					note.textContent = noteFor(n, r.avg);
+					note.textContent = noteFor(n);
 				} catch (x) { note.textContent = x.message; }
 			});
 		});

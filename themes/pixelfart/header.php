@@ -20,6 +20,8 @@
 		<a class="logo" href="<?php echo esc_url( home_url( '/' ) ); ?>" aria-label="Pixelfart, naar de games" rel="home">
 			<span>PIXEL</span><span class="logo-f" aria-hidden="true">f</span><span>ART</span>
 		</a>
+		<div class="nav-wrap">
+		<span class="claw-keys js-only" title="Gebruik de pijltjestoetsen om door het menu te gaan" aria-hidden="true"><?php echo pf_key( 'left' ) . pf_key( 'right' ); // phpcs:ignore ?></span>
 		<nav class="claw-nav" aria-label="Hoofdmenu" style="--sel:<?php echo (int) max( 0, $pf_active ); ?>;--n:<?php echo count( $pf_items ); ?>" <?php echo $pf_active < 0 ? 'data-phase="release"' : ''; ?>>
 			<div class="claw-rail" aria-hidden="true"></div>
 			<div class="claw" aria-hidden="true">
@@ -34,5 +36,6 @@
 				<?php endforeach; ?>
 			</ul>
 		</nav>
+		</div>
 	</header>
 	<main class="site-main" id="main">

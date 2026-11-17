@@ -1,6 +1,6 @@
 <?php
 /**
- * Homepage: alle games met tagfilter, sorteren en pagina's (4×3 op desktop), met de geluksmachine als kaartje.
+ * Homepage: alle games met tagfilter, sorteren en pagina's (4×3 op desktop), met "Willekeurig spel" als eerste kaartje.
  * Het ideeënformulier staat op de homepage in de footer.
  * Filteren/sorteren/pagineren gebeurt in de browser (assets/site.js); zonder JS staan alle games er gewoon.
  * Ook gebruikt door taxonomy-pf_categorie.php (dan staat $pf_tag op die categorie).
@@ -50,12 +50,12 @@ get_header();
 
 	<div class="home-games">
 		<ul class="game-grid" data-grid>
-			<li class="bandit-cell js-only" aria-label="Geluksmachine: een willekeurige game">
+			<li class="bandit-cell js-only" aria-label="Willekeurig spel">
 				<div class="bandit" data-bandit>
 					<div class="bandit-box">
-						<div class="bandit-title">GELUKS<br>MACHINE</div>
+						<div class="bandit-title">WILLEKEURIG<br>SPEL</div>
 						<div class="bandit-lights" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-						<button type="button" class="reel" data-spin aria-label="Draai de geluksmachine voor een willekeurige game">
+						<button type="button" class="reel" data-spin aria-label="Draai voor een willekeurig spel">
 							<span class="reel-row"><i></i><b></b></span>
 							<span class="reel-row mid"><i></i><b></b></span>
 							<span class="reel-row"><i></i><b></b></span>
@@ -95,7 +95,7 @@ get_header();
 							<h2 class="card-title" style="margin:0;font-weight:400"><?php echo esc_html( $g['title'] ); ?></h2>
 							<div class="stats">
 								<span title="Keer gespeeld"><?php echo pf_icon( 'play' ); // phpcs:ignore ?><span class="screen-reader-text">Gespeeld:</span><?php echo esc_html( pf_num( $g['plays'] ) ); ?></span>
-								<span class="stat-star" title="Gemiddelde rating"><?php echo pf_icon( 'star' ); // phpcs:ignore ?><span class="screen-reader-text">Rating:</span><?php echo esc_html( pf_avg( $g ) ); ?></span>
+								<span class="stat-star"><?php echo pf_stars( (float) $g['rating'], (int) $g['rating_cnt'] ); // phpcs:ignore ?></span>
 								<span title="Reacties"><?php echo pf_icon( 'bubble' ); // phpcs:ignore ?><span class="screen-reader-text">Reacties:</span><?php echo (int) $g['comments']; ?></span>
 							</div>
 							<div class="chips">

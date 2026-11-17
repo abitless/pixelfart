@@ -32,7 +32,7 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 	<div class="player-bar">
 		<a class="btn" href="<?php echo esc_url( $pf_back ); ?>" data-back>◀ TERUG</a>
 		<h1 class="player-title"><?php echo esc_html( $g['title'] ); ?></h1>
-		<span class="player-rating" title="Gemiddelde rating">★ <span data-avg><?php echo esc_html( pf_avg( $g ) ); ?></span> (<span data-cnt><?php echo (int) $g['rating_cnt']; ?></span>)</span>
+		<span class="player-rating"><?php echo pf_stars( (float) $g['rating'], (int) $g['rating_cnt'] ); // phpcs:ignore ?> <span class="player-votes" title="Aantal stemmen">(<span data-cnt><?php echo (int) $g['rating_cnt']; ?></span>)</span></span>
 		<button type="button" class="tool-btn js-only" data-fs aria-label="Volledig scherm" style="display:inline-flex;align-items:center;gap:8px"><?php echo pf_icon( 'fs' ); // phpcs:ignore ?><span class="lbl">VOLLEDIG</span></button>
 		<button type="button" class="tool-btn js-only" data-panel-toggle aria-controls="game-panel" aria-expanded="true">VERBERG ▸</button>
 	</div>
@@ -49,7 +49,7 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 					<div class="hs-box">
 						<h2 class="hs-title" id="hs-title">NIEUWE TOPSCORE!</h2>
 						<div class="hs-got"><span data-hs-score></span> <?php echo esc_html( $pf_hs['label'] ); ?> · plek <span data-hs-rank></span></div>
-						<p class="hs-help">Kies je drie letters <span class="hs-keys">(▲▼ of typen, ENTER = opslaan)</span></p>
+						<p class="hs-help">Kies je drie letters <span class="hs-keys"><?php echo pf_key( 'up' ) . pf_key( 'down' ); // phpcs:ignore ?> of typen, <?php echo pf_key( 'ENTER' ); // phpcs:ignore ?> = opslaan</span></p>
 						<div class="hs-letters" role="group" aria-label="Initialen">
 							<?php for ( $i = 1; $i <= 3; $i++ ) : ?>
 								<div class="hs-slot">

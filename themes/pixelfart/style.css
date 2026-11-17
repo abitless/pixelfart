@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.2.0
+Version: 1.3.0
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -56,6 +56,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .logo:hover { color: var(--ink); text-decoration: none; }
 .logo-f { font-family: var(--vt); font-size: 1.7em; line-height: 0; color: #000; text-shadow: 2px 0 0 var(--line), -2px 0 0 var(--line), 0 2px 0 var(--line), 0 -2px 0 var(--line); transform: rotate(-14deg) translateY(-2px); display: inline-block; margin: 0 2px 0 4px; }
 
+/* pijltjestoetsen links van de rail: je kunt het menu met het toetsenbord bedienen */
+.nav-wrap { display: flex; align-items: flex-start; gap: 12px; width: min(660px, 100%); }
+.claw-keys { display: flex; gap: 4px; margin-top: -8px; flex: none; }
+@media (hover: none), (max-width: 560px) { .claw-keys { display: none !important; } }
+.nav-wrap .claw-nav { flex: 1; min-width: 0; }
 .claw-nav { position: relative; width: min(600px, 100%); height: 104px; user-select: none; --sel: 0; --n: 4; --rope: 26px; --arm: 8px; --move: 400ms; }
 .claw-rail { position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--line); }
 .claw-rail::before, .claw-rail::after { content: ''; position: absolute; top: -4px; width: 8px; height: 12px; background: var(--line); }
@@ -237,6 +242,33 @@ textarea.input { resize: vertical; }
 .pf-contact form { display: flex; flex-direction: column; gap: 24px; }
 
 .notfound { display: flex; flex-direction: column; gap: 24px; align-items: flex-start; }
+.nf-text { margin: 0; color: var(--dim); max-width: 60ch; }
+.nf-goal { font-family: var(--pix); font-size: 12px; font-weight: 400; color: var(--yellow); }
+.nf-keys { white-space: nowrap; }
+.maze { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 20px 24px; }
+.maze-status { flex-basis: 100%; text-align: center; }
+.maze-canvas { display: block; image-rendering: pixelated; box-shadow: 0 0 0 4px var(--ink); margin: 4px; }
+.maze-pad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 6px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.maze-pad [data-dir="up"] { grid-column: 2; }
+.maze-pad [data-dir="left"] { grid-column: 1; grid-row: 2; }
+.maze-pad [data-dir="down"] { grid-column: 2; grid-row: 2; }
+.maze-pad [data-dir="right"] { grid-column: 3; grid-row: 2; }
+.maze-status { margin: 0; min-height: 1.2em; color: var(--green); }
+
+/* ---------- toetsenbordtoetsen (pixel) ---------- */
+.key { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 18px; height: 20px; padding: 0 4px 2px; margin: 0 2px; vertical-align: middle; background: #000; color: var(--dim); box-shadow: inset 0 0 0 2px var(--line), inset 0 -4px 0 0 var(--line); font-family: var(--pix); font-size: 8px; font-weight: 400; line-height: 1; }
+.key-word { padding: 0 6px 2px; }
+.key-btn { width: 52px; height: 52px; margin: 0; border: 0; cursor: pointer; color: var(--ink); box-shadow: inset 0 0 0 4px var(--line), inset 0 -8px 0 0 var(--line); padding-bottom: 4px; }
+.key-btn:active { box-shadow: inset 0 0 0 4px var(--line), inset 0 -4px 0 0 var(--line); padding-bottom: 0; transform: translateY(4px); }
+
+/* ---------- rating als sterren (halve sterren mogelijk, geen cijfer) ---------- */
+.rating-stars { display: inline-flex; gap: 2px; vertical-align: middle; line-height: 0; }
+.rs { position: relative; display: inline-block; color: var(--dark); }
+.rs .rs-fill { position: absolute; left: 0; top: 0; color: var(--yellow); }
+.rs.is-empty .rs-fill { display: none; }
+.rs.is-half .rs-fill { clip-path: inset(0 50% 0 0); }
+.player-rating { display: inline-flex; align-items: center; gap: 8px; }
+.player-votes { color: var(--mute); }
 
 /* ---------- footer: idee + nieuwsbrief ---------- */
 .foot-forms { border-top: 4px solid var(--ink); padding: 36px max(var(--gutter), calc((100% - 1320px) / 2 + var(--gutter))); display: grid; gap: 40px 64px; grid-template-columns: minmax(0, 620px); }
