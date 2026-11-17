@@ -5,7 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PF_THEME_VERSION = '1.1.0';
+const PF_THEME_VERSION = '1.2.0';
 
 /** Pixel-bitmaps voor iconen in het thema ('#' = pixel). */
 const PF_BMP = [
@@ -16,6 +16,7 @@ const PF_BMP = [
 	'bulb'     => [ '...####...', '.########.', '##########', '##########', '##########', '##########', '.########.', '..######..', '...####...', '...####...' ],
 	'bulbHi'   => [ '..........', '..........', '..#.......', '.##.......', '.#........' ],
 	'bulbBase' => [ '..######..', '...####...', '..######..', '....##....' ],
+	'mail'     => [ '##########', '##......##', '#.#....#.#', '#..#..#..#', '#...##...#', '#........#', '##########' ],
 ];
 
 add_action( 'after_setup_theme', function () {
@@ -101,22 +102,18 @@ function pf_icon( string $name, int $scale = 2, string $class = 'px-icon' ): str
 	return function_exists( 'pf_pixel_icon' ) ? pf_pixel_icon( PF_BMP[ $name ], $scale, $class ) : '';
 }
 
-/** De drie menu-items (GAMES / OVER ONS / CONTACT) en welke actief is. */
+/** De menu-items (GAMES / TOPSCORES / OVER ONS / CONTACT) en welke actief is (-1 = geen). */
 function pf_nav_items(): array {
-	$about   = get_page_by_path( 'over-ons' );
-	$contact = get_page_by_path( 'contact' );
-	$items   = [
-		[ 'label' => 'GAMES', 'url' => home_url( '/' ) ],
-		[ 'label' => 'OVER ONS', 'url' => $about ? get_permalink( $about ) : home_url( '/over-ons/' ) ],
-		[ 'label' => 'CONTACT', 'url' => $contact ? get_permalink( $contact ) : home_url( '/contact/' ) ],
-	];
-	$active = 0;
-	if ( $about && is_page( $about->ID ) ) {
-		$active = 1;
-	} elseif ( $contact && is_page( $contact->ID ) ) {
-		$active = 2;
-	} elseif ( is_page() ) {
-		$active = -1;
+	$items  = [ [ 'label' => 'GAMES', 'url' => home_url( '/' ), 'page' => null ] ];
+	foreach ( [ 'topscores' => 'TOPSCORES', 'over-ons' => 'OVER ONS', 'contact' => 'CONTACT' ] as $slug => $label ) {
+		$page    = get_page_by_path( $slug );
+		$items[] = [ 'label' => $label, 'url' => $page ? get_permalink( $page ) : home_url( "/$slug/" ), 'page' => $page ];
+	}
+	$active = is_page() || get_query_var( 'pf_nieuwsbrief' ) ? -1 : 0;
+	foreach ( $items as $i => $item ) {
+		if ( $item['page'] && is_page( $item['page']->ID ) ) {
+			$active = $i;
+		}
 	}
 	return [ $items, $active ];
 }

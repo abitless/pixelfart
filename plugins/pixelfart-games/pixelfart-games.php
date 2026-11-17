@@ -28,6 +28,7 @@ require_once PIXELFART_DIR . 'includes/class-pf-altcha.php';
 require_once PIXELFART_DIR . 'includes/class-pf-scores.php';
 require_once PIXELFART_DIR . 'includes/class-pf-makers.php';
 require_once PIXELFART_DIR . 'includes/class-pf-messages.php';
+require_once PIXELFART_DIR . 'includes/class-pf-newsletter.php';
 
 PF_Games::init();
 PF_Hosting::init();
@@ -40,6 +41,7 @@ PF_Altcha::init();
 PF_Scores::init();
 PF_Makers::init();
 PF_Messages::init();
+PF_Newsletter::init();
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once PIXELFART_DIR . 'includes/class-pf-cli.php';

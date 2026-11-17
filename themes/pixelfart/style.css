@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.1.0
+Version: 1.2.0
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -56,11 +56,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .logo:hover { color: var(--ink); text-decoration: none; }
 .logo-f { font-family: var(--vt); font-size: 1.7em; line-height: 0; color: #000; text-shadow: 2px 0 0 var(--line), -2px 0 0 var(--line), 0 2px 0 var(--line), 0 -2px 0 var(--line); transform: rotate(-14deg) translateY(-2px); display: inline-block; margin: 0 2px 0 4px; }
 
-.claw-nav { position: relative; width: min(460px, 100%); height: 104px; user-select: none; --sel: 0; --rope: 26px; --arm: 8px; --move: 400ms; }
+.claw-nav { position: relative; width: min(600px, 100%); height: 104px; user-select: none; --sel: 0; --n: 4; --rope: 26px; --arm: 8px; --move: 400ms; }
 .claw-rail { position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--line); }
 .claw-rail::before, .claw-rail::after { content: ''; position: absolute; top: -4px; width: 8px; height: 12px; background: var(--line); }
 .claw-rail::before { left: 0; } .claw-rail::after { right: 0; }
-.claw { position: absolute; top: 0; left: calc((var(--sel) + 0.5) * 100% / 3); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; transition: left var(--move) steps(10); z-index: 2; pointer-events: none; }
+.claw { position: absolute; top: 0; left: calc((var(--sel) + 0.5) * 100% / var(--n)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; transition: left var(--move) steps(10); z-index: 2; pointer-events: none; }
 .claw-trolley { width: 16px; height: 6px; background: var(--ink); }
 .claw-rope { width: 4px; height: var(--rope); background: var(--dim); transition: height 200ms steps(5); }
 .claw-head { width: 28px; height: 8px; background: var(--ink); }
@@ -71,8 +71,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .claw-nav[data-phase="release"] { --rope: 14px; --arm: 0px; }
 .claw-nav[data-phase="drop"] { --rope: 34px; --arm: 0px; }
 .claw-nav[data-phase="grab"] { --rope: 34px; --arm: 8px; }
-.claw-menu { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
-.claw-menu a { padding: 10px 0 6px; font-family: var(--pix); font-size: clamp(9px, 1.2vw, 12px); color: var(--line); transition: transform 160ms steps(3), color 160ms; display: flex; flex-direction: column; align-items: center; gap: 8px; white-space: nowrap; }
+.claw-menu { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.claw-menu a { padding: 10px 0 6px; font-family: var(--pix); font-size: clamp(8px, 1.1vw, 12px); color: var(--line); transition: transform 160ms steps(3), color 160ms; display: flex; flex-direction: column; align-items: center; gap: 8px; white-space: nowrap; }
 .claw-menu a:hover { color: var(--dim); text-decoration: none; }
 .claw-menu a::after { content: ''; width: 40px; height: 4px; background: transparent; }
 .claw-menu a.is-active { color: var(--ink); }
@@ -99,11 +99,10 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .sort-btn:hover { color: var(--ink); }
 .sort-btn[aria-pressed="true"] { background: var(--ink); color: #000; }
 
-.home-layout { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
-.home-games { flex: 1 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 32px; }
+.home-games { min-width: 0; display: flex; flex-direction: column; gap: 32px; }
 
 /* kaarten */
-.game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(220px, calc((100% - 56px) / 3)), 1fr)); gap: 28px; padding: 4px; margin: 0; list-style: none; }
+.game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(220px, calc((100% - 84px) / 4)), 1fr)); gap: 28px; padding: 4px; margin: 0; list-style: none; }
 .card { --ring: var(--ink); --accent: var(--green); display: flex; flex-direction: column; height: 100%; background: #000; color: var(--ink); box-shadow: 0 -4px 0 0 var(--ring), 0 4px 0 0 var(--ring), -4px 0 0 0 var(--ring), 4px 0 0 0 var(--ring); transition: transform 120ms steps(2); }
 .card:hover, .card:focus-visible { color: var(--ink); text-decoration: none; transform: translate(-4px, -4px); box-shadow: 0 -4px 0 0 var(--ink), 0 4px 0 0 var(--ink), -4px 0 0 0 var(--ink), 4px 0 0 0 var(--ink), 8px 8px 0 0 var(--accent); outline: none; }
 .game-grid li.is-winner .card { --ring: var(--green); }
@@ -129,10 +128,10 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .pager .pg-arrow { padding: 10px 12px; }
 .pager .pg-arrow:disabled { color: var(--dark); box-shadow: 0 0 0 4px var(--dark); cursor: default; }
 
-/* ---------- zijkolom: geluksmachine + idee ---------- */
-.home-aside { flex: 0 1 250px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 48px; padding-top: 4px; }
-.bandit { position: relative; width: 200px; margin-right: 44px; user-select: none; }
-.bandit-box { background: #000; box-shadow: 0 0 0 4px var(--ink); padding: 14px 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+/* ---------- geluksmachine: neemt de plek van één kaartje in ---------- */
+.bandit-cell { display: flex; justify-content: center; align-items: stretch; min-height: 300px; }
+.bandit { position: relative; width: min(210px, calc(100% - 52px)); margin-right: 48px; user-select: none; display: flex; flex-direction: column; }
+.bandit-box { flex: 1; background: #000; box-shadow: 0 0 0 4px var(--ink); padding: 14px 12px 16px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
 .bandit-title { text-align: center; font-family: var(--pix); font-size: 10px; line-height: 1.6; }
 .bandit-lights { display: flex; justify-content: space-between; }
 .bandit-lights span { width: 12px; height: 12px; background: var(--darker); }
@@ -162,15 +161,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .lever-ball::after { content: ''; position: absolute; left: 0; top: 4px; width: 20px; height: 12px; background: var(--pink); box-shadow: inset 4px 0 0 0 transparent; }
 .lever-ball i { position: absolute; left: 4px; top: 4px; width: 4px; height: 4px; background: #ffd0dc; z-index: 1; }
 
-.idea-btn { display: flex; flex-direction: column; align-items: center; gap: 14px; background: none; border: 0; cursor: pointer; color: var(--ink); user-select: none; padding: 8px; }
-.bulb { position: relative; color: #4a4a4a; transition: color 200ms steps(2); }
+.bulb { position: relative; display: block; color: #4a4a4a; transition: color 200ms steps(2); }
 .bulb .bulb-hi { color: var(--line); }
 .bulb .bulb-base { color: var(--mute); position: absolute; left: 0; }
-.idea-btn.is-lit .bulb { color: var(--yellow); filter: drop-shadow(0 0 14px rgba(255, 207, 74, .7)); }
-.idea-btn.is-lit .bulb-hi { color: #fff6d0; }
-.idea-text { text-align: center; display: flex; flex-direction: column; gap: 6px; }
-.idea-text strong { font-family: var(--pix); font-size: 10px; font-weight: 400; }
-.idea-text span { color: var(--mute); font-size: 20px; line-height: 1; }
+.is-lit .bulb { color: var(--yellow); filter: drop-shadow(0 0 14px rgba(255, 207, 74, .7)); }
+.is-lit .bulb-hi { color: #fff6d0; }
 
 /* ---------- formulieren ---------- */
 .field { display: flex; flex-direction: column; gap: 8px; }
@@ -243,24 +238,35 @@ textarea.input { resize: vertical; }
 
 .notfound { display: flex; flex-direction: column; gap: 24px; align-items: flex-start; }
 
+/* ---------- footer: idee + nieuwsbrief ---------- */
+.foot-forms { border-top: 4px solid var(--ink); padding: 36px max(var(--gutter), calc((100% - 1320px) / 2 + var(--gutter))); display: grid; gap: 40px 64px; grid-template-columns: minmax(0, 620px); }
+.foot-forms.has-idea { grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); }
+.foot-box { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.foot-head { display: flex; gap: 18px; align-items: center; }
+.foot-head h2 { margin: 0 0 8px; font-family: var(--pix); font-size: 12px; font-weight: 400; line-height: 1.5; }
+.foot-idea h2 { color: var(--yellow); }
+.foot-news h2 { color: var(--green); }
+.foot-head p { margin: 0; color: var(--dim); line-height: 1.15; text-wrap: pretty; }
+.foot-box form { display: flex; flex-direction: column; gap: 14px; }
+.bulb-btn { background: none; border: 0; padding: 0; cursor: pointer; flex: none; }
+.mail-icon { flex: none; color: var(--green); display: block; width: 40px; }
+.news-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.news-row .input { flex: 1 1 220px; min-width: 0; }
+.news-row .btn { align-self: center; }
+.btn-green { background: var(--green); box-shadow: none; font-size: 11px; }
+.fine { margin: 0; font-size: 18px; color: var(--mute); line-height: 1.15; }
+.foot-box .sent-box span { color: var(--dim); line-height: 1.15; }
+
 /* ---------- footer ---------- */
 .site-footer { border-top: 4px solid var(--ink); padding: 28px var(--gutter) 36px; display: flex; flex-wrap: wrap; gap: 16px 40px; justify-content: space-between; align-items: flex-start; color: var(--dim); }
 .foot-left { display: flex; flex-wrap: wrap; gap: 10px 28px; }
 .foot-right { display: flex; flex-direction: column; gap: 4px; text-align: right; }
 .foot-right .mute { color: var(--mute); }
 
-/* ---------- modal (idee) ---------- */
-.modal { border: 0; padding: 0; background: transparent; color: var(--ink); max-width: none; max-height: none; width: 100%; height: 100%; }
-.modal::backdrop { background: rgba(0, 0, 0, .85); }
-.modal[open] { display: flex; align-items: center; justify-content: center; }
-.modal-box { width: min(520px, calc(100% - 48px)); background: #000; box-shadow: 0 0 0 4px var(--yellow), 8px 8px 0 4px #3a3000; padding: 24px; display: flex; flex-direction: column; gap: 18px; font-family: var(--vt); font-size: 22px; }
-.modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.modal-head h2 { margin: 0; font-family: var(--pix); font-size: 13px; font-weight: 400; color: var(--yellow); line-height: 1.5; }
-.modal-x { background: none; border: 0; color: var(--ink); font-family: var(--pix); font-size: 12px; cursor: pointer; padding: 6px; }
+/* ---------- soort idee ---------- */
 .idea-types { display: flex; flex-wrap: wrap; gap: 10px; }
 .idea-types button { border: 0; cursor: pointer; margin: 4px; padding: 8px 12px; font-family: var(--vt); font-size: 22px; line-height: 1; background: #000; color: var(--yellow); box-shadow: 0 0 0 4px var(--yellow); }
 .idea-types button[aria-pressed="true"] { background: var(--yellow); color: #000; }
-.modal form { display: flex; flex-direction: column; gap: 18px; }
 
 /* ---------- speler ---------- */
 .player-page { height: 100vh; height: 100dvh; overflow: hidden; }

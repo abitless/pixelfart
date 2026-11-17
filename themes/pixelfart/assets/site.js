@@ -1,4 +1,4 @@
-/* Pixelfart: grijpmachine-menu, games filteren/sorteren, geluksmachine, idee/contact, speler. */
+/* Pixelfart: grijpmachine-menu, games filteren/sorteren, geluksmachine, idee/nieuwsbrief/contact, speler. */
 (() => {
 	'use strict';
 	const $ = (s, el = document) => el.querySelector(s);
@@ -105,7 +105,7 @@
 			if (!['ArrowLeft', 'ArrowRight'].includes(e.key) || e.target.closest('input,textarea,select,dialog,[contenteditable]')) return;
 			const links = $$('.claw-menu a', nav);
 			const cur = Math.max(0, links.findIndex((a) => a.classList.contains('is-active')));
-			const next = (cur + (e.key === 'ArrowRight' ? 1 : 2)) % 3;
+			const next = (cur + (e.key === 'ArrowRight' ? 1 : links.length - 1)) % links.length;
 			e.preventDefault();
 			go(next, links[next].href);
 		});
@@ -116,9 +116,10 @@
 	let currentList = () => [];
 	let clearWinner = () => {};
 	if (home) {
-		const PAGE = 6;
+		const PAGE = 11; // 4×3 op desktop: 11 games + de geluksmachine
 		const grid = $('[data-grid]', home);
-		const items = $$('li', grid);
+		const items = $$('li[data-slug]', grid);
+		const machine = $('.bandit-cell', grid);
 		const pager = $('[data-pager]', home);
 		const tagLinks = $$('.tag-btn', home);
 		const state = { tag: home.dataset.tag || '', sort: 'pop', pg: 0 };
@@ -142,6 +143,13 @@
 				grid.appendChild(li);
 				li.hidden = i < state.pg * PAGE || i >= (state.pg + 1) * PAGE;
 			});
+			// De geluksmachine als vierde kaartje (op desktop rechtsboven), of achteraan als er minder games zijn.
+			if (machine) {
+				const shown = list.slice(state.pg * PAGE, (state.pg + 1) * PAGE);
+				if (shown[3]) grid.insertBefore(machine, shown[3]);
+				else if (shown.length) shown[shown.length - 1].after(machine);
+				else grid.prepend(machine);
+			}
 			const active = tagLinks.find((a) => a.dataset.tag === state.tag);
 			tagLinks.forEach((a) => a.classList.toggle('is-active', a === active));
 			$('[data-heading]', home).textContent = state.tag && active ? active.dataset.name.toUpperCase() : 'ALLE GAMES';
@@ -243,25 +251,22 @@
 		show(currentList(), 0);
 	}
 
-	/* ---------- idee-lampje ---------- */
-	const modal = $('#idea-modal');
-	const ideaBtn = $('[data-idea]');
-	if (modal && ideaBtn) {
-		const form = $('form', modal);
-		const sent = $('[data-sent]', modal);
+	/* ---------- idee (footer op de homepage) ---------- */
+	const ideaBox = $('.foot-idea');
+	if (ideaBox) {
+		const form = $('form', ideaBox);
+		const sent = $('[data-sent]', ideaBox);
 		const submit = $('[type=submit]', form);
 		const err = $('[data-error]', form);
 		let count = 0;
-		const lit = () => ideaBtn.classList.toggle('is-lit', modal.open || count > 0);
-		const open = () => { sent.hidden = true; form.hidden = false; modal.showModal(); lit(); $('textarea', form).focus(); };
-		const close = () => { modal.close(); };
-		ideaBtn.addEventListener('click', open);
-		modal.addEventListener('close', lit);
-		modal.addEventListener('click', (e) => { if (e.target === modal || e.target.closest('[data-close]')) close(); });
+		const lit = (on) => ideaBox.classList.toggle('is-lit', on || count > 0);
+		form.addEventListener('focusin', () => lit(true));
+		form.addEventListener('focusout', (e) => { if (!form.contains(e.relatedTarget)) lit(false); });
+		$('[data-bulb]', ideaBox).addEventListener('click', () => { if (!form.hidden) form.text.focus(); });
 		$$('.idea-types button', form).forEach((b) => b.addEventListener('click', () => {
 			$$('.idea-types button', form).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
 		}));
-		form.text.addEventListener('input', () => { submit.disabled = !form.text.value.trim(); });
+		form.text.addEventListener('input', () => { submit.disabled = !form.text.value.trim(); err.hidden = true; });
 		const check = robot(form);
 		form.addEventListener('submit', async (e) => {
 			e.preventDefault();
@@ -276,11 +281,32 @@
 				count++;
 				form.text.value = '';
 				form.hidden = true; sent.hidden = false;
-				$('[data-idea-hint]').textContent = `${count}× bedankt!`;
-				lit();
+				lit(true);
 			} catch (x) {
 				err.textContent = x.message; err.hidden = false; submit.disabled = false;
 			}
+		});
+		$('[data-again]', ideaBox).addEventListener('click', () => { sent.hidden = true; form.hidden = false; form.text.focus(); });
+	}
+
+	/* ---------- nieuwsbrief (footer) ---------- */
+	const news = $('form[data-form=nieuwsbrief]');
+	if (news) {
+		const box = news.closest('.foot-box');
+		const err = $('[data-error]', news);
+		const btn = $('[type=submit]', news);
+		const check = robot(news);
+		news.email.addEventListener('input', () => { err.hidden = true; });
+		news.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			err.hidden = true;
+			if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(news.email.value.trim())) { err.textContent = 'Dat e-mailadres klopt niet helemaal.'; err.hidden = false; news.email.focus(); return; }
+			btn.disabled = true;
+			try {
+				await api('subscribe', { email: news.email.value.trim(), hp: news.hp.value, altcha: await check.token() });
+				news.hidden = true; $('[data-sent]', box).hidden = false;
+			} catch (x) { err.textContent = x.message; err.hidden = false; }
+			btn.disabled = false;
 		});
 	}
 

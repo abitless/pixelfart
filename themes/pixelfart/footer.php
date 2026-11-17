@@ -1,9 +1,75 @@
 <?php
 /**
- * Footer en het idee-venster (opent vanaf het lampje).
+ * Footer: op de homepage het ideeënformulier, overal de aanmelding voor de nieuwsbrief (nieuwe games).
  */
+$pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( 'pf_nieuwsbrief' );
 ?>
 	</main>
+	<section class="foot-forms<?php echo $pf_home ? ' has-idea' : ''; ?>" aria-label="Meedoen">
+		<?php if ( $pf_home && class_exists( 'PF_Messages' ) ) : ?>
+			<div class="foot-box foot-idea" id="idee">
+				<div class="foot-head">
+					<?php
+					$b    = pf_pixel_icon( PF_BMP['bulb'], 4, 'px-icon' );
+					$hi   = pf_pixel_icon( PF_BMP['bulbHi'], 4, 'px-icon bulb-hi', 'position:absolute;left:0;top:0' );
+					$base = pf_pixel_icon( PF_BMP['bulbBase'], 4, 'px-icon bulb-base', 'top:36px' );
+					?>
+					<button type="button" class="bulb-btn" data-bulb tabindex="-1" aria-hidden="true"><span class="bulb" style="width:40px;height:56px"><?php echo $b . $hi . $base; // phpcs:ignore ?></span></button>
+					<div>
+						<h2 id="idea-title">IDEE OF VERZOEK?</h2>
+						<p>Een spel dat je mist, of iets dat beter kan? Laat het ons weten.</p>
+					</div>
+				</div>
+				<div class="sent-box" data-sent hidden>
+					<strong>LAMPJE GAAT AAN!</strong>
+					<span>Bedankt voor je idee. Misschien staat het straks tussen de games.</span>
+					<button type="button" class="btn btn-ghost" data-again>NOG EEN IDEE</button>
+				</div>
+				<form class="js-only" data-form="idee" novalidate aria-labelledby="idea-title">
+					<div class="idea-types" role="group" aria-label="Soort idee">
+						<?php foreach ( PF_Messages::TYPES as $i => $t ) : ?>
+							<button type="button" data-type="<?php echo esc_attr( $t ); ?>" aria-pressed="<?php echo 0 === $i ? 'true' : 'false'; ?>"><?php echo esc_html( $t ); ?></button>
+						<?php endforeach; ?>
+					</div>
+					<label class="screen-reader-text" for="idea-text">Je idee</label>
+					<textarea class="input" id="idea-text" name="text" rows="3" placeholder="Bijvoorbeeld: een spel met een pinguïn die moet glijden…"></textarea>
+					<label class="screen-reader-text" for="idea-name">Je naam</label>
+					<input class="input" id="idea-name" name="name" placeholder="Je naam (mag ook leeg)" autocomplete="nickname">
+					<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
+					<div class="robot" data-robot></div>
+					<div class="form-error" data-error hidden></div>
+					<button type="submit" class="btn btn-yellow" disabled>VERSTUUR ▶</button>
+				</form>
+			</div>
+		<?php endif; ?>
+
+		<?php if ( class_exists( 'PF_Newsletter' ) ) : ?>
+			<div class="foot-box foot-news" id="nieuwsbrief">
+				<div class="foot-head">
+					<span class="mail-icon" aria-hidden="true"><?php echo pf_icon( 'mail', 4 ); // phpcs:ignore ?></span>
+					<div>
+						<h2 id="news-title">NIEUWE GAME? MAIL!</h2>
+						<p>Laat je e-mailadres achter, dan krijg je een mailtje als er een nieuwe game online staat. Verder niets.</p>
+					</div>
+				</div>
+				<div class="sent-box" data-sent hidden>
+					<strong>BIJNA KLAAR!</strong>
+					<span>Kijk in je mail en klik op de link om je aanmelding te bevestigen. Geen mail? Kijk ook even bij spam.</span>
+				</div>
+				<form class="js-only" data-form="nieuwsbrief" novalidate aria-labelledby="news-title">
+					<label class="screen-reader-text" for="news-email">Je e-mailadres</label>
+					<div class="news-row">
+						<input class="input" id="news-email" name="email" type="email" placeholder="jij@voorbeeld.nl" autocomplete="email" required>
+						<button type="submit" class="btn btn-green">AANMELDEN ▶</button>
+					</div>
+					<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
+					<div class="robot" data-robot></div>
+					<div class="form-error" data-error hidden></div>
+					<p class="fine">We bewaren alleen je e-mailadres en sturen alleen mails over nieuwe games. Afmelden kan in elke mail. Jonger dan 16? Vraag het eerst aan je ouders.</p>
+				</form>
+			</div>
+		<?php endif; ?>
+	</section>
 	<footer class="site-footer">
 		<div class="foot-left">
 			<span><span style="color:var(--green)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_option( 'pf_source_url' ) ?: '#' ); ?>">Open source</a></span>
@@ -16,34 +82,6 @@
 		</div>
 	</footer>
 </div>
-
-<dialog class="modal" id="idea-modal" aria-labelledby="idea-title">
-	<div class="modal-box">
-		<div class="modal-head">
-			<h2 id="idea-title">IDEE OF VERZOEK</h2>
-			<button type="button" class="modal-x" data-close aria-label="Sluiten">X</button>
-		</div>
-		<div data-sent hidden>
-			<p style="margin:0 0 14px;line-height:1.2">Lampje gaat aan! Bedankt voor je idee. Misschien staat het straks hier tussen de games.</p>
-			<button type="button" class="btn btn-yellow" data-close>SLUITEN</button>
-		</div>
-		<form data-form="idee" novalidate>
-			<div class="idea-types" role="group" aria-label="Soort idee">
-				<?php foreach ( PF_Messages::TYPES as $i => $t ) : ?>
-					<button type="button" data-type="<?php echo esc_attr( $t ); ?>" aria-pressed="<?php echo 0 === $i ? 'true' : 'false'; ?>"><?php echo esc_html( $t ); ?></button>
-				<?php endforeach; ?>
-			</div>
-			<label class="screen-reader-text" for="idea-text">Je idee</label>
-			<textarea class="input" id="idea-text" name="text" rows="4" placeholder="Bijvoorbeeld: een spel met een pinguïn die moet glijden…"></textarea>
-			<label class="screen-reader-text" for="idea-name">Je naam</label>
-			<input class="input" id="idea-name" name="name" placeholder="Je naam (mag ook leeg)" autocomplete="nickname">
-			<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
-			<div class="robot" data-robot></div>
-			<div class="form-error" data-error hidden></div>
-			<button type="submit" class="btn btn-yellow" disabled>VERSTUUR ▶</button>
-		</form>
-	</div>
-</dialog>
 <?php wp_footer(); ?>
 </body>
 </html>
