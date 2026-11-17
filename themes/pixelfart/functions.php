@@ -61,6 +61,7 @@ add_action( 'wp_enqueue_scripts', function () {
 	wp_localize_script( 'pixelfart', 'PF', [
 		'rest' => esc_url_raw( rest_url( 'pixelfart/v1/' ) ),
 		'home' => esc_url_raw( home_url( '/' ) ),
+		'games' => class_exists( 'PF_Hosting' ) ? PF_Hosting::origin() : '',
 		// ALTCHA (spamcheck) laden we pas als iemand een formulier gebruikt.
 		'altcha' => [
 			'js'     => get_theme_file_uri( 'assets/vendor/altcha/altcha.min.js' ) . '?v=3.5.0',

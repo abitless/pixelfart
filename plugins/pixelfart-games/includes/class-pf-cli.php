@@ -127,4 +127,46 @@ class PF_CLI {
 		}
 		WP_CLI::success( count( $ids ) . ' games opnieuw verwerkt.' );
 	}
+
+	/**
+	 * Zet een nieuwe versie van een game online (zoals uploaden in WP-admin).
+	 *
+	 * ## OPTIONS
+	 *
+	 * <file>
+	 * : Het HTML-bestand.
+	 *
+	 * [--code=<code>]
+	 * : Gamecode. Standaard uit het manifest in de HTML.
+	 *
+	 * [--note=<tekst>]
+	 * : Wat is er nieuw? Standaard uit het manifest.
+	 *
+	 * [--version=<versie>]
+	 * : Versie. Standaard uit het manifest, anders automatisch opgehoogd.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp pixelfart update "Hete Pizza.html" --note="Snellere scooter"
+	 */
+	public function update( $args, $assoc ) {
+		$file = $args[0];
+		if ( ! is_readable( $file ) ) {
+			WP_CLI::error( "Kan $file niet lezen." );
+		}
+		$html     = file_get_contents( $file );
+		$manifest = PF_Format::manifest( $html ) ?? [];
+		$code     = PF_Games::sanitize_code( $assoc['code'] ?? (string) ( $manifest['code'] ?? '' ) );
+		$ids      = $code ? get_posts( [ 'post_type' => PF_Games::CPT, 'post_status' => 'any', 'meta_key' => '_pf_code', 'meta_value' => $code, 'fields' => 'ids', 'posts_per_page' => 1 ] ) : [];
+		if ( ! $ids ) {
+			WP_CLI::error( 'Geen game gevonden met code ' . ( $code ?: '(geen)' ) . '. Geef --code mee.' );
+		}
+		$id    = (int) $ids[0];
+		$old   = (string) PF_Games::meta( $id, 'version', '1.0.0' );
+		$notes = PF_Games::publish_html( $id, $html, (string) ( $assoc['note'] ?? '' ), $assoc['version'] ?? null, $old );
+		foreach ( $notes as [ $level, $msg ] ) {
+			'warning' === $level ? WP_CLI::warning( $msg ) : WP_CLI::log( "[$level] $msg" );
+		}
+		WP_CLI::success( "$code bijgewerkt." );
+	}
 }

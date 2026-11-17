@@ -92,7 +92,7 @@ class PF_Rest {
 		return false;
 	}
 
-	private static function game( WP_REST_Request $r ) {
+	public static function game( WP_REST_Request $r ) {
 		$id = (int) $r['id'];
 		if ( PF_Games::CPT !== get_post_type( $id ) || 'publish' !== get_post_status( $id ) ) {
 			return new WP_Error( 'pf_not_found', 'Game niet gevonden.', [ 'status' => 404 ] );
@@ -111,7 +111,11 @@ class PF_Rest {
 		if ( ! self::throttled( 'play' . $id, 5 * MINUTE_IN_SECONDS ) ) {
 			update_post_meta( $id, '_pf_plays', ++$plays );
 		}
-		return [ 'plays' => $plays ];
+		$out = [ 'plays' => $plays ];
+		if ( PF_Scores::enabled( PF_Games::get( $id ) ) ) {
+			$out['run'] = PF_Scores::run_token( $id ); // speelbewijs voor de topscorelijst
+		}
+		return $out;
 	}
 
 	public static function rate( WP_REST_Request $r ) {

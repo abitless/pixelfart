@@ -307,3 +307,44 @@ textarea.input { resize: vertical; }
 	.panel { position: absolute; inset: 0; width: 100%; border-left: 0; z-index: 4; }
 	.foot-right { text-align: left; }
 }
+
+/* ---------- topscores ---------- */
+.hiscore-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.hiscore-list li { display: grid; grid-template-columns: 2.2em 3.2em 1fr; align-items: baseline; padding: 2px 0; }
+.hiscore-list li:nth-child(1) { color: var(--yellow); }
+.hiscore-list li:nth-child(2) { color: var(--ink); }
+.hiscore-list li:nth-child(3) { color: var(--orange, #ff9a4a); }
+.hiscore-list li:nth-child(n+4) { color: var(--dim); }
+.hiscore-list .hs-rank { font-family: var(--pix); font-size: 10px; color: var(--line); }
+.hiscore-list .hs-name { font-family: var(--pix); font-size: 12px; letter-spacing: 2px; }
+.hiscore-list .hs-score { text-align: right; font-variant-numeric: tabular-nums; }
+.hiscore-list .hs-score small { color: var(--mute); font-size: .8em; }
+.hiscore-list li.is-new { background: var(--yellow); color: #000; animation: hs-blink .4s steps(2) 6; }
+.hiscore-list li.is-new .hs-rank { color: #000; }
+@keyframes hs-blink { 50% { background: transparent; color: var(--yellow); } }
+
+.player-stage { position: relative; }
+.hs-entry { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(0,0,0,.82); padding: 16px; overflow: auto; }
+.hs-box { background: #000; box-shadow: 0 0 0 4px var(--yellow), 8px 8px 0 4px #5a4a1a; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 420px; width: 100%; text-align: center; }
+.hs-title { margin: 0; font-family: var(--pix); font-size: 14px; font-weight: 400; color: var(--yellow); animation: hs-pulse 1s steps(2) infinite; }
+@keyframes hs-pulse { 50% { color: var(--ink); } }
+.hs-got { font-size: 26px; }
+.hs-help { margin: 0; color: var(--dim); }
+.hs-keys { color: var(--mute); }
+.hs-letters { display: flex; gap: 14px; }
+.hs-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.hs-slot button { background: none; border: 0; color: var(--line); font-size: 18px; cursor: pointer; padding: 4px 10px; line-height: 1; }
+.hs-slot button:hover { color: var(--ink); }
+.hs-letter { width: 56px; height: 64px; text-align: center; font-family: var(--pix); font-size: 28px; text-transform: uppercase; background: #000; color: var(--ink); border: 0; box-shadow: 0 0 0 4px var(--line); caret-color: transparent; border-radius: 0; }
+.hs-letter:focus { outline: none; box-shadow: 0 0 0 4px var(--yellow); color: var(--yellow); }
+.hs-entry .robot { width: 100%; margin: 0; }
+.hs-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.hs-privacy { margin: 0; font-size: 16px; color: var(--mute); }
+@media (prefers-reduced-motion: reduce) { .hs-title, .hiscore-list li.is-new { animation: none; } }
+
+/* blok Topscores (erelijst) */
+.pf-hiscores { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 24px; }
+.pf-hiscore { box-shadow: 0 0 0 4px var(--c, var(--line)); padding: 16px; margin: 4px; display: flex; flex-direction: column; gap: 10px; }
+.pf-hiscore h3 { margin: 0; font-family: var(--pix); font-size: 10px; line-height: 1.6; }
+.pf-hiscore h3 a { color: var(--c, var(--ink)); }
+.pf-hiscore .hs-empty { margin: 0; color: var(--mute); }

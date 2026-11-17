@@ -1,0 +1,17 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "pixelfart/highscores",
+	"title": "Topscores",
+	"category": "widgets",
+	"icon": "awards",
+	"description": "Erelijst: per game de beste spelers aller tijden.",
+	"keywords": [ "highscore", "topscore", "erelijst", "hall of fame" ],
+	"textdomain": "pixelfart",
+	"attributes": {
+		"limit": { "type": "number", "default": 3 }
+	},
+	"supports": { "html": false, "align": [ "wide" ] },
+	"editorScript": "file:./editor.js",
+	"render": "file:./render.php"
+}

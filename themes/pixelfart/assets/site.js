@@ -320,15 +320,105 @@
 		const toggle = $('[data-panel-toggle]', player);
 		const back = $('[data-back]', player);
 
-		// speelteller
-		api(`games/${id}/play`).then((r) => { const el = $('[data-plays]', player); if (el && r.plays) el.textContent = r.plays.toLocaleString('nl-NL'); }).catch(() => {});
+		// speelteller (en speelbewijs voor de topscorelijst)
+		let run = null;
+		api(`games/${id}/play`).then((r) => {
+			const el = $('[data-plays]', player);
+			if (el && r.plays) el.textContent = r.plays.toLocaleString('nl-NL');
+			run = r.run || null;
+		}).catch(() => {});
 
 		// focus naar de game zodat toetsen meteen werken
 		const focusGame = () => { try { frame && frame.contentWindow.focus(); } catch (e) { /* */ } };
 		frame && frame.addEventListener('load', focusGame);
 
-		// games kunnen 'pixelfart:back' sturen om terug te gaan
-		addEventListener('message', (e) => { if (frame && e.source === frame.contentWindow && e.data === 'pixelfart:back') location.href = back.href; });
+		// berichten van de game (Pixelfart SDK): alleen van onze eigen iframe
+		const tell = (type) => { try { frame.contentWindow.postMessage({ pixelfart: 1, type }, PF.games || '*'); } catch (e) { /* */ } };
+		addEventListener('message', (e) => {
+			if (!frame || e.source !== frame.contentWindow || (PF.games && e.origin !== PF.games)) return;
+			const d = e.data;
+			if (d === 'pixelfart:back' || (d && d.pixelfart === 1 && d.type === 'back')) location.href = back.href;
+			if (d && d.pixelfart === 1 && d.type === 'score') onScore(d.score);
+		});
+
+		// topscores aller tijden
+		const hs = player.dataset.scores ? JSON.parse(player.dataset.scores) : null;
+		const entry = $('[data-hs-entry]', player);
+		let onScore = () => {};
+		if (hs && entry) {
+			const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+			const list = $('[data-hiscores]', player);
+			const slots = $$('.hs-letter', entry);
+			const err = $('[data-error]', entry);
+			const save = $('[type=submit]', entry);
+			const check = robot(entry);
+			const better = (a, b) => (hs.order === 'asc' ? a < b : a > b);
+			const qualifies = (n) => hs.top.length < 10 || better(n, hs.top[hs.top.length - 1].score);
+			const rankFor = (n) => 1 + hs.top.filter((s) => !better(n, s.score)).length;
+			let pending = null;
+
+			const render = (mark) => {
+				list.innerHTML = '';
+				hs.top.forEach((s) => {
+					const li = document.createElement('li');
+					if (s.id === mark) li.className = 'is-new';
+					li.innerHTML = '<span class="hs-rank"></span><span class="hs-name"></span><span class="hs-score"></span>';
+					li.children[0].textContent = s.rank; li.children[1].textContent = s.name; li.children[2].textContent = s.score.toLocaleString('nl-NL');
+					list.append(li);
+				});
+				$('[data-hs-empty]', player).hidden = hs.top.length > 0;
+			};
+			const shift = (i, d) => {
+				const cur = AZ.indexOf(slots[i].value || 'A');
+				slots[i].value = AZ[(cur + d + 26) % 26];
+			};
+			slots.forEach((inp, i) => {
+				inp.addEventListener('keydown', (e) => {
+					if (e.key === 'ArrowUp') { shift(i, -1); e.preventDefault(); }
+					else if (e.key === 'ArrowDown') { shift(i, 1); e.preventDefault(); }
+					else if (e.key === 'ArrowLeft' && i > 0) { slots[i - 1].focus(); e.preventDefault(); }
+					else if ((e.key === 'ArrowRight' || e.key === ' ') && i < 2) { slots[i + 1].focus(); e.preventDefault(); }
+					else if (e.key === 'Escape') { close(); }
+				});
+				inp.addEventListener('input', () => {
+					const ch = inp.value.toUpperCase().replace(/[^A-Z]/g, '').slice(-1);
+					inp.value = ch || 'A';
+					if (ch && i < 2) slots[i + 1].focus();
+				});
+				inp.addEventListener('focus', () => inp.select());
+				$('[data-up]', inp.parentElement).addEventListener('click', () => { shift(i, -1); inp.focus(); });
+				$('[data-down]', inp.parentElement).addEventListener('click', () => { shift(i, 1); inp.focus(); });
+			});
+			const close = () => { entry.hidden = true; pending = null; tell('resume'); focusGame(); };
+			$('[data-hs-skip]', entry).addEventListener('click', close);
+
+			onScore = (n) => {
+				if (!run || !entry.hidden || !Number.isInteger(n) || n < 0 || !qualifies(n)) return;
+				pending = n;
+				const saved = (store.get('pf_initials') || 'AAA').padEnd(3, 'A');
+				slots.forEach((s, i) => { s.value = saved[i]; });
+				$('[data-hs-score]', entry).textContent = n.toLocaleString('nl-NL');
+				$('[data-hs-rank]', entry).textContent = rankFor(n);
+				err.hidden = true; save.disabled = false;
+				entry.hidden = false;
+				tell('pause');
+				slots[0].focus();
+			};
+
+			entry.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const name = slots.map((s) => s.value).join('');
+				if (!/^[A-Z]{3}$/.test(name)) { err.textContent = 'Kies drie letters.'; err.hidden = false; return; }
+				save.disabled = true; err.hidden = true;
+				try {
+					const r = await api(`games/${id}/scores`, { name, score: pending, run, altcha: await check.token() });
+					run = r.run; hs.top = r.scores;
+					store.set('pf_initials', name);
+					render(r.entry);
+					close();
+				} catch (x) { err.textContent = x.message; err.hidden = false; save.disabled = false; }
+			});
+		}
 
 		// zijpaneel
 		const setPanel = (open) => {

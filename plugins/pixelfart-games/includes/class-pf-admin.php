@@ -136,6 +136,12 @@ class PF_Admin {
 				<label for="pf_score_label">Eenheid</label>
 				<input type="text" name="pf_score_label" id="pf_score_label" value="<?php echo esc_attr( $g['score']['label'] ?? 'punten' ); ?>" maxlength="20" placeholder="punten">
 			</div>
+
+			<div class="pf-field">
+				<label for="pf_score_max">Hoogst mogelijke score</label>
+				<input type="number" name="pf_score_max" id="pf_score_max" min="0" step="1" value="<?php echo esc_attr( PF_Games::meta( $post->ID, 'score_max', '' ) ); ?>" placeholder="geen grens">
+				<p class="description">Alles daarboven is valsspelen en wordt geweigerd.</p>
+			</div>
 		</div>
 		<?php
 	}
@@ -273,6 +279,8 @@ class PF_Admin {
 		update_post_meta( $id, '_pf_age', in_array( $age, PF_Games::AGES, true ) ? $age : 'ALL' );
 		$order = sanitize_key( wp_unslash( $_POST['pf_score_order'] ?? '' ) );
 		update_post_meta( $id, '_pf_score_order', in_array( $order, [ 'desc', 'asc' ], true ) ? $order : '' );
+		$max = absint( $_POST['pf_score_max'] ?? 0 );
+		$max ? update_post_meta( $id, '_pf_score_max', $max ) : delete_post_meta( $id, '_pf_score_max' );
 		update_post_meta( $id, '_pf_score_label', mb_substr( sanitize_text_field( wp_unslash( $_POST['pf_score_label'] ?? '' ) ), 0, 20 ) ?: 'punten' );
 
 		// Game-HTML: voert eigen JavaScript uit op de site, dus alleen voor wie ongefilterde HTML mag plaatsen.
@@ -285,32 +293,9 @@ class PF_Admin {
 			} elseif ( $_FILES['pf_html']['size'] > self::MAX_HTML_BYTES ) {
 				$notes[] = [ 'error', 'Het HTML-bestand is groter dan 15 MB.' ];
 			} else {
-				$html     = file_get_contents( $_FILES['pf_html']['tmp_name'] ); // phpcs:ignore
-				$manifest = PF_Format::manifest( $html ) ?? [];
-				$note     = sanitize_textarea_field( wp_unslash( $_POST['pf_changelog_note'] ?? '' ) );
-				$note     = $note ?: sanitize_textarea_field( (string) ( $manifest['changelog'] ?? '' ) );
-				$version  = (string) PF_Games::meta( $id, 'version', '1.0.0' );
-				$is_update = file_exists( PF_Games::dir( $code ) . 'game.html' );
-
-				if ( $is_update ) {
-					if ( $version === $old_version ) {
-						$version = PF_Games::bump( $old_version );
-						update_post_meta( $id, '_pf_version', $version );
-						$notes[] = [ 'info', sprintf( 'Versie automatisch opgehoogd naar %s.', $version ) ];
-					}
-					$archived = PF_Games::archive_current( $id, $old_version );
-					$notes[]  = [ 'info', sprintf( 'Vorige versie %s bewaard (terugzetten kan onder Versies).', $old_version ) ];
-				}
-				PF_Games::add_changelog( $id, $version, mb_substr( $note ?: ( $is_update ? 'Nieuwe versie.' : 'Eerste versie.' ), 0, 500 ) );
-
-				foreach ( PF_Games::install_html( $id, $html ) as $w ) {
-					$notes[] = [ 'warning', $w ];
-				}
-				foreach ( PF_Format::check( $html ) as [ $level, $msg ] ) {
-					$notes[] = [ $level, 'Formatcheck: ' . $msg ];
-				}
-				$notes[] = [ 'success', sprintf( 'Game %s geüpload als %s/game.html.', $version, $code ) ];
-				do_action( 'litespeed_purge_post', $id );
+				$html  = file_get_contents( $_FILES['pf_html']['tmp_name'] ); // phpcs:ignore
+				$note  = sanitize_textarea_field( wp_unslash( $_POST['pf_changelog_note'] ?? '' ) );
+				$notes = array_merge( $notes, PF_Games::publish_html( $id, $html, $note, (string) PF_Games::meta( $id, 'version', '1.0.0' ), $old_version ) );
 			}
 		}
 

@@ -227,6 +227,51 @@ class PF_Games {
 		return $warnings;
 	}
 
+	/**
+	 * Zet (een nieuwe versie van) de game online: vorige versie bewaren, versie zo nodig ophogen,
+	 * changelog bijwerken, HTML verwerken en het format controleren. Gebruikt door het formulier en WP-CLI.
+	 *
+	 * @param string      $old     Versie vóór deze wijziging.
+	 * @param string|null $version Gewenste versie (null = uit het manifest, anders de oude).
+	 * @return array<int, array{0:string,1:string}> Meldingen [ niveau, tekst ].
+	 */
+	public static function publish_html( int $id, string $html, string $note, ?string $version, string $old ): array {
+		$notes     = [];
+		$manifest  = PF_Format::manifest( $html ) ?? [];
+		$code      = (string) self::meta( $id, 'code' );
+		$is_update = file_exists( self::dir( $code ) . 'game.html' );
+		$version   = $version ?: (string) ( $manifest['version'] ?? '' ) ?: $old;
+		$note      = $note ?: sanitize_textarea_field( (string) ( $manifest['changelog'] ?? '' ) );
+
+		if ( $is_update ) {
+			if ( $version === $old ) {
+				$version = self::bump( $old );
+				$notes[] = [ 'info', sprintf( 'Versie automatisch opgehoogd naar %s.', $version ) ];
+			}
+			self::archive_current( $id, $old );
+			$notes[] = [ 'info', sprintf( 'Vorige versie %s bewaard (terugzetten kan onder Versies).', $old ) ];
+		}
+		update_post_meta( $id, '_pf_version', $version );
+		self::add_changelog( $id, $version, mb_substr( $note ?: ( $is_update ? 'Nieuwe versie.' : 'Eerste versie.' ), 0, 500 ) );
+
+		// Scoreinstellingen uit het manifest als ze in WordPress nog leeg zijn.
+		if ( ! self::meta( $id, 'score_order' ) && in_array( $manifest['score']['order'] ?? '', [ 'asc', 'desc' ], true ) ) {
+			update_post_meta( $id, '_pf_score_order', $manifest['score']['order'] );
+			update_post_meta( $id, '_pf_score_label', mb_substr( sanitize_text_field( (string) ( $manifest['score']['label'] ?? 'punten' ) ), 0, 20 ) ?: 'punten' );
+		}
+
+		foreach ( self::install_html( $id, $html ) as $w ) {
+			$notes[] = [ 'warning', $w ];
+		}
+		foreach ( PF_Format::check( $html ) as [ $level, $msg ] ) {
+			$notes[] = [ $level, 'Formatcheck: ' . $msg ];
+		}
+		$notes[] = [ 'success', sprintf( 'Game %s staat online als %s/game.html.', $version, $code ) ];
+		self::write_json( $id );
+		do_action( 'litespeed_purge_post', $id );
+		return $notes;
+	}
+
 	/* ---------- versies ---------- */
 
 	/** Map met eerdere versies: <CODE>/versions/<versie>.html */

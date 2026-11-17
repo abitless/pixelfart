@@ -13,6 +13,7 @@ $pf_comments = get_comments( [
 	'orderby' => 'comment_date_gmt',
 	'order'   => 'DESC',
 ] );
+$pf_hs   = class_exists( 'PF_Scores' ) && PF_Scores::enabled( $g ) ? [ 'order' => $g['score']['order'], 'label' => $g['score']['label'], 'top' => PF_Scores::top( $g['id'] ) ] : null;
 $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) && ! str_contains( wp_get_referer(), '/spel/' ) ? wp_get_referer() : home_url( '/' );
 ?><!doctype html>
 <html <?php language_attributes(); ?> class="no-js">
@@ -27,7 +28,7 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 </head>
 <body <?php body_class( 'player-page' ); ?>>
 <?php wp_body_open(); ?>
-<div class="player" data-player data-id="<?php echo (int) $g['id']; ?>">
+<div class="player" data-player data-id="<?php echo (int) $g['id']; ?>"<?php if ( $pf_hs ) : ?> data-scores="<?php echo esc_attr( wp_json_encode( $pf_hs ) ); ?>"<?php endif; ?>>
 	<div class="player-bar">
 		<a class="btn" href="<?php echo esc_url( $pf_back ); ?>" data-back>◀ TERUG</a>
 		<h1 class="player-title"><?php echo esc_html( $g['title'] ); ?></h1>
@@ -43,6 +44,31 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 				<p class="player-missing">Deze game wordt nog gebouwd. Kom snel terug!</p>
 			<?php endif; ?>
 			<button type="button" class="tool-btn fs-exit" data-fs-exit hidden>✕ SLUIT</button>
+			<?php if ( $pf_hs ) : ?>
+				<form class="hs-entry" data-hs-entry hidden novalidate aria-labelledby="hs-title">
+					<div class="hs-box">
+						<h2 class="hs-title" id="hs-title">NIEUWE TOPSCORE!</h2>
+						<div class="hs-got"><span data-hs-score></span> <?php echo esc_html( $pf_hs['label'] ); ?> · plek <span data-hs-rank></span></div>
+						<p class="hs-help">Kies je drie letters <span class="hs-keys">(▲▼ of typen, ENTER = opslaan)</span></p>
+						<div class="hs-letters" role="group" aria-label="Initialen">
+							<?php for ( $i = 1; $i <= 3; $i++ ) : ?>
+								<div class="hs-slot">
+									<button type="button" data-up tabindex="-1" aria-label="Letter <?php echo $i; ?> omhoog">▲</button>
+									<input class="hs-letter" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Letter <?php echo $i; ?>">
+									<button type="button" data-down tabindex="-1" aria-label="Letter <?php echo $i; ?> omlaag">▼</button>
+								</div>
+							<?php endfor; ?>
+						</div>
+						<div class="robot" data-robot></div>
+						<div class="form-error" data-error hidden></div>
+						<div class="hs-actions">
+							<button type="submit" class="btn btn-yellow">OPSLAAN ▶</button>
+							<button type="button" class="btn btn-ghost" data-hs-skip>OVERSLAAN</button>
+						</div>
+						<p class="hs-privacy">We bewaren alleen deze drie letters, je score en de datum.</p>
+					</div>
+				</form>
+			<?php endif; ?>
 		</div>
 
 		<aside class="panel" id="game-panel" data-panel>
@@ -72,6 +98,23 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 			</section>
 
 			<div class="panel-rule"></div>
+
+			<?php if ( $pf_hs ) : ?>
+				<section class="panel-sec">
+					<h2>TOPSCORES</h2>
+					<ol class="hiscore-list" data-hiscores>
+						<?php foreach ( $pf_hs['top'] as $s ) : ?>
+							<li><span class="hs-rank"><?php echo (int) $s['rank']; ?></span><span class="hs-name"><?php echo esc_html( $s['name'] ); ?></span><span class="hs-score"><?php echo esc_html( pf_num( $s['score'] ) ); ?></span></li>
+						<?php endforeach; ?>
+					</ol>
+					<div class="muted" data-hs-empty <?php echo $pf_hs['top'] ? 'hidden' : ''; ?>>Nog geen scores. Word jij de eerste?</div>
+					<div class="muted"><?php echo esc_html( 'asc' === $pf_hs['order'] ? 'Lager is beter' : 'Hoger is beter' ); ?> · in <?php echo esc_html( $pf_hs['label'] ); ?></div>
+					<?php $pf_hs_page = get_page_by_path( 'topscores' ); ?>
+					<?php if ( $pf_hs_page ) : ?><a href="<?php echo esc_url( get_permalink( $pf_hs_page ) ); ?>">Alle topscores ▸</a><?php endif; ?>
+				</section>
+
+				<div class="panel-rule"></div>
+			<?php endif; ?>
 
 			<section class="panel-sec">
 				<h2>REACTIES (<?php echo count( $pf_comments ); ?>)</h2>
