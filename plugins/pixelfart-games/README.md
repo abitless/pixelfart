@@ -12,8 +12,10 @@ wp-content/uploads/pixelfart-games/
   <CODE>/game.json          statische metadata (wordt bij elke wijziging opnieuw geschreven)
   <CODE>/thumb.png          pixelige thumbnail 4:3
   <CODE>/versions/*.html    eerdere versies (terugzetten in WP-admin)
-  _fonts/                   lokaal gezette Google Fonts
+  _fonts/                   vangnet: lokale kopie van andere fonts in oudere games
   _sdk/pixelfart.js         Pixelfart SDK (bron: skill/pixelfart-game/pixelfart.js)
+  _sdk/pixelfart-fonts.css  de zes Pixelfart-pixelfonts (OFL), geladen door de SDK
+  _sdk/fonts/               woff2-bestanden + licenties
   _tools/capture.html       maakt thumbnails op de game-origin
 ```
 

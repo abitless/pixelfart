@@ -1,33 +1,35 @@
 ---
 name: pixelfart-game
-description: Maak of verbeter een browsergame voor pixelfart.nl in het Pixelfart-format — één HTML-bestand met manifest, de Pixelfart SDK (schermvullend schalen, auto-pauze, topscores) en zonder externe bestanden. Gebruik deze skill bij elke nieuwe Pixelfart-game, bij een update van een bestaande game, en als iemand vraagt een game "klaar te maken voor Pixelfart".
+description: Maak of verbeter een browsergame voor pixelfart.nl in het Pixelfart-format — één HTML-bestand in pixelstijl met manifest, de Pixelfart SDK (schermvullend schalen, auto-pauze, topscores, zelf gehoste pixelfonts) en zonder externe bestanden. Gebruik deze skill bij elke nieuwe Pixelfart-game, bij een update van een bestaande game, en als iemand vraagt een game "klaar te maken voor Pixelfart".
 ---
 
 # Pixelfart-game maken
 
-Pixelfart is de gamesite van een vader en zoon. Elke game is **één los HTML-bestand** dat op de site in een
-beveiligd venster (iframe) draait, ook schermvullend op telefoon, tablet en computer. Deze skill beschrijft het
-format. Volg het precies: de site controleert het bij het uploaden.
+Pixelfart is de gamesite van een vader en zoon. Elke game is **één los HTML-bestand** in **pixelstijl** dat op de
+site in een beveiligd venster (iframe) draait, ook schermvullend op telefoon, tablet en computer. Deze skill
+beschrijft het format. Volg het precies: de site controleert het bij het uploaden.
 
 In deze map:
 
 - `pixelfart.js` — de SDK. Zet hem **naast** je game tijdens het maken en testen.
+- `pixelfart-fonts.css` en de map `fonts/` — de Pixelfart-pixelfonts. Ook **naast** je game zetten; de SDK laadt ze zelf.
 - `template.html` — een complete, kleine voorbeeldgame (Pixelvanger) die alles goed doet. Begin hiermee.
 
 ## Checklist (moet allemaal kloppen)
 
 1. Eén `.html`-bestand. Alles zit erin: code, plaatjes (canvas-tekeningen, of kleine data-URI's), geluid (Web Audio).
-   **Niets** laden van internet: geen CDN, geen externe plaatjes, geen `fetch` naar andere sites. De site blokkeert dat.
-   Uitzondering: één Google Fonts-`<link>` mag; de site zet dat font automatisch lokaal.
-2. In `<head>`, in deze volgorde: `<meta charset="utf-8">`, `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`, `<title>`, `<script src="pixelfart.js"></script>`, het manifest.
-3. Een **manifest** (zie hieronder) met minstens `title`, `code` en `version`.
-4. Het spel past zich aan **elke schermgrootte** aan (ook staand/liggend en volledig scherm). Gebruik `Pixelfart.fit(canvas)`.
-5. Werkt met **toetsenbord én aanraken** (en liefst muis). Op een telefoon is er geen toetsenbord.
-6. De spel-loop **pauzeert** als het tabblad niet zichtbaar is: gebruik `Pixelfart.loop()`. Muziek stil in `Pixelfart.onPause()`.
-7. Heeft de game een score? Roep **één keer per potje**, bij game over (of bij het halen van de finish), `Pixelfart.score(n)` aan.
-8. Geen `alert()`, `confirm()`, `prompt()`, `window.open()`, links met `target="_blank"` of `top.location`: dat werkt niet in het beveiligde venster. Toon meldingen in de game zelf.
-9. Geen cookies, geen analytics, geen tracking, geen advertenties. Eigen opslag (record, instellingen) mag met `Pixelfart.store`.
-10. Bovenaan een licentie-opmerking (zie onderaan).
+   **Nooit iets laden van internet**: geen CDN, geen libraries, geen externe plaatjes, geen `fetch` naar andere sites
+   en **ook geen fonts** (geen Google Fonts). De site blokkeert dat. Fonts komen uit de Pixelfart-fonts (zie onder).
+2. **Pixelstijl**: alles wat je ziet is opgebouwd uit zichtbare, scherpe pixels (zie *Pixelstijl*).
+3. In `<head>`, in deze volgorde: `<meta charset="utf-8">`, `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`, `<title>`, `<script src="pixelfart.js"></script>`, het manifest.
+4. Een **manifest** (zie hieronder) met minstens `title`, `code` en `version`.
+5. Het spel past zich aan **elke schermgrootte** aan (ook staand/liggend en volledig scherm). Gebruik `Pixelfart.fit(canvas)`.
+6. Werkt met **toetsenbord én aanraken** (en liefst muis). Op een telefoon is er geen toetsenbord.
+7. De spel-loop **pauzeert** als het tabblad niet zichtbaar is: gebruik `Pixelfart.loop()`. Muziek stil in `Pixelfart.onPause()`.
+8. Heeft de game een score? Roep **één keer per potje**, bij game over (of bij het halen van de finish), `Pixelfart.score(n)` aan.
+9. Geen `alert()`, `confirm()`, `prompt()`, `window.open()`, links met `target="_blank"` of `top.location`: dat werkt niet in het beveiligde venster. Toon meldingen in de game zelf.
+10. Geen cookies, geen analytics, geen tracking, geen advertenties. Eigen opslag (record, instellingen) mag met `Pixelfart.store`.
+11. Bovenaan een licentie-opmerking (zie onderaan).
 
 ## Bestandsopbouw
 
@@ -83,6 +85,8 @@ Een JSON-blok met `id="pixelfart"`. Het uploadformulier op de site vult zich hie
 | `Pixelfart.fit(canvas, { mode })` | Schaalt een canvas met vaste resolutie zo groot mogelijk in het venster, met behoud van verhouding. `mode: 'integer'` = alleen hele vergrotingen (scherpste pixels), `'contain'` = zo groot mogelijk. Teken altijd op de vaste resolutie (`canvas.width/height`), niet op schermpixels. |
 | `Pixelfart.loop(update, { fps, draw })` | Spel-loop. `update(dt)` krijgt seconden (max 0,1). Pauzeert vanzelf als het tabblad verborgen is of de site pauzeert (bijv. tijdens het invoeren van een topscore). `fps: 30` is genoeg voor rustige games en spaart stroom. Geeft `{ stop, start }` terug. |
 | `Pixelfart.onPause(fn)` / `onResume(fn)` | Eigen dingen stilzetten/hervatten: muziek, timers. |
+| `Pixelfart.fonts([namen])` | Laadt Pixelfart-fonts en geeft een Promise. Nodig vóór je ze op een canvas gebruikt: `Pixelfart.fonts(['Press Start 2P']).then(start)`. |
+| `Pixelfart.text(ctx, tekst, x, y)` | Zoals `ctx.fillText`, maar **haarscherp** (zonder wazige randjes). Gebruikt `ctx.font`, `fillStyle`, `textAlign` en `textBaseline`. Wordt onthouden, dus zuinig. Gebruik dit voor alle tekst op het canvas. |
 | `Pixelfart.score(n)` | Eindscore van een potje (geheel getal ≥ 0). De site vraagt de speler om 3 letters als de score de lijst haalt. |
 | `Pixelfart.back()` | Terug naar de site (bijv. een knop "Menu verlaten" of de Escape-toets). |
 | `Pixelfart.store.get(key, standaard)` / `.set(key, waarde)` | Opslag voor deze game (record, instellingen). |
@@ -114,6 +118,67 @@ en start hem opnieuw in `Pixelfart.onResume(...)`. Liever nog: vervang de loop d
 - Tijd als score: gebruik hele seconden (of tienden × 10) en `"order": "asc"` in het manifest.
 - Valsspelen kan in een browser altijd; de site legt drempels (minimale speeltijd, maximum per game). Maak de score dus eerlijk en begrensd.
 
+## Pixelstijl
+
+Pixelfart ziet eruit als een oude arcadehal: grote, scherpe pixels. Dit zijn de spelregels; binnen die regels mag je
+alles zelf kiezen (eigen kleuren, eigen sfeer, eigen soort game).
+
+**Moet**
+
+- Teken op een **kleine vaste resolutie** en laat `Pixelfart.fit(canvas, { mode: 'integer' })` hem opblazen.
+  Goede maten: `160×120` of `256×192` (4:3), `320×180` of `256×144` (breedbeeld), `256×224` (klassiek, bijna vierkant).
+- **Alles op hele pixels**: posities afronden (`Math.round`) bij het tekenen, `ctx.imageSmoothingEnabled = false`.
+- **Geen zachte randen**: geen `shadowBlur`, `filter: blur`, verlopen (gradients), doorzichtige gloed, afgeronde hoeken
+  of vloeiende vectorvormen. Een cirkel of schuine lijn teken je als pixels (blokjes), niet met `ctx.arc`.
+- **Tekst**: alleen de Pixelfart-fonts, met `Pixelfart.text()`. Geen systeemfonts (Arial, monospace), geen emoji.
+- **Knoppen, menu's en meldingen** horen ook in pixelstijl: getekend op het canvas, of HTML met een Pixelfart-font,
+  harde randen en `border-radius: 0`.
+- Sprites op een vast raster, bijv. 8×8, 16×16 of 32×32 pixels. Draaien in stappen van 90° of vooraf getekende standen,
+  niet vrij draaien (dat geeft wazige pixels). Groter maken alleen met hele factoren (2×, 3×).
+
+**Kleuren**
+
+Kies per game een **beperkt palet**: liefst 8 tot 16 kleuren, maximaal 32. Begin met het Pixelfart-palet (de kleuren
+van de site); eigen kleuren, of lichtere en donkerdere tinten van deze kleuren, mogen gerust.
+
+| naam | kleur | gebruik op de site |
+|---|---|---|
+| zwart | `#000000` | achtergrond |
+| wit | `#f2f2f2` | tekst, randen |
+| lichtgrijs | `#bdbdbd` | rustige tekst |
+| grijs | `#8a8a8a` | hints, uitgeschakeld |
+| lijngrijs | `#6a6a6a` | lijnen, kaders |
+| donkergrijs | `#2a2a2a` | vlakken, schaduw |
+| groen | `#5dde7a` | start, goed, actie |
+| blauw | `#6ec9ff` | info, water, lucht |
+| geel | `#ffcf4a` | titels, sterren, munten |
+| roze | `#ff5c8a` | gevaar, levens, game over |
+| paars | `#c9a6ff` | magie, bonus |
+| oranje | `#ff9a4a` | vuur, waarschuwing |
+| mint | `#9be3d0` | extra accent |
+
+Een zwarte achtergrond past het best bij de site, maar is geen regel: een blauwe lucht of groen gras mag natuurlijk.
+
+**Pixelfonts**
+
+Deze fonts staan op de site zelf (en in de map `fonts/`). Gebruik ze bij naam, bijv. `ctx.font = '8px "Press Start 2P"'`.
+Op de genoemde maten vallen de letters precies op het pixelraster.
+
+| font | karakter | scherpe maten |
+|---|---|---|
+| `Press Start 2P` | klassiek arcade, breed en duidelijk; titels, score | 8, 16, 24 px |
+| `Silkscreen` (ook `bold`) | klein en strak; HUD, menu's | 8, 16, 24 px |
+| `Tiny5` | heel klein en smal; veel tekst op weinig ruimte | 8, 16 px |
+| `VT323` | oude computer/terminal; langere teksten, verhalen | 16 px of groter |
+| `Pixelify Sans` (400–700) | vriendelijk en wat ronder; uitleg, dialogen | 16 px of groter |
+| `Jersey 10` | stoer scorebord-font; grote titels, cijfers | 19 px of groter |
+
+Laad ze vóór het tekenen: `Pixelfart.fonts(['Press Start 2P', 'Tiny5']).then(start)`. Een font dat niet in deze lijst
+staat kan niet: de site laadt niets van buiten. Mis je een font? Vraag het aan de beheerder van de site.
+
+**Geluid** (als je geluid gebruikt): maak het zelf met Web Audio, bijv. korte piepjes met een `square`- of
+`triangle`-oscillator. Dat past bij de pixelstijl en het bestand blijft klein.
+
 ## Energie zuinig
 
 - `Pixelfart.loop` met een passende `fps` (30 voor rustige games). Geen `setInterval` van 1 ms of eigen bezige lussen.
@@ -130,9 +195,11 @@ en start hem opnieuw in `Pixelfart.onResume(...)`. Liever nog: vervang de loop d
 
 ## Lokaal testen
 
-- Zet `pixelfart.js` in dezelfde map als de game en open het HTML-bestand in de browser.
+- Zet `pixelfart.js`, `pixelfart-fonts.css` en de map `fonts/` in dezelfde map als de game en open het HTML-bestand
+  in de browser.
 - Controleer: schaalt mee bij het verkleinen van het venster? Werkt het met de muis als "vinger"? Pauzeert het als je
-  van tabblad wisselt? Geen fouten in de console?
+  van tabblad wisselt? Is alle tekst scherp en in een Pixelfart-font? Geen fouten in de console, geen verzoeken naar
+  internet (tabblad Netwerk)?
 
 ## Licentie
 

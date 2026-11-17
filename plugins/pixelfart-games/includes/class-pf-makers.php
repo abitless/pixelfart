@@ -43,6 +43,27 @@ class PF_Makers {
 				<li><a href="<?php echo esc_url( $file( 'template.html' ) ); ?>">template.html</a>: voorbeeldgame Pixelvanger</li>
 			</ul>
 
+			<h2>Pixelfonts</h2>
+			<p style="max-width:720px">Games laden nooit iets van internet, ook geen fonts. Deze fonts staan op de site zelf en zitten in de skill. Een game gebruikt ze gewoon bij naam; <code>pixelfart.js</code> regelt de rest.</p>
+			<?php $furl = PIXELFART_URL . self::DIR; ?>
+			<style>
+				<?php echo str_replace( 'url(fonts/', 'url(' . esc_url( $furl ) . 'fonts/', wp_strip_all_tags( (string) file_get_contents( PIXELFART_DIR . self::DIR . 'pixelfart-fonts.css' ) ) ); // phpcs:ignore ?>
+				.pf-fonts td { vertical-align: middle; }
+				.pf-fonts .sample { background: #000; color: #f2f2f2; padding: 10px 14px; -webkit-font-smoothing: none; white-space: nowrap; }
+			</style>
+			<table class="widefat striped pf-fonts" style="max-width:900px">
+				<tbody>
+				<?php foreach ( PF_Fonts::LIBRARY as $name => $use ) : ?>
+					<tr>
+						<td style="width:150px"><strong><?php echo esc_html( $name ); ?></strong></td>
+						<td class="sample" style="font-family:'<?php echo esc_attr( $name ); ?>';font-size:<?php echo in_array( $name, [ 'VT323', 'Pixelify Sans', 'Jersey 10' ], true ) ? 24 : 16; ?>px">PIXELFART 0123 Speel!</td>
+						<td><?php echo esc_html( $use ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+			<p>Alle fonts: SIL Open Font License 1.1.</p>
+
 			<h2>Een update uploaden</h2>
 			<ol style="padding-left:20px;max-width:720px">
 				<li>Open de game onder <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=' . PF_Games::CPT ) ); ?>">Alle games</a> en kies het nieuwe HTML-bestand.</li>
@@ -84,8 +105,11 @@ class PF_Makers {
 		if ( true !== $zip->open( $tmp, ZipArchive::OVERWRITE ) ) {
 			wp_die( 'Zip maken lukte niet.' );
 		}
-		foreach ( [ 'SKILL.md', 'pixelfart.js', 'template.html' ] as $f ) {
+		foreach ( [ 'SKILL.md', 'pixelfart.js', 'pixelfart-fonts.css', 'template.html' ] as $f ) {
 			$zip->addFile( PIXELFART_DIR . self::DIR . $f, 'pixelfart-game/' . $f );
+		}
+		foreach ( glob( PIXELFART_DIR . self::DIR . 'fonts/*.{woff2,txt}', GLOB_BRACE ) ?: [] as $f ) {
+			$zip->addFile( $f, 'pixelfart-game/fonts/' . basename( $f ) );
 		}
 		$zip->close();
 		nocache_headers();

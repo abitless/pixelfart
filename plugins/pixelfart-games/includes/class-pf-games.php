@@ -5,7 +5,8 @@
  *   uploads/pixelfart-games/<CODE>/game.html   de game (fonts lokaal)
  *   uploads/pixelfart-games/<CODE>/game.json   statische metadata
  *   uploads/pixelfart-games/<CODE>/thumb.png   pixelige thumbnail (4:3)
- *   uploads/pixelfart-games/_fonts/            lokaal gezette Google Fonts
+ *   uploads/pixelfart-games/_fonts/            vangnet: lokale kopie van andere fonts in oudere games
+ *   uploads/pixelfart-games/_sdk/              SDK + Pixelfart-pixelfonts
  *
  * WordPress (het bericht + meta) is de bron; game.json wordt bij elke opslag opnieuw geschreven.
  */

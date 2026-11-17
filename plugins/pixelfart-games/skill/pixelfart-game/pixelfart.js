@@ -1,12 +1,15 @@
 /*!
- * Pixelfart SDK 1.0 — klein hulpscript voor games op pixelfart.nl. Licentie: GPL-2.0-or-later.
+ * Pixelfart SDK 1.1 — klein hulpscript voor games op pixelfart.nl. Licentie: GPL-2.0-or-later.
  *
- * Zet naast je game en laad bovenin <head>:   <script src="pixelfart.js"></script>
+ * Zet naast je game (met pixelfart-fonts.css en de map fonts/) en laad bovenin <head>:
+ *   <script src="pixelfart.js"></script>
  * Op de site wordt dit automatisch vervangen door de nieuwste versie.
  *
  *   Pixelfart.fit(canvas, { mode: 'integer' })   canvas schermvullend schalen, scherpe pixels
  *   Pixelfart.loop(update, { fps: 60 })          spel-loop; pauzeert vanzelf als je niet kijkt
  *   Pixelfart.onPause(fn) / onResume(fn)         eigen pauze (muziek stil, timer stop)
+ *   Pixelfart.fonts(['Press Start 2P'])          pixelfonts laden (zelf gehost); geeft een Promise
+ *   Pixelfart.text(ctx, 'SCORE', x, y)           haarscherpe pixeltekst op een canvas
  *   Pixelfart.score(1234)                        eindscore melden (één keer per potje, bij game over)
  *   Pixelfart.back()                             terug naar de site (bijv. vanuit je menu)
  *   Pixelfart.store.get(key) / .set(key, value)  eigen opslag (instellingen, eigen record)
@@ -17,6 +20,18 @@
 	if (window.Pixelfart && window.Pixelfart.version) return;
 
 	var inSite = window.parent !== window;
+
+	// De Pixelfart-fonts staan naast dit script (lokaal én op de site). Nooit fonts van internet.
+	var me = document.currentScript && document.currentScript.src;
+	var fontsCss = Promise.resolve();
+	if (me) {
+		var css = document.createElement('link');
+		css.rel = 'stylesheet';
+		css.href = new URL('pixelfart-fonts.css', me).href;
+		fontsCss = new Promise(function (ok) { css.onload = css.onerror = ok; });
+		(document.head || document.documentElement).appendChild(css);
+	}
+	var textCache = new Map();
 	var paused = false;
 	var pauseFns = [];
 	var resumeFns = [];
@@ -41,7 +56,7 @@
 	});
 
 	var Pixelfart = {
-		version: '1.0.0',
+		version: '1.1.0',
 		inSite: inSite,
 		get paused() { return paused; },
 
@@ -96,6 +111,61 @@
 				stop: function () { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; },
 				start: function () { running = true; start(); },
 			};
+		},
+
+		/**
+		 * Laad één of meer Pixelfart-fonts voordat je ze op een canvas gebruikt (canvas wacht niet op fonts).
+		 * Pixelfart.fonts(['Press Start 2P', 'bold 8px Silkscreen']).then(start)
+		 */
+		fonts: function (names) {
+			if (!document.fonts) return Promise.resolve();
+			names = [].concat(names || []);
+			return fontsCss.then(function () { // eerst moet de lijst met fonts binnen zijn
+				return Promise.all(names.map(function (n) {
+					return document.fonts.load(/\d+px/.test(n) ? n : '16px "' + n + '"').catch(function () {});
+				}));
+			}).then(function () {});
+		},
+
+		/**
+		 * Haarscherpe pixeltekst: zoals ctx.fillText, maar zonder wazige randjes.
+		 * Gebruikt ctx.font, ctx.fillStyle, ctx.textAlign en ctx.textBaseline. Wordt onthouden, dus zuinig.
+		 */
+		text: function (ctx, str, x, y) {
+			str = String(str);
+			var key = ctx.font + '|' + ctx.fillStyle + '|' + str;
+			var c = textCache.get(key);
+			if (!c) {
+				// Altijd links en op de grondlijn tekenen, op hele pixels: dan vallen pixelfonts precies op het raster.
+				var g0 = document.createElement('canvas').getContext('2d');
+				g0.font = ctx.font; g0.textBaseline = 'alphabetic';
+				var m = g0.measureText(str);
+				var asc = Math.ceil(Math.max(m.fontBoundingBoxAscent || 0, m.actualBoundingBoxAscent)) + 1;
+				var desc = Math.ceil(Math.max(m.fontBoundingBoxDescent || 0, m.actualBoundingBoxDescent)) + 1;
+				var cv = document.createElement('canvas');
+				cv.width = Math.max(1, Math.ceil(m.width) + 4); cv.height = Math.max(1, asc + desc);
+				var g = cv.getContext('2d', { willReadFrequently: true });
+				g.font = ctx.font; g.fillStyle = ctx.fillStyle; g.textBaseline = 'alphabetic';
+				g.fillText(str, 2, asc);
+				var img = g.getImageData(0, 0, cv.width, cv.height), px = img.data;
+				for (var i = 3; i < px.length; i += 4) px[i] = px[i] >= 128 ? 255 : 0; // half bedekt = pixel aan
+				g.putImageData(img, 0, 0);
+				c = { cv: cv, w: m.width, asc: asc, base: {} };
+				if (textCache.size > 400) textCache.clear();
+				// Alleen onthouden als het font echt geladen is (anders blijft het noodfont hangen).
+				if (!document.fonts || document.fonts.check(ctx.font)) textCache.set(key, c);
+			}
+			// Uitlijning zoals ctx.textAlign / ctx.textBaseline.
+			var al = ctx.textAlign, dx = al === 'center' ? c.w / 2 : (al === 'right' || al === 'end') ? c.w : 0;
+			var bl = ctx.textBaseline;
+			if (c.base[bl] === undefined) {
+				var g1 = document.createElement('canvas').getContext('2d');
+				g1.font = ctx.font; g1.textBaseline = 'alphabetic';
+				var a1 = g1.measureText('H').actualBoundingBoxAscent;
+				g1.textBaseline = bl;
+				c.base[bl] = a1 - g1.measureText('H').actualBoundingBoxAscent; // grondlijn t.o.v. y
+			}
+			ctx.drawImage(c.cv, Math.round(x - dx) - 2, Math.round(y + c.base[bl]) - c.asc);
 		},
 
 		onPause: function (fn) { pauseFns.push(fn); },
