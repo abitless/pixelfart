@@ -110,4 +110,21 @@ class PF_CLI {
 		}
 		WP_CLI::success( count( $ids ) . ' game.json-bestanden geschreven.' );
 	}
+
+	/**
+	 * Verwerk de HTML van alle games opnieuw (lokale fonts, beveiligingsblok, SDK) en werk de hulpbestanden bij.
+	 */
+	public function reprocess() {
+		PF_Hosting::deploy();
+		$ids = get_posts( [ 'post_type' => PF_Games::CPT, 'post_status' => 'any', 'posts_per_page' => -1, 'fields' => 'ids' ] );
+		foreach ( $ids as $id ) {
+			$file = PF_Games::dir( (string) PF_Games::meta( $id, 'code' ) ) . 'game.html';
+			if ( file_exists( $file ) ) {
+				foreach ( PF_Games::install_html( $id, file_get_contents( $file ) ) as $w ) {
+					WP_CLI::warning( $w );
+				}
+			}
+		}
+		WP_CLI::success( count( $ids ) . ' games opnieuw verwerkt.' );
+	}
 }

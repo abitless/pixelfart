@@ -273,7 +273,7 @@
 		frame && frame.addEventListener('load', focusGame);
 
 		// games kunnen 'pixelfart:back' sturen om terug te gaan
-		addEventListener('message', (e) => { if (e.data === 'pixelfart:back') location.href = back.href; });
+		addEventListener('message', (e) => { if (frame && e.source === frame.contentWindow && e.data === 'pixelfart:back') location.href = back.href; });
 
 		// zijpaneel
 		const setPanel = (open) => {

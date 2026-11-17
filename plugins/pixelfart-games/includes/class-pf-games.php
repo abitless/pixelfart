@@ -61,7 +61,7 @@ class PF_Games {
 	}
 
 	public static function base_url(): string {
-		return trailingslashit( wp_upload_dir( null, false )['baseurl'] ) . 'pixelfart-games/';
+		return PF_Hosting::base_url();
 	}
 
 	public static function dir( string $code ): string {
@@ -215,7 +215,7 @@ class PF_Games {
 		$code = (string) self::meta( $id, 'code' );
 		wp_mkdir_p( self::dir( $code ) );
 		$warnings = [];
-		$html     = PF_Fonts::localize( $html, $warnings );
+		$html     = PF_Hosting::prepare_html( PF_Fonts::localize( $html, $warnings ) );
 		file_put_contents( self::dir( $code ) . 'game.html', $html );
 		return $warnings;
 	}

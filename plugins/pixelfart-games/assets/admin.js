@@ -67,50 +67,51 @@
 		$('pf_thumb_empty').hidden = true;
 	}
 
-	/** Grootste zichtbare canvas in de game. */
-	function biggestCanvas(doc) {
-		let best = null, area = 0;
-		doc.querySelectorAll('canvas').forEach((cv) => {
-			const a = cv.width * cv.height;
-			const rect = cv.getBoundingClientRect();
-			if (rect.width > 0 && rect.height > 0 && a > area) { best = cv; area = a; }
+	/**
+	 * Screenshot via de thumbnail-hulp op de game-origin (PFA.capture). De game draait daar, nooit in wp-admin.
+	 * Geeft een PNG-data-URL van het grootste canvas terug, of null.
+	 */
+	function capture(payload, stage) {
+		return new Promise((resolve) => {
+			const id = Math.random().toString(36).slice(2);
+			const frame = document.createElement('iframe');
+			frame.title = 'Voorbeeld voor de thumbnail';
+			frame.src = PFA.capture;
+			let done = false;
+			const finish = (v) => { if (done) return; done = true; removeEventListener('message', onMsg); clearTimeout(timer); resolve(v); };
+			const onMsg = (e) => {
+				if (e.origin !== PFA.origin || e.source !== frame.contentWindow || !e.data) return;
+				if (e.data.type === 'pf-capture-ready') frame.contentWindow.postMessage(Object.assign({ type: 'pf-capture', id, wait: 3200 }, payload), PFA.origin);
+				if (e.data.type === 'pf-capture-result' && e.data.id === id) finish(e.data.data || null);
+			};
+			const timer = setTimeout(() => finish(null), 15000);
+			addEventListener('message', onMsg);
+			stage.appendChild(frame);
 		});
-		return best;
 	}
+
+	const loadImage = (src) => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
 
 	const btn = $('pf_thumb_auto');
 	const stage = $('pf_thumb_stage');
-	let blobUrl = null;
 
 	btn && btn.addEventListener('click', async () => {
 		const file = $('pf_html').files[0];
-		let src = btn.dataset.game;
-		if (file) {
-			if (blobUrl) URL.revokeObjectURL(blobUrl);
-			blobUrl = URL.createObjectURL(new Blob([await file.text()], { type: 'text/html' }));
-			src = blobUrl;
-		}
-		if (!src) { alert('Kies eerst een HTML-bestand.'); return; }
+		const payload = file ? { html: await file.text() } : (btn.dataset.code ? { code: btn.dataset.code } : null);
+		if (!payload) { alert('Kies eerst een HTML-bestand.'); return; }
 
 		btn.disabled = true;
-		btn.textContent = 'Game draait… 3';
+		btn.textContent = 'Game draait…';
 		stage.hidden = false;
 		stage.innerHTML = '';
-		const frame = document.createElement('iframe');
-		frame.src = src;
-		frame.title = 'Voorbeeld voor de thumbnail';
-		stage.appendChild(frame);
-
-		let n = 3;
-		const tick = setInterval(() => { n--; btn.textContent = n > 0 ? `Game draait… ${n}` : 'Vastleggen…'; }, 1000);
-		await new Promise((r) => setTimeout(r, 3200));
-		clearInterval(tick);
 
 		let data = null;
-		try {
-			const cv = biggestCanvas(frame.contentDocument);
-			if (cv) data = pixelate(cv, cv.width, cv.height);
-		} catch (e) { /* geen toegang of canvas 'tainted' */ }
+		const png = await capture(payload, stage);
+		if (png) {
+			try { const img = await loadImage(png); data = pixelate(img, img.naturalWidth, img.naturalHeight); } catch (e) { /* leeg */ }
+		}
+		stage.innerHTML = '';
+		stage.hidden = true;
 		setThumb(data || placeholder());
 		if (!data) alert('Geen speelveld gevonden om vast te leggen; er staat nu een plaatshouder. Je kunt ook zelf een afbeelding uploaden.');
 

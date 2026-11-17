@@ -38,7 +38,7 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 	<div class="player-body">
 		<div class="player-stage" data-stage>
 			<?php if ( $g['game_url'] ) : ?>
-				<iframe src="<?php echo esc_url( $g['game_url'] ); ?>" title="<?php echo esc_attr( $g['title'] ); ?>" allow="fullscreen; autoplay; gamepad" allowfullscreen data-frame></iframe>
+				<iframe src="<?php echo esc_url( $g['game_url'] ); ?>" title="<?php echo esc_attr( $g['title'] ); ?>" sandbox="<?php echo esc_attr( PF_Hosting::SANDBOX ); ?>" allow="fullscreen; autoplay; gamepad" allowfullscreen referrerpolicy="no-referrer" data-frame></iframe>
 			<?php else : ?>
 				<p class="player-missing">Deze game wordt nog gebouwd. Kom snel terug!</p>
 			<?php endif; ?>

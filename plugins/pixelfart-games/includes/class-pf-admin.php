@@ -45,6 +45,10 @@ class PF_Admin {
 		}
 		wp_enqueue_style( 'pf-admin', PIXELFART_URL . 'assets/admin.css', [], PIXELFART_VERSION );
 		wp_enqueue_script( 'pf-admin', PIXELFART_URL . 'assets/admin.js', [], PIXELFART_VERSION, true );
+		wp_localize_script( 'pf-admin', 'PFA', [
+			'capture' => PF_Games::base_url() . '_tools/capture.html',
+			'origin'  => PF_Hosting::origin(),
+		] );
 	}
 
 	public static function meta_boxes() {
@@ -123,7 +127,7 @@ class PF_Admin {
 			</div>
 			<div class="pf-thumb-actions">
 				<p><button type="button" class="button button-primary" id="pf_thumb_auto"
-					data-game="<?php echo esc_url( $g['game_url'] ?? '' ); ?>">Maak automatisch</button></p>
+					data-code="<?php echo esc_attr( ! empty( $g['game_url'] ) ? $g['code'] : '' ); ?>">Maak automatisch</button></p>
 				<p class="description">Speelt de game een paar seconden af, maakt een screenshot van het speelveld en zet die om naar grove pixels. Niet mooi? Klik nog eens (eventueel met een toets ingedrukt in het voorbeeld) of upload zelf een afbeelding.</p>
 				<label for="pf_thumb_file">Of upload een afbeelding</label><br>
 				<input type="file" name="pf_thumb_file" id="pf_thumb_file" accept="image/png,image/jpeg,image/webp">
