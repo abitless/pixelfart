@@ -474,15 +474,19 @@
 			const btn = $('[type=submit]', cf);
 			const err = $('[data-error]', cf);
 			const ok = $('[data-ok]', cf);
-			cf.name.value = store.get('pf_name') || '';
+			// Zelfde drie letters als bij de topscores.
+			cf.name.value = store.get('pf_initials') || '';
+			cf.name.addEventListener('input', () => { cf.name.value = cf.name.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3); });
 			const check = robot(cf);
 			cf.text.addEventListener('input', () => { btn.disabled = !cf.text.value.trim(); ok.hidden = true; err.hidden = true; });
 			cf.addEventListener('submit', async (e) => {
 				e.preventDefault();
-				btn.disabled = true; err.hidden = true;
+				err.hidden = true;
+				if (!/^[A-Z]{3}$/.test(cf.name.value)) { err.textContent = 'Kies drie letters, net als bij de topscores.'; err.hidden = false; cf.name.focus(); return; }
+				btn.disabled = true;
 				try {
-					await api(`games/${id}/comments`, { name: cf.name.value, text: cf.text.value, hp: cf.hp.value, altcha: await check.token() });
-					store.set('pf_name', cf.name.value.trim());
+					await api(`games/${id}/comments`, { name: cf.name.value, text: cf.text.value, hp: cf.hp.value, version: player.dataset.version, altcha: await check.token() });
+					store.set('pf_initials', cf.name.value);
 					cf.text.value = '';
 					ok.hidden = false;
 				} catch (x) { err.textContent = x.message; err.hidden = false; btn.disabled = false; }

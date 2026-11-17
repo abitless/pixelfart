@@ -28,7 +28,7 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 </head>
 <body <?php body_class( 'player-page' ); ?>>
 <?php wp_body_open(); ?>
-<div class="player" data-player data-id="<?php echo (int) $g['id']; ?>"<?php if ( $pf_hs ) : ?> data-scores="<?php echo esc_attr( wp_json_encode( $pf_hs ) ); ?>"<?php endif; ?>>
+<div class="player" data-player data-id="<?php echo (int) $g['id']; ?>" data-version="<?php echo esc_attr( $g['version'] ); ?>"<?php if ( $pf_hs ) : ?> data-scores="<?php echo esc_attr( wp_json_encode( $pf_hs ) ); ?>"<?php endif; ?>>
 	<div class="player-bar">
 		<a class="btn" href="<?php echo esc_url( $pf_back ); ?>" data-back>◀ TERUG</a>
 		<h1 class="player-title"><?php echo esc_html( $g['title'] ); ?></h1>
@@ -121,8 +121,10 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 				<h2>REACTIES (<?php echo count( $pf_comments ); ?>)</h2>
 				<?php if ( comments_open() ) : ?>
 					<form class="js-only" data-comment-form novalidate>
-						<label class="screen-reader-text" for="c-name">Naam</label>
-						<input class="input" id="c-name" name="name" placeholder="Naam" maxlength="40" autocomplete="nickname">
+						<div class="c-who">
+							<label for="c-name">Jouw 3 letters</label>
+							<input class="input initials" id="c-name" name="name" placeholder="ABC" maxlength="3" minlength="3" pattern="[A-Za-z]{3}" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+						</div>
 						<label class="screen-reader-text" for="c-text">Reactie</label>
 						<textarea class="input" id="c-text" name="text" rows="3" placeholder="Wat vond je ervan?" maxlength="600"></textarea>
 						<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
@@ -136,10 +138,18 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 					<ul class="comments">
 						<?php foreach ( $pf_comments as $c ) : ?>
 							<li>
-								<div class="comment-head">
-									<span style="color:<?php echo esc_attr( pf_name_color( $c->comment_author ) ); ?>"><?php echo esc_html( $c->comment_author ); ?></span>
-									<time datetime="<?php echo esc_attr( mysql2date( 'c', $c->comment_date_gmt ) ); ?>"><?php echo esc_html( pf_when( $c->comment_date_gmt ) ); ?></time>
-								</div>
+								<?php $pf_ver = get_comment_meta( $c->comment_ID, 'pf_version', true ); ?>
+								<details class="comment">
+									<summary class="comment-head">
+										<span class="comment-name" style="color:<?php echo esc_attr( pf_name_color( $c->comment_author ) ); ?>"><?php echo esc_html( $c->comment_author ); ?></span>
+										<time datetime="<?php echo esc_attr( mysql2date( 'c', $c->comment_date_gmt ) ); ?>"><?php echo esc_html( pf_when( $c->comment_date_gmt ) ); ?></time>
+										<span class="comment-i" title="Meer info" aria-label="Meer info">i</span>
+									</summary>
+									<dl class="comment-info">
+										<dt>Datum</dt><dd><?php echo esc_html( wp_date( 'j F Y, H:i', strtotime( $c->comment_date_gmt . ' UTC' ) ) ); ?></dd>
+										<dt>Gameversie</dt><dd><?php echo esc_html( $pf_ver ?: 'onbekend' ); ?><?php echo $pf_ver && $pf_ver !== $g['version'] ? ' <span class="muted">(nu ' . esc_html( $g['version'] ) . ')</span>' : ''; ?></dd>
+									</dl>
+								</details>
 								<div class="comment-text"><?php echo nl2br( esc_html( $c->comment_content ) ); ?></div>
 							</li>
 						<?php endforeach; ?>

@@ -86,6 +86,17 @@ class PF_Scores {
 		return $out;
 	}
 
+	/** Drie letters A–Z die niet op de blokkeerlijst staan (ook gebruikt bij reacties). */
+	public static function initials_error( string $name ): ?WP_Error {
+		if ( ! preg_match( '/^[A-Z]{3}$/', $name ) ) {
+			return new WP_Error( 'pf_name', 'Kies drie letters.', [ 'status' => 400 ] );
+		}
+		if ( in_array( $name, self::BLOCKED, true ) || wp_check_comment_disallowed_list( $name, '', '', '', '', '' ) ) {
+			return new WP_Error( 'pf_name_blocked', 'Kies andere letters.', [ 'status' => 400 ] );
+		}
+		return null;
+	}
+
 	/* ---------- speelbewijs ---------- */
 
 	private static function key(): string {
@@ -155,11 +166,9 @@ class PF_Scores {
 		$run   = self::read_token( (string) $r['run'] );
 		$age   = $run ? time() - $run['time'] : 0;
 
-		if ( ! preg_match( '/^[A-Z]{3}$/', $name ) ) {
-			return new WP_Error( 'pf_name', 'Kies drie letters.', [ 'status' => 400 ] );
-		}
-		if ( in_array( $name, self::BLOCKED, true ) || wp_check_comment_disallowed_list( $name, '', '', '', '', '' ) ) {
-			return new WP_Error( 'pf_name_blocked', 'Kies andere letters.', [ 'status' => 400 ] );
+		$bad = self::initials_error( $name );
+		if ( $bad ) {
+			return $bad;
 		}
 		$max = (int) PF_Games::meta( $id, 'score_max', 0 );
 		if ( $score > ( $max ?: 1000000000 ) ) {

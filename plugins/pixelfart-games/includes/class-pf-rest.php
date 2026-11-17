@@ -14,6 +14,13 @@ class PF_Rest {
 
 	public static function init() {
 		add_action( 'rest_api_init', [ __CLASS__, 'routes' ] );
+		// Gameversie bij reacties in WP-admin (Reacties).
+		add_filter( 'manage_edit-comments_columns', fn( $c ) => array_slice( $c, 0, 3, true ) + [ 'pf_version' => 'Gameversie' ] + $c );
+		add_action( 'manage_comments_custom_column', function ( $col, $cid ) {
+			if ( 'pf_version' === $col ) {
+				echo esc_html( get_comment_meta( $cid, 'pf_version', true ) ?: '–' );
+			}
+		}, 10, 2 );
 	}
 
 	public static function routes() {
@@ -41,7 +48,8 @@ class PF_Rest {
 				'name' => [ 'type' => 'string', 'default' => '' ],
 				'text' => [ 'required' => true, 'type' => 'string' ],
 				'hp'   => [ 'type' => 'string', 'default' => '' ],
-				'altcha' => [ 'type' => 'string', 'default' => '' ],
+				'altcha'  => [ 'type' => 'string', 'default' => '' ],
+				'version' => [ 'type' => 'string', 'default' => '' ],
 			],
 		] );
 	}
@@ -100,6 +108,20 @@ class PF_Rest {
 		return $id;
 	}
 
+	/**
+	 * De versie die de bezoeker speelde: wat de pagina meestuurt, als die versie echt bestaat (de game kan
+	 * net bijgewerkt zijn terwijl iemand speelde). Anders de huidige versie.
+	 */
+	public static function played_version( int $id, string $sent ): string {
+		$current = (string) PF_Games::meta( $id, 'version', '1.0.0' );
+		if ( '' === $sent || $sent === $current ) {
+			return $current;
+		}
+		$known = wp_list_pluck( (array) ( get_post_meta( $id, '_pf_changelog', true ) ?: [] ), 'version' );
+		$known = array_merge( $known, array_values( PF_Games::versions( (string) PF_Games::meta( $id, 'code' ) ) ) );
+		return in_array( $sent, $known, true ) ? $sent : $current;
+	}
+
 	/* ---------- endpoints ---------- */
 
 	public static function play( WP_REST_Request $r ) {
@@ -153,7 +175,11 @@ class PF_Rest {
 		if ( ! comments_open( $id ) ) {
 			return new WP_Error( 'pf_closed', 'Reacties zijn gesloten voor deze game.', [ 'status' => 403 ] );
 		}
-		$name = mb_substr( sanitize_text_field( $r['name'] ), 0, 40 ) ?: 'Anoniem';
+		$name = strtoupper( trim( (string) $r['name'] ) );
+		$bad  = PF_Scores::initials_error( $name );
+		if ( $bad ) {
+			return $bad;
+		}
 		$text = mb_substr( sanitize_textarea_field( $r['text'] ), 0, 600 );
 		if ( mb_strlen( trim( $text ) ) < 2 ) {
 			return new WP_Error( 'pf_empty', 'Schrijf eerst iets.', [ 'status' => 400 ] );
@@ -185,6 +211,8 @@ class PF_Rest {
 		if ( ! $cid ) {
 			return new WP_Error( 'pf_fail', 'Opslaan mislukt.', [ 'status' => 500 ] );
 		}
+		// Op welke versie reageerde iemand? Handig bij een gemelde fout. De datum bewaart WordPress zelf.
+		add_comment_meta( $cid, 'pf_version', self::played_version( $id, (string) $r['version'] ), true );
 		wp_notify_moderator( $cid );
 		return [ 'ok' => true, 'pending' => true ];
 	}
