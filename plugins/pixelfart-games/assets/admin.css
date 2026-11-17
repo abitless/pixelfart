@@ -1,0 +1,14 @@
+.pf-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 20px; padding: 6px 0; }
+.pf-field label { display: block; font-weight: 600; margin-bottom: 6px; }
+.pf-field input[type=text], .pf-field input[type=date], .pf-field select, .pf-field textarea { width: 100%; }
+.pf-wide { grid-column: 1 / -1; }
+.pf-code { font-family: ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: 2px; }
+.pf-current { margin: 0 0 8px; }
+.pf-thumb { display: grid; grid-template-columns: 240px 1fr; gap: 20px; align-items: start; }
+.pf-thumb-preview { width: 240px; aspect-ratio: 4 / 3; background: repeating-linear-gradient(45deg, #ddd 0 8px, #f6f6f6 8px 16px); display: flex; align-items: center; justify-content: center; color: #666; }
+.pf-thumb-preview img { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+.pf-thumb-actions p { margin-top: 0; }
+.pf-check { display: inline-block; margin-left: 8px; }
+.pf-thumb-stage { grid-column: 1 / -1; }
+.pf-thumb-stage iframe { width: 480px; max-width: 100%; aspect-ratio: 4 / 3; border: 4px solid #000; background: #000; }
+@media (max-width: 782px) { .pf-thumb { grid-template-columns: 1fr; } }
