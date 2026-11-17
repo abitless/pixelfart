@@ -65,7 +65,7 @@ $pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( '
 					<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
 					<div class="robot" data-robot></div>
 					<div class="form-error" data-error hidden></div>
-					<p class="fine">We bewaren alleen je e-mailadres en sturen alleen mails over nieuwe games. Afmelden kan in elke mail. Jonger dan 16? Vraag het eerst aan je ouders.</p>
+					<p class="fine">We bewaren alleen je e-mailadres en sturen alleen mails over nieuwe games. Afmelden kan in elke mail. Jonger dan 16? Vraag het eerst aan je ouders. <a href="<?php echo esc_url( get_privacy_policy_url() ?: home_url( '/privacy/' ) ); ?>">Privacy</a></p>
 				</form>
 			</div>
 		<?php endif; ?>
@@ -73,7 +73,7 @@ $pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( '
 	<footer class="site-footer">
 		<div class="foot-left">
 			<span><span style="color:var(--green)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_option( 'pf_source_url' ) ?: '#' ); ?>">Open source</a></span>
-			<span><span style="color:var(--blue)" aria-hidden="true">■</span> Privacy first — geen cookies, geen tracking</span>
+			<span><span style="color:var(--blue)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_privacy_policy_url() ?: home_url( '/privacy/' ) ); ?>">Privacy first</a> — geen cookies, geen tracking</span>
 			<span><span style="color:var(--yellow)" aria-hidden="true">■</span> Een hobbyproject van vader &amp; zoon</span>
 		</div>
 		<div class="foot-right">
