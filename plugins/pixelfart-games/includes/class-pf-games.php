@@ -17,6 +17,10 @@ class PF_Games {
 	const CPT  = 'pf_game';
 	const AGES = [ 'ALL', '6+', '8+', '10+', '12+', '16+' ];
 
+	/** Licenties van de games: code en graphics/geluid (staan in game.json en op de spelerpagina). */
+	const LICENSE_CODE = 'GPL-3.0-or-later';
+	const LICENSE_ART  = 'CC-BY-SA-4.0';
+
 	/** Een game telt als NIEUW zolang hij korter dan dit aantal dagen online staat. */
 	const NEW_DAYS = 14;
 
@@ -196,6 +200,7 @@ class PF_Games {
 			'thumbnail'   => 'thumb.png',
 			'file'        => 'game.html',
 			'score'       => $g['score']['order'] ? $g['score'] : null,
+			'license'     => [ 'code' => self::LICENSE_CODE, 'art' => self::LICENSE_ART ],
 			'changelog'   => $g['changelog'],
 		];
 	}

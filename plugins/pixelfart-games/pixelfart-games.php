@@ -6,6 +6,8 @@
  * Author:      Bitless
  * Text Domain: pixelfart
  * Requires PHP: 8.2
+ * License:     GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -24,6 +26,7 @@ require_once PIXELFART_DIR . 'includes/class-pf-admin.php';
 require_once PIXELFART_DIR . 'includes/class-pf-rest.php';
 require_once PIXELFART_DIR . 'includes/class-pf-altcha.php';
 require_once PIXELFART_DIR . 'includes/class-pf-scores.php';
+require_once PIXELFART_DIR . 'includes/class-pf-makers.php';
 require_once PIXELFART_DIR . 'includes/class-pf-messages.php';
 
 PF_Games::init();
@@ -35,6 +38,7 @@ PF_Admin::init();
 PF_Rest::init();
 PF_Altcha::init();
 PF_Scores::init();
+PF_Makers::init();
 PF_Messages::init();
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {

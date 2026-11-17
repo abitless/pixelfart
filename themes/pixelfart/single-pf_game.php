@@ -82,6 +82,7 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 					<dt>Online sinds</dt><dd><?php echo esc_html( wp_date( 'j F Y', strtotime( $g['published'] ) ) ); ?></dd>
 					<dt>Versie</dt><dd><?php echo esc_html( $g['version'] ); ?> · <?php echo esc_html( $g['code'] ); ?></dd>
 					<dt>Gespeeld</dt><dd><span data-plays><?php echo esc_html( pf_num( $g['plays'] ) ); ?></span>×</dd>
+					<dt>Licentie</dt><dd><a href="https://www.gnu.org/licenses/gpl-3.0.html" rel="license noopener" target="_blank">GPL-3.0</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.nl" rel="license noopener" target="_blank">CC BY-SA</a></dd>
 				</dl>
 			</section>
 

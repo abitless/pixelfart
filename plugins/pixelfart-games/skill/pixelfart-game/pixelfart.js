@@ -1,5 +1,5 @@
 /*!
- * Pixelfart SDK 1.0 — klein hulpscript voor games op pixelfart.nl (GPL-3.0-or-later).
+ * Pixelfart SDK 1.0 — klein hulpscript voor games op pixelfart.nl. Licentie: GPL-2.0-or-later.
  *
  * Zet naast je game en laad bovenin <head>:   <script src="pixelfart.js"></script>
  * Op de site wordt dit automatisch vervangen door de nieuwste versie.
