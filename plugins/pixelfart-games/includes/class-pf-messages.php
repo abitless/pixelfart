@@ -50,6 +50,7 @@ class PF_Messages {
 				'email' => [ 'type' => 'string', 'default' => '' ],
 				'text'  => [ 'required' => true, 'type' => 'string' ],
 				'hp'    => [ 'type' => 'string', 'default' => '' ],
+				'altcha' => [ 'type' => 'string', 'default' => '' ],
 			],
 		] );
 	}
@@ -74,6 +75,14 @@ class PF_Messages {
 			if ( ! is_email( $email ) ) {
 				return new WP_Error( 'pf_email', 'Dat e-mailadres klopt niet helemaal.', [ 'status' => 400 ] );
 			}
+		}
+		$spam = PF_Rest::spammy( $name, $text, 3 );
+		if ( $spam ) {
+			return $spam;
+		}
+		$ok = PF_Altcha::verify( $r['altcha'] );
+		if ( is_wp_error( $ok ) ) {
+			return $ok;
 		}
 		if ( PF_Rest::throttled( 'msg', 20 ) ) {
 			return new WP_Error( 'pf_slow', 'Even wachten, je stuurde net al iets.', [ 'status' => 429 ] );

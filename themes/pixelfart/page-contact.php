@@ -18,6 +18,7 @@ the_post();
 		<label class="field"><span>E-MAIL</span><input class="input" name="email" type="email" autocomplete="email" required></label>
 		<label class="field"><span>BERICHT</span><textarea class="input" name="text" rows="5" required></textarea></label>
 		<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
+		<div class="robot" data-robot></div>
 		<div class="form-error" data-error hidden></div>
 		<noscript><p class="form-error">Het formulier werkt met JavaScript. Zet het aan, dan kun je ons een bericht sturen.</p></noscript>
 		<button type="submit" class="btn">VERSTUUR ▶</button>

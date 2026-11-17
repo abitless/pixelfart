@@ -184,6 +184,49 @@ textarea.input { resize: vertical; }
 .btn-ghost:hover { background: var(--ink); color: #000; }
 .btn-yellow { background: var(--yellow); box-shadow: none; font-size: 11px; }
 .form-error { color: var(--pink); }
+
+/* Robotcheck (ALTCHA) in pixelstijl: vierkant vinkje, harde randen, geen afronding of schaduw. */
+.robot:empty { display: none; }
+.robot { margin: 10px 4px 4px; }
+.robot .altcha {
+	--altcha-border-width: 0;
+	--altcha-border-radius: 0;
+	--altcha-color-base: #000;
+	--altcha-color-base-content: var(--ink);
+	--altcha-color-neutral: var(--line);
+	--altcha-color-neutral-content: var(--mute);
+	--altcha-color-primary: var(--green);
+	--altcha-color-primary-content: #000;
+	--altcha-color-success: var(--green);
+	--altcha-color-success-content: #000;
+	--altcha-color-error: var(--pink);
+	--altcha-color-error-content: #000;
+	--altcha-checkbox-size: 24px;
+	--altcha-checkbox-border-radius: 0;
+	--altcha-checkbox-border-width: 4px;
+	--altcha-checkbox-border-color: var(--line);
+	--altcha-checkbox-outline: 4px solid var(--ink);
+	--altcha-checkbox-transition-duration: 0s;
+	--altcha-input-border-radius: 0;
+	--altcha-max-width: 100%;
+	--altcha-padding: 10px 12px;
+	--altcha-shadow: none;
+	--altcha-spinner-color: var(--yellow);
+	--altcha-transition-duration: 0s;
+	font-family: var(--vt);
+	font-size: 22px;
+}
+.robot .altcha-main { box-shadow: 0 0 0 4px var(--dark); flex-direction: row; align-items: center; }
+.robot .altcha-footer { font-size: 18px; opacity: 1; color: var(--mute); }
+.robot .altcha-footer a:hover { color: var(--ink); }
+.robot .altcha[data-state=verified] .altcha-main { box-shadow: 0 0 0 4px var(--green); }
+.robot .altcha[data-state=error] .altcha-main, .robot .altcha[data-state=expired] .altcha-main { box-shadow: 0 0 0 4px var(--pink); }
+.robot .altcha-checkbox input:checked::before { transition: none; }
+/* Draaiend rondje → knipperend pixelblok */
+.robot .altcha-spinner { border: 0; border-radius: 0; background: var(--yellow); animation: robot-blink .5s steps(2) infinite; opacity: 1; }
+@keyframes robot-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .robot .altcha-spinner { animation: none; } }
+.robot .altcha-checkbox svg { stroke-linecap: square; stroke-linejoin: miter; stroke-width: 3; }
 .sent-box { box-shadow: 0 0 0 4px var(--green); padding: 20px; display: flex; flex-direction: column; gap: 12px; margin: 4px; }
 .sent-box strong { font-family: var(--pix); font-size: 12px; font-weight: 400; color: var(--green); }
 

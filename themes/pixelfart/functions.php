@@ -30,6 +30,12 @@ add_action( 'wp_enqueue_scripts', function () {
 	wp_localize_script( 'pixelfart', 'PF', [
 		'rest' => esc_url_raw( rest_url( 'pixelfart/v1/' ) ),
 		'home' => esc_url_raw( home_url( '/' ) ),
+		// ALTCHA (spamcheck) laden we pas als iemand een formulier gebruikt.
+		'altcha' => [
+			'js'     => get_theme_file_uri( 'assets/vendor/altcha/altcha.min.js' ) . '?v=3.5.0',
+			'css'    => get_theme_file_uri( 'assets/vendor/altcha/altcha.css' ) . '?v=3.5.0',
+			'worker' => get_theme_file_uri( 'assets/vendor/altcha/sha.js' ) . '?v=3.5.0',
+		],
 	] );
 
 	// Geen blok-CSS nodig: de paar blokken in pagina's stylen we zelf.

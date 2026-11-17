@@ -82,6 +82,7 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 						<label class="screen-reader-text" for="c-text">Reactie</label>
 						<textarea class="input" id="c-text" name="text" rows="3" placeholder="Wat vond je ervan?" maxlength="600"></textarea>
 						<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
+						<div class="robot" data-robot></div>
 						<div class="form-error" data-error hidden></div>
 						<div class="form-ok" data-ok hidden>Bedankt! Je reactie verschijnt zodra we hem gelezen hebben.</div>
 						<button type="submit" class="btn" disabled>PLAATS ▶</button>

@@ -22,6 +22,58 @@
 		return data;
 	}
 
+	/* ---------- robotcheck (ALTCHA, open source, zonder cookies) ----------
+	 * Pas geladen als iemand een formulier aanraakt: wie niets invult, laadt niets (scheelt data en stroom).
+	 * De browser rekent een kleine puzzel uit; de server controleert die met één handtekening.
+	 */
+	let altchaLib = null;
+	const loadAltcha = () => altchaLib || (altchaLib = (async () => {
+		const css = document.createElement('link');
+		css.rel = 'stylesheet'; css.href = PF.altcha.css;
+		document.head.append(css);
+		await import(PF.altcha.js);
+		const A = window.$altcha;
+		A.algorithms.set('SHA-256', () => new Worker(PF.altcha.worker));
+		A.i18n.set('nl', {
+			ariaLinkLabel: 'ALTCHA (opent een nieuwe pagina)', enterCode: 'Code', enterCodeAria: 'Voer de code in',
+			error: 'Check mislukt. Probeer opnieuw.', expired: 'Verlopen. Klik opnieuw.',
+			footer: '<a href="https://altcha.org/" target="_blank" rel="noopener">ALTCHA</a>',
+			getAudioChallenge: 'Code laten voorlezen', label: 'Ik ben geen robot', loading: 'Laden…', reload: 'Opnieuw',
+			verify: 'Check', verificationRequired: 'Vink eerst het vakje aan.', verified: 'Geen robot ✓',
+			verifying: 'Even rekenen…', waitAlert: 'Even rekenen… een moment.', cancel: 'Annuleer', enterCodeFromImage: 'Typ de code over.',
+		});
+	})());
+
+	/** Robotcheck voor één formulier. token() geeft de payload voor de server (en rekent zo nodig eerst). */
+	function robot(form) {
+		const slot = $('[data-robot]', form);
+		let widget = null;
+		const mount = async () => {
+			if (widget || !slot) return;
+			await loadAltcha();
+			widget = document.createElement('altcha-widget');
+			widget.setAttribute('challenge', PF.rest + 'altcha');
+			widget.setAttribute('language', 'nl');
+			widget.setAttribute('auto', 'onload');
+			widget.setAttribute('name', 'altcha');
+			widget.setAttribute('configuration', JSON.stringify({ hideLogo: true, humanInteractionSignature: false, minDuration: 300 }));
+			slot.append(widget);
+		};
+		form.addEventListener('focusin', mount, { once: true });
+		return {
+			async token() {
+				await mount();
+				if (!widget.verify) await new Promise((r) => widget.addEventListener('load', r, { once: true }));
+				if (widget.getState() !== 'verified') await widget.verify();
+				const input = $('input[name=altcha]', form);
+				const value = input ? input.value : '';
+				// Elke oplossing is eenmalig; bij een volgende keer versturen rekent hij opnieuw.
+				widget.reset();
+				return value;
+			},
+		};
+	}
+
 	/* ---------- grijpmachine-menu ---------- */
 	const nav = $('.claw-nav');
 	if (nav) {
@@ -210,6 +262,7 @@
 			$$('.idea-types button', form).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
 		}));
 		form.text.addEventListener('input', () => { submit.disabled = !form.text.value.trim(); });
+		const check = robot(form);
 		form.addEventListener('submit', async (e) => {
 			e.preventDefault();
 			err.hidden = true; submit.disabled = true;
@@ -218,6 +271,7 @@
 					kind: 'idee',
 					type: $('.idea-types [aria-pressed=true]', form).dataset.type,
 					text: form.text.value, name: form.name.value, hp: form.hp.value,
+					altcha: await check.token(),
 				});
 				count++;
 				form.text.value = '';
@@ -237,6 +291,7 @@
 		const sent = $('[data-sent]');
 		const btn = $('[type=submit]', contact);
 		const fail = (msg) => { err.textContent = msg; err.hidden = false; };
+		const check = robot(contact);
 		$$('input,textarea', contact).forEach((el) => el.addEventListener('input', () => { err.hidden = true; }));
 		contact.addEventListener('submit', async (e) => {
 			e.preventDefault();
@@ -245,7 +300,7 @@
 			if (!/^\S+@\S+\.\S+$/.test(f.email.value)) return fail('Dat e-mailadres klopt niet helemaal.');
 			btn.disabled = true;
 			try {
-				await api('messages', { kind: 'contact', name: f.name.value, email: f.email.value, text: f.text.value, hp: f.hp.value });
+				await api('messages', { kind: 'contact', name: f.name.value, email: f.email.value, text: f.text.value, hp: f.hp.value, altcha: await check.token() });
 				$('[data-sent-name]').textContent = f.name.value.trim();
 				contact.hidden = true; sent.hidden = false;
 				f.text.value = '';
@@ -330,12 +385,13 @@
 			const err = $('[data-error]', cf);
 			const ok = $('[data-ok]', cf);
 			cf.name.value = store.get('pf_name') || '';
+			const check = robot(cf);
 			cf.text.addEventListener('input', () => { btn.disabled = !cf.text.value.trim(); ok.hidden = true; err.hidden = true; });
 			cf.addEventListener('submit', async (e) => {
 				e.preventDefault();
 				btn.disabled = true; err.hidden = true;
 				try {
-					await api(`games/${id}/comments`, { name: cf.name.value, text: cf.text.value, hp: cf.hp.value });
+					await api(`games/${id}/comments`, { name: cf.name.value, text: cf.text.value, hp: cf.hp.value, altcha: await check.token() });
 					store.set('pf_name', cf.name.value.trim());
 					cf.text.value = '';
 					ok.hidden = false;

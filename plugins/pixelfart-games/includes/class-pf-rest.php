@@ -41,15 +41,44 @@ class PF_Rest {
 				'name' => [ 'type' => 'string', 'default' => '' ],
 				'text' => [ 'required' => true, 'type' => 'string' ],
 				'hp'   => [ 'type' => 'string', 'default' => '' ],
+				'altcha' => [ 'type' => 'string', 'default' => '' ],
 			],
 		] );
 	}
 
 	/* ---------- helpers ---------- */
 
+	/**
+	 * IP-adres van de bezoeker, alleen om te beperken (we slaan het nooit op).
+	 * X-Forwarded-For telt alleen als het verzoek van een proxy op het eigen netwerk komt; dan nemen we het laatste
+	 * adres (dat zet de proxy zelf). Anders kan een bot met een verzonnen header elke limiet omzeilen.
+	 */
+	public static function client_ip(): string {
+		$remote = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		$public = filter_var( $remote, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
+		if ( ! $public && ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+			$hops = array_map( 'trim', explode( ',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
+			$last = end( $hops );
+			if ( filter_var( $last, FILTER_VALIDATE_IP ) ) {
+				return $last;
+			}
+		}
+		return $remote;
+	}
+
+	/** Tekst die op spam lijkt: te veel links, of woorden uit Instellingen › Discussie › Niet-toegestane reacties. */
+	public static function spammy( string $name, string $text, int $max_links = 0 ): ?WP_Error {
+		if ( preg_match_all( '#https?://|www\.|\[url#i', $text ) > $max_links ) {
+			return new WP_Error( 'pf_links', 0 === $max_links ? 'Links zijn hier niet toegestaan.' : 'Er staan te veel links in je bericht.', [ 'status' => 400 ] );
+		}
+		if ( wp_check_comment_disallowed_list( $name, '', '', $text, '', '' ) ) {
+			return new WP_Error( 'pf_words', 'Dit bericht kunnen we niet plaatsen.', [ 'status' => 400 ] );
+		}
+		return null;
+	}
+
 	public static function visitor_key( string $scope ): string {
-		$ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-		$ip = trim( explode( ',', $ip )[0] );
+		$ip = self::client_ip();
 		return 'pf_' . $scope . '_' . substr( hash_hmac( 'sha256', $ip, wp_salt( 'nonce' ) ), 0, 24 );
 	}
 
@@ -124,6 +153,14 @@ class PF_Rest {
 		$text = mb_substr( sanitize_textarea_field( $r['text'] ), 0, 600 );
 		if ( mb_strlen( trim( $text ) ) < 2 ) {
 			return new WP_Error( 'pf_empty', 'Schrijf eerst iets.', [ 'status' => 400 ] );
+		}
+		$spam = self::spammy( $name, $text, 0 );
+		if ( $spam ) {
+			return $spam;
+		}
+		$ok = PF_Altcha::verify( $r['altcha'] );
+		if ( is_wp_error( $ok ) ) {
+			return $ok;
 		}
 		if ( self::throttled( 'comment', 30 ) ) {
 			return new WP_Error( 'pf_slow', 'Rustig aan! Wacht even voor je weer reageert.', [ 'status' => 429 ] );

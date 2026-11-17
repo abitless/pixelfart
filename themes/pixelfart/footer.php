@@ -38,6 +38,7 @@
 			<label class="screen-reader-text" for="idea-name">Je naam</label>
 			<input class="input" id="idea-name" name="name" placeholder="Je naam (mag ook leeg)" autocomplete="nickname">
 			<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
+			<div class="robot" data-robot></div>
 			<div class="form-error" data-error hidden></div>
 			<button type="submit" class="btn btn-yellow" disabled>VERSTUUR ▶</button>
 		</form>
