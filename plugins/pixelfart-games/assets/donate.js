@@ -13,12 +13,24 @@
 	const params = new URLSearchParams(location.search);
 	const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
+	// In wp-admin (beheerweergave van de muur) sturen we de REST-nonce mee; op de site niet.
+	const auth = PFD.nonce ? { 'X-WP-Nonce': PFD.nonce } : {};
+
+	/** Robotcheck (ALTCHA) van het thema, voor een formulier met een [data-robot]-vakje. */
+	// Pas opzoeken als het nodig is: het themascript kan na dit script laden.
+	const robot = (form) => {
+		let r = null;
+		const get = () => r || (r = window.pfRobot ? window.pfRobot(form) : null);
+		form.addEventListener('focusin', () => { const x = get(); if (x && x.mount) x.mount(); }, { once: true });
+		return { token: async () => { const x = get(); return x ? x.token() : ''; } };
+	};
+
 	async function api(path, body, method) {
 		const res = await fetch(PFD.rest + path, body ? {
 			method: method || 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: { 'Content-Type': 'application/json', ...auth },
 			body: JSON.stringify(body),
-		} : { method: method || 'GET' });
+		} : { method: method || 'GET', headers: auth, credentials: PFD.nonce ? 'same-origin' : 'omit' });
 		const data = await res.json().catch(() => ({}));
 		if (!res.ok) {
 			const err = new Error(data.message || 'Er ging iets mis. Probeer het zo nog eens.');
@@ -87,6 +99,7 @@
 		form.addEventListener('change', sync);
 		sync();
 		if (!here) return; // elders: gewoon het formulier naar de doneerpagina laten gaan
+		const check = robot(form);
 
 		form.addEventListener('submit', async (e) => {
 			e.preventDefault();
@@ -100,7 +113,7 @@
 			}
 			btn.disabled = true;
 			try {
-				const r = await api('donate', { amount, interval: monthly ? 'month' : 'once', email: monthly ? form.email.value.trim() : '', cover, hp: form.hp.value });
+				const r = await api('donate', { amount, interval: monthly ? 'month' : 'once', email: monthly ? form.email.value.trim() : '', cover, hp: form.hp.value, altcha: await check.token() });
 				location.href = r.checkout;
 			} catch (ex) {
 				err.textContent = ex.message;
@@ -141,6 +154,9 @@
 		try { const s = JSON.parse(store.get('pf_wall_sel') || '{}'); if (s.sel) sel = new Map(s.sel); if (Number.isInteger(s.color)) color = s.color; } catch (e) { /* oud */ }
 		const save = () => store.set('pf_wall_sel', sel.size ? JSON.stringify({ sel: [...sel], color }) : null);
 		const saved = new Map(sel); // zoals hij was voor het betalen, voor als de betaling mislukt
+		// Je eigen gekochte tekening die nog op goedkeuring wacht: alleen jij ziet hem (in deze browser).
+		let waiting = new Map();
+		try { const w = JSON.parse(store.get('pf_wall_wait') || '{}'); if (w.sel && w.until > Date.now()) waiting = new Map(w.sel); } catch (e) { /* oud */ }
 
 		const toCanvasY = (y) => (W.rows - 1 - y) * S; // y telt vanaf onder: zo groeit de muur naar boven
 
@@ -158,8 +174,20 @@
 					for (let i = 0; i < 10; i += 2) g.fillRect(x * S + i * u, cy + i * u, 2 * u, 2 * u);
 					continue;
 				}
+				if (who === -3) { // wacht op goedkeuring: grijs vlak, of je eigen tekening als hij van jou is
+					const own = waiting.get(k);
+					g.fillStyle = own === undefined ? '#333' : pal[own];
+					g.fillRect(x * S, cy, S, S);
+					g.fillStyle = own === undefined ? '#444' : 'rgba(0,0,0,.35)';
+					for (let i = 0; i < 10; i += 4) g.fillRect(x * S + i * u, cy + i * u, 2 * u, 2 * u);
+					continue;
+				}
 				g.fillStyle = who === -2 ? '#2a2a2a' : pal[c];
 				g.fillRect(x * S, cy, S, S);
+				if (who >= 0 && W.d[who] && W.d[who].r) { // beheerweergave: roze hoekje = wacht nog
+					g.fillStyle = '#ff5c8a';
+					g.fillRect(x * S + S - 3 * u, cy, 3 * u, 3 * u);
+				}
 			}
 			for (const [k, c] of sel) {
 				const [x, y] = k.split(',').map(Number), cy = toCanvasY(y);
@@ -204,7 +232,7 @@
 
 		async function load(keepScroll) {
 			const fromBottom = scroller.scrollHeight - scroller.scrollTop;
-			W = await api('pixels');
+			W = await api(PFD.preview ? 'pixels?preview=1' : 'pixels');
 			grid = new Map();
 			for (let i = 0; i < W.px.length; i += 4) grid.set(W.px[i] + ',' + W.px[i + 1], [W.px[i + 2], W.px[i + 3]]);
 			for (const k of [...sel.keys()]) {
@@ -254,10 +282,14 @@
 			focusDonor = who >= 0 ? who : -1;
 			if (who === -1) info.innerHTML = '<p>Voor deze pixel wordt nu betaald.</p>';
 			else if (who === -2) info.innerHTML = '<p>Deze pixels zijn verborgen.</p>';
+			else if (who === -3) info.innerHTML = waiting.has(x + ',' + y)
+				? '<p>Dit is jouw tekening. We bekijken hem nog even; daarna ziet iedereen hem, met je letters en je boodschap.</p>'
+				: '<p>Deze pixels zijn net gekocht. De tekening verschijnt zodra we hem bekeken hebben.</p>';
 			else {
 				const d = W.d[who];
 				info.innerHTML = `<div class="wall-who"><span class="comment-name">${esc(d.n)}</span><span>${esc(d.t)}</span><span>${d.k} ${d.k === 1 ? 'pixel' : 'pixels'}</span></div>`
-					+ (d.m ? `<p class="wall-says">${esc(d.m)}</p>` : d.w ? '<p class="fine">De boodschap wordt nog even gelezen.</p>' : '');
+					+ (d.m ? `<p class="wall-says">${esc(d.m)}</p>` : d.w ? '<p class="fine">De boodschap wordt nog even gelezen.</p>' : '')
+					+ (d.r ? '<p class="fine" style="color:var(--pink)">Wacht op goedkeuring: bezoekers zien hier nog een grijs vlak.</p>' : '');
 			}
 			info.insertAdjacentHTML('beforeend', '<button type="button" class="wall-close" aria-label="Sluiten">×</button>');
 			info.hidden = false;
@@ -332,7 +364,8 @@
 		}
 
 		/** Opnieuw laden (na een gelukte betaling) en de pixels van `keys` meteen uitlichten. */
-		const refresh = async (keys) => {
+		const refresh = async (keys, mineWaiting) => {
+			if (mineWaiting) waiting = mineWaiting;
 			await first;
 			await load(true);
 			const k = keys && [...keys].find((c) => grid.has(c));
@@ -374,6 +407,7 @@
 		paintPal();
 
 		const reset = $('[data-wall-reset]', root);
+		const check = robot(form);
 		const count = $('[data-wall-count]', form);
 		const btn = $('[data-submit]', form);
 		const left = $('[data-msg-left]', form);
@@ -410,7 +444,7 @@
 			btn.disabled = true;
 			try {
 				const pixels = [...sel].map(([k, c]) => [...k.split(',').map(Number), c]);
-				const r = await api('pixels', { pixels, name, message: form.message.value.trim(), cover: !!(form.kosten && form.kosten.checked), hp: form.hp.value });
+				const r = await api('pixels', { pixels, name, message: form.message.value.trim(), cover: !!(form.kosten && form.kosten.checked), hp: form.hp.value, altcha: await check.token() });
 				if (name) store.set('pf_initials', name);
 				store.set('pf_wall_msg', form.message.value.trim() || null);
 				location.href = r.checkout;
@@ -455,11 +489,14 @@
 						store.set('pf_wall_msg', null);
 						// De muur werd geladen toen de betaling nog liep: nu opnieuw, zodat je pixels meteen kleur hebben.
 						if (wallRefresh) {
-							let keys = null;
-							try { keys = new Set(JSON.parse(mine || '{}').sel.map((e) => e[0])); } catch (e) { /* geen tekening bewaard */ }
-							wallRefresh(keys).catch(() => {});
+							let keys = null, own = null;
+							try { own = new Map(JSON.parse(mine || '{}').sel); keys = new Set(own.keys()); } catch (e) { /* geen tekening bewaard */ }
+							if (own && s.review) store.set('pf_wall_wait', JSON.stringify({ sel: [...own], until: Date.now() + 30 * 864e5 }));
+							wallRefresh(keys, s.review ? own : null).catch(() => {});
 						}
-						box.innerHTML = `<strong>BEDANKT!</strong><span>Je ${s.pixels === 1 ? 'pixel staat' : s.pixels + ' pixels staan'} op de muur. Klik erop om ze terug te zien.${s.moderated ? ' Je boodschap verschijnt zodra we hem gelezen hebben.' : ''}</span>`;
+						box.innerHTML = s.review
+							? `<strong>BEDANKT!</strong><span>Je ${s.pixels === 1 ? 'pixel is' : s.pixels + ' pixels zijn'} van jou. We bekijken je tekening nog even (er spelen hier kinderen); daarna ziet iedereen hem. Jij ziet hem nu al.</span>`
+							: `<strong>BEDANKT!</strong><span>Je ${s.pixels === 1 ? 'pixel staat' : s.pixels + ' pixels staan'} op de muur. Klik erop om ze terug te zien.${s.moderated ? ' Je boodschap verschijnt zodra we hem gelezen hebben.' : ''}</span>`;
 					} else {
 						box.innerHTML = `<strong>BEDANKT!</strong><span>Je donatie van ${euro(s.amount)}${s.recurring ? ' per maand' : ''} is binnen. Super lief, daar kunnen we echt iets mee.${s.recurring ? ' Je krijgt een mail met een link om te stoppen, mocht je dat ooit willen.' : ''}</span>`;
 					}

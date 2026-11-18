@@ -21,7 +21,7 @@ class PF_Donations_Admin {
 
 	public static function menu() {
 		global $wpdb;
-		$wait  = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . PF_Donations::table() . " WHERE status = 'paid' AND msg_status = 'pending'" ); // phpcs:ignore
+		$wait  = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . PF_Donations::table() . " WHERE status = 'paid' AND ( msg_status = 'pending' OR review = 'pending' )" ); // phpcs:ignore
 		$badge = $wait ? ' <span class="awaiting-mod count-' . $wait . '"><span class="pending-count">' . $wait . '</span></span>' : '';
 		add_menu_page( 'Donaties', 'Donaties' . $badge, self::CAP, self::SLUG, [ __CLASS__, 'render' ], 'dashicons-heart', 26 );
 	}
@@ -33,6 +33,8 @@ class PF_Donations_Admin {
 		}
 		wp_enqueue_style( 'pixelfart-wall' );
 		wp_enqueue_script( 'pixelfart-donate' );
+		// Beheerweergave: ook tekeningen die nog wachten (de REST-route controleert de rechten).
+		wp_add_inline_script( 'pixelfart-donate', 'window.PFD = Object.assign(window.PFD || {}, ' . wp_json_encode( [ 'preview' => true, 'nonce' => wp_create_nonce( 'wp_rest' ) ] ) . ');', 'before' );
 		$font = static fn( string $f ) => esc_url( get_theme_file_uri( 'assets/fonts/' . $f ) );
 		wp_add_inline_style( 'pixelfart-wall', "
 @font-face { font-family: 'Press Start 2P'; src: url({$font( 'press-start-2p-latin.woff2' )}) format('woff2'); font-display: swap; }
@@ -93,6 +95,15 @@ class PF_Donations_Admin {
 		$msg = 'ok';
 		if ( $row ) {
 			switch ( $do ) {
+				case 'ok_all': // tekening, letters en boodschap goedkeuren
+					$wpdb->update( PF_Donations::table(), [ 'review' => 'approved' ] + ( '' !== $row['message'] ? [ 'msg_status' => 'approved' ] : [] ), [ 'id' => $id ] );
+					break;
+				case 'ok_drawing': // tekening en letters wel, boodschap niet
+					$wpdb->update( PF_Donations::table(), [ 'review' => 'approved' ] + ( '' !== $row['message'] ? [ 'msg_status' => 'hidden' ] : [] ), [ 'id' => $id ] );
+					break;
+				case 'deny': // niet op de muur: pixels verborgen, boodschap geweigerd
+					$wpdb->update( PF_Donations::table(), [ 'review' => 'rejected', 'hidden' => 1 ] + ( '' !== $row['message'] ? [ 'msg_status' => 'hidden' ] : [] ), [ 'id' => $id ] );
+					break;
 				case 'approve':
 					$wpdb->update( PF_Donations::table(), [ 'msg_status' => 'approved' ], [ 'id' => $id ] );
 					break;
@@ -100,8 +111,10 @@ class PF_Donations_Admin {
 					$wpdb->update( PF_Donations::table(), [ 'msg_status' => 'hidden' ], [ 'id' => $id ] );
 					break;
 				case 'hide':
-				case 'show':
-					$wpdb->update( PF_Donations::table(), [ 'hidden' => 'hide' === $do ? 1 : 0 ], [ 'id' => $id ] );
+					$wpdb->update( PF_Donations::table(), [ 'hidden' => 1 ], [ 'id' => $id ] );
+					break;
+				case 'show': // weer tonen = ook goedgekeurd
+					$wpdb->update( PF_Donations::table(), [ 'hidden' => 0 ] + ( 'pending' === $row['review'] || 'rejected' === $row['review'] ? [ 'review' => 'approved' ] : [] ), [ 'id' => $id ] );
 					break;
 				case 'free':
 					$wpdb->delete( PF_Donations::pixel_table(), [ 'donation_id' => $id ] );
@@ -116,6 +129,7 @@ class PF_Donations_Admin {
 					break;
 			}
 		}
+		do_action( 'litespeed_purge', 'pf_wall' );
 		wp_safe_redirect( add_query_arg( 'pf_msg', $msg, wp_get_referer() ?: self::url() ) );
 		exit;
 	}
@@ -188,12 +202,13 @@ class PF_Donations_Admin {
 		}
 		echo '</div><p class="description">Bedragen zijn wat donateurs betaalden, vóór de kosten van Mollie. Voor je boekhouding: het Mollie-dashboard heeft de officiële overzichten.</p>';
 
-		$wait = $wpdb->get_results( "SELECT * FROM $t WHERE status = 'paid' AND msg_status = 'pending' ORDER BY id DESC", ARRAY_A ); // phpcs:ignore
-		echo '<h2>Boodschappen die wachten</h2>';
+		$wait = $wpdb->get_results( "SELECT * FROM $t WHERE status = 'paid' AND ( msg_status = 'pending' OR review = 'pending' ) ORDER BY id DESC", ARRAY_A ); // phpcs:ignore
+		echo '<h2>Wacht op goedkeuring</h2>';
 		if ( ! $wait ) {
-			echo '<p>Niets te lezen. 👍</p>';
+			echo '<p>Niets te bekijken. 👍</p>';
 			return;
 		}
+		echo '<p class="description">Tekeningen, letters en boodschappen komen pas op de muur als je ze goedkeurt. Kijk ook even op het tabblad Pixelmuur: daar zie je de tekening tussen de rest (soms wordt iets pas vervelend naast andere pixels).</p>';
 		self::table_rows( $wait );
 	}
 
@@ -233,7 +248,7 @@ class PF_Donations_Admin {
 
 	private static function table_rows( array $rows ) {
 		$status = [ 'paid' => 'Betaald', 'open' => 'Open', 'failed' => 'Mislukt', 'canceled' => 'Geannuleerd', 'expired' => 'Verlopen' ];
-		echo '<table class="widefat striped"><thead><tr><th>Datum</th><th>Wat</th><th>Bedrag</th><th>Status</th><th>Naam</th><th>Boodschap</th><th>Acties</th></tr></thead><tbody>';
+		echo '<table class="widefat striped"><thead><tr><th>Datum</th><th>Wat</th><th>Bedrag</th><th>Status</th><th>Tekening</th><th>Naam</th><th>Boodschap</th><th>Acties</th></tr></thead><tbody>';
 		foreach ( $rows as $r ) {
 			$id   = (int) $r['id'];
 			$what = 'pixels' === $r['kind'] ? sprintf( '%d pixels', $r['pixels'] ) : ( $r['recurring'] ? ( $r['parent_id'] ? 'Maandelijks (afschrijving)' : 'Maandelijks' ) : 'Donatie' );
@@ -243,20 +258,30 @@ class PF_Donations_Admin {
 			if ( $r['cover'] ) {
 				$what .= ' · incl. kosten';
 			}
-			if ( $r['hidden'] ) {
+			if ( 'pending' === $r['review'] && 'paid' === $r['status'] ) {
+				$what .= ' · <strong>wacht op goedkeuring</strong>';
+			} elseif ( 'rejected' === $r['review'] ) {
+				$what .= ' · afgewezen';
+			} elseif ( $r['hidden'] ) {
 				$what .= ' · verborgen';
 			}
 			if ( $r['conflict'] ) {
 				$what .= ' · <strong title="Betaald na het verlopen van de reservering; een deel van de pixels was al verkocht.">botsing</strong>';
 			}
 			$acts = [];
-			if ( 'pending' === $r['msg_status'] || 'hidden' === $r['msg_status'] ) {
+			if ( 'pending' === $r['review'] && 'paid' === $r['status'] ) {
+				$acts[] = sprintf( '<a href="%s" style="font-weight:600">Goedkeuren</a>', esc_url( self::action_url( 'ok_all', $id ) ) );
+				if ( '' !== $r['message'] ) {
+					$acts[] = sprintf( '<a href="%s">Tekening wel, boodschap niet</a>', esc_url( self::action_url( 'ok_drawing', $id ) ) );
+				}
+				$acts[] = sprintf( '<a href="%s" style="color:#b32d2e">Afwijzen</a>', esc_url( self::action_url( 'deny', $id ) ) );
+			} elseif ( 'pending' === $r['msg_status'] || 'hidden' === $r['msg_status'] ) {
 				$acts[] = sprintf( '<a href="%s">Boodschap tonen</a>', esc_url( self::action_url( 'approve', $id ) ) );
 			}
-			if ( 'pending' === $r['msg_status'] || 'approved' === $r['msg_status'] ) {
+			if ( 'pending' !== $r['review'] && ( 'pending' === $r['msg_status'] || 'approved' === $r['msg_status'] ) ) {
 				$acts[] = sprintf( '<a href="%s">Boodschap weigeren</a>', esc_url( self::action_url( 'reject', $id ) ) );
 			}
-			if ( 'pixels' === $r['kind'] && 'paid' === $r['status'] ) {
+			if ( 'pixels' === $r['kind'] && 'paid' === $r['status'] && 'pending' !== $r['review'] ) {
 				$acts[] = $r['hidden']
 					? sprintf( '<a href="%s">Pixels weer tonen</a>', esc_url( self::action_url( 'show', $id ) ) )
 					: sprintf( '<a href="%s">Pixels verbergen</a>', esc_url( self::action_url( 'hide', $id ) ) );
@@ -270,18 +295,40 @@ class PF_Donations_Admin {
 			}
 			$msg = '' === $r['message'] ? '–' : esc_html( $r['message'] ) . ( 'pending' === $r['msg_status'] ? ' <em>(wacht)</em>' : ( 'hidden' === $r['msg_status'] ? ' <em>(geweigerd)</em>' : '' ) );
 			printf(
-				'<tr><td>%s</td><td>%s</td><td>%s</td><td class="st-%s">%s</td><td><code>%s</code></td><td class="msg">%s</td><td>%s</td></tr>',
+				'<tr><td>%s</td><td>%s</td><td>%s</td><td class="st-%s">%s</td><td>%s</td><td><code>%s</code></td><td class="msg">%s</td><td>%s</td></tr>',
 				esc_html( wp_date( 'j M Y H:i', strtotime( ( $r['paid'] ?: $r['created'] ) . ' UTC' ) ) ),
 				wp_kses( $what, [ 'strong' => [ 'title' => true ] ] ),
 				esc_html( PF_Donations::euro( (int) $r['amount'] ) ),
 				esc_attr( $r['status'] ),
 				esc_html( $status[ $r['status'] ] ?? $r['status'] ),
+				'pixels' === $r['kind'] ? self::drawing( (string) $r['pixel_data'] ) : '–', // phpcs:ignore -- eigen SVG met vaste kleuren
 				esc_html( $r['name'] ?: '–' ),
 				$msg, // phpcs:ignore -- hierboven ge-escaped
 				implode( ' · ', $acts ) ?: '–' // phpcs:ignore -- hierboven ge-escaped
 			);
 		}
 		echo '</tbody></table>';
+	}
+
+	/** Kleine afbeelding van een tekening (uit de bestelling zelf), om te kunnen beoordelen zonder de muur. */
+	private static function drawing( string $json ): string {
+		$px = json_decode( $json, true );
+		if ( ! is_array( $px ) || ! $px ) {
+			return '–';
+		}
+		$xs = array_map( fn( $p ) => (int) $p[0], $px );
+		$ys = array_map( fn( $p ) => (int) $p[1], $px );
+		$x0 = min( $xs );
+		$y1 = max( $ys );
+		$w  = max( $xs ) - $x0 + 1;
+		$h  = $y1 - min( $ys ) + 1;
+		$s  = max( 2, min( 8, intdiv( 96, max( $w, $h ) ) ) );
+		$out = sprintf( '<svg width="%d" height="%d" viewBox="0 0 %d %d" role="img" aria-label="Tekening" style="background:#000;padding:3px;display:block" shape-rendering="crispEdges">', $w * $s + 6, $h * $s + 6, $w, $h );
+		foreach ( $px as $p ) {
+			$c    = PF_Donations::PALETTE[ (int) $p[2] ] ?? '#fff';
+			$out .= sprintf( '<rect x="%d" y="%d" width="1" height="1" fill="%s"/>', (int) $p[0] - $x0, $y1 - (int) $p[1], esc_attr( $c ) );
+		}
+		return $out . '</svg>';
 	}
 
 	private static function tab_muur() {
@@ -296,7 +343,7 @@ class PF_Donations_Admin {
 			<label>Rijen erbij bovenaan: <input type="number" name="rows" value="4" min="1" max="48" style="width:70px"></label>
 			<?php submit_button( 'Muur uitbreiden', 'secondary', 'submit', false ); ?>
 		</form>
-		<p class="description">Dit is wat bezoekers zien. Klik op een pixel: alles wat in dezelfde bestelling zat, krijgt een geel randje. Verborgen pixels zijn donkergrijs, arceringen zijn pixels waarvoor nu betaald wordt. Boodschappen die nog gelezen moeten worden, keur je goed onder Lijst.</p>
+		<p class="description">Zo ziet de muur eruit, inclusief tekeningen die nog op goedkeuring wachten (die hebben een roze hoekje; bezoekers zien daar een grijs vlak). Klik op een pixel: alles uit dezelfde bestelling krijgt een geel randje. Verborgen pixels zijn donkergrijs, arceringen zijn pixels waarvoor nu betaald wordt. Goedkeuren doe je onder Overzicht.</p>
 		<?php
 	}
 
@@ -334,8 +381,9 @@ class PF_Donations_Admin {
 					<?php wp_dropdown_pages( [ 'name' => 'pf_donate_page', 'id' => 'pf_donate_page', 'selected' => PF_Donations::page_id(), 'show_option_none' => '— kies —', 'option_none_value' => 0 ] ); ?>
 					<p class="description">Hier wordt betaald. De blokken "Doneerknop" en "Doneren" elders op de site sturen bezoekers hierheen.</p>
 				</td></tr>
-				<tr><th>Boodschappen</th><td>
-					<label><input type="checkbox" name="pf_wall_moderate" value="1" <?php checked( PF_Donations::moderate() ); ?>> Eerst zelf lezen en goedkeuren (aanbevolen: er spelen kinderen mee)</label>
+				<tr><th>Goedkeuren</th><td>
+					<label><input type="checkbox" name="pf_wall_moderate" value="1" <?php checked( PF_Donations::moderate() ); ?>> Tekeningen, letters en boodschappen eerst zelf bekijken (aanbevolen: er spelen kinderen mee)</label>
+					<p class="description">Tot je een aankoop goedkeurt, zien bezoekers op die plek een grijs vlak. De koper ziet zijn eigen tekening wel.</p>
 				</td></tr>
 				<tr><th>Muur</th><td>
 					<label><input type="checkbox" name="pf_wall_autogrow" value="1" <?php checked( (bool) get_option( 'pf_wall_autogrow', 1 ) ); ?>> Vanzelf 4 rijen erbij als de muur voor 85% vol is</label>

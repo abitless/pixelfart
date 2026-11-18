@@ -40,6 +40,7 @@ $pf_text  = trim( (string) ( $attributes['text'] ?? '' ) );
 				<p class="fine">Alleen voor een bedankmail met een link om te stoppen. Stoppen kan altijd met één klik; daarna wissen we je adres.</p>
 			</div>
 			<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
+			<div class="robot" data-robot></div>
 		<?php endif; ?>
 		<?php if ( PF_Donations::fee( false ) ) : ?>
 			<label class="check"><input type="checkbox" name="kosten" value="1"> <span data-cover-label>Ik betaal de kosten van de betaaldienst ook</span></label>

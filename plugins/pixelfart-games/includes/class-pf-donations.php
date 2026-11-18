@@ -10,15 +10,19 @@
  *   met nepbetalingen. Op een echte site zonder sleutel staat doneren uit.
  *
  * Privacy: we bewaren bedrag, datum, en (bij pixels) drie letters, boodschap en de pixels. Alleen bij een
- * maandelijkse donatie een e-mailadres, voor de stoplink; dat wissen we zodra de donatie stopt.
- * Bankgegevens komen nooit bij ons: die blijven bij Mollie.
+ * maandelijkse donatie een e-mailadres, voor de stoplink; dat wissen we zodra de donatie stopt of de eerste
+ * betaling niet lukt. Bankgegevens komen nooit bij ons: die blijven bij Mollie.
+ *
+ * Veiligheid (kinderen kijken mee): met moderatie aan (standaard) komt een gekochte tekening pas op de muur
+ * nadat een beheerder hem goedkeurde, met de letters en de boodschap. Tot dan zien anderen een grijs vlak.
+ * Tegen misbruik: ALTCHA bij elke betaling en hooguit MAX_OPEN onbetaalde bestellingen per bezoeker tegelijk.
  */
 
 defined( 'ABSPATH' ) || exit;
 
 class PF_Donations {
 
-	const DB_VERSION  = '2';
+	const DB_VERSION  = '3';
 	const AMOUNTS     = [ 100, 200, 500, 1000 ]; // centen
 	const PIXEL_PRICE = 100;                     // centen per pf-pixel
 	const PIXEL_COLS  = 48;                      // breedte van de muur in pf-pixels (480 schermpixels)
@@ -26,6 +30,7 @@ class PF_Donations {
 	const MAX_PIXELS  = 100;                     // per keer
 	const RESERVE     = 30 * MINUTE_IN_SECONDS;  // zo lang blijven pixels vast tijdens het betalen
 	const MSG_MAX     = 140;
+	const MAX_OPEN    = 3;                       // onbetaalde bestellingen per bezoeker tegelijk
 
 	/** Kleuren van de muur (index = wat we opslaan). Zelfde tinten als de site, plus een paar extra. */
 	const PALETTE = [ '#f2f2f2', '#bdbdbd', '#6a6a6a', '#ff5c8a', '#ff4d4d', '#ff9a3c', '#ffcf4a', '#5dde7a', '#1f8a3c', '#6ec9ff', '#2c5bd6', '#b07cff', '#a0643c', '#ffc8a8' ];
@@ -82,6 +87,7 @@ class PF_Donations {
 			hidden tinyint(1) NOT NULL DEFAULT 0,
 			conflict tinyint(1) NOT NULL DEFAULT 0,
 			cover tinyint(1) NOT NULL DEFAULT 0,
+			review varchar(10) NOT NULL DEFAULT '',
 			created datetime NOT NULL,
 			paid datetime NULL,
 			PRIMARY KEY  (id),
@@ -99,6 +105,8 @@ class PF_Donations {
 			KEY donation_id (donation_id)
 		) $cc;" );
 		add_option( 'pf_wall_rows', self::START_ROWS );
+		// Van vóór versie 3: e-mailadressen van maanddonaties waarvan de eerste betaling niet lukte, alsnog wissen.
+		$wpdb->query( 'UPDATE ' . self::table() . " SET email = '' WHERE recurring = 1 AND parent_id = 0 AND status IN ('failed','canceled','expired')" ); // phpcs:ignore
 		update_option( 'pf_donations_db', self::DB_VERSION, true );
 	}
 
@@ -189,6 +197,7 @@ class PF_Donations {
 				'email'    => [ 'type' => 'string', 'default' => '' ],
 				'cover'    => [ 'type' => 'boolean', 'default' => false ],
 				'hp'       => [ 'type' => 'string', 'default' => '' ],
+				'altcha'   => [ 'type' => 'string', 'default' => '' ],
 			],
 		] );
 		register_rest_route( $ns, '/pixels', [
@@ -196,6 +205,7 @@ class PF_Donations {
 				'methods'             => 'GET',
 				'callback'            => [ __CLASS__, 'rest_wall' ],
 				'permission_callback' => '__return_true',
+				'args'                => [ 'preview' => [ 'type' => 'boolean', 'default' => false ] ],
 			],
 			[
 				'methods'             => 'POST',
@@ -207,6 +217,7 @@ class PF_Donations {
 					'message' => [ 'type' => 'string', 'default' => '' ],
 					'cover'   => [ 'type' => 'boolean', 'default' => false ],
 					'hp'      => [ 'type' => 'string', 'default' => '' ],
+					'altcha'  => [ 'type' => 'string', 'default' => '' ],
 				],
 			],
 		] );
@@ -241,7 +252,7 @@ class PF_Donations {
 				return new WP_Error( 'pf_email', 'Vul een e-mailadres in. Daar sturen we de link om te stoppen naartoe.', [ 'status' => 400 ] );
 			}
 		}
-		$busy = self::busy();
+		$busy = self::busy( $r );
 		if ( $busy ) {
 			return $busy;
 		}
@@ -277,31 +288,65 @@ class PF_Donations {
 				return $spam;
 			}
 		}
-		$busy = self::busy();
+		$busy = self::busy( $r );
 		if ( $busy ) {
 			return $busy;
 		}
+		$review = self::moderate();
 		return self::start( [
 			'kind'       => 'pixels',
 			'amount'     => count( $px ) * self::PIXEL_PRICE + ( $r['cover'] ? self::fee( false ) : 0 ),
 			'cover'      => $r['cover'] ? 1 : 0,
 			'name'       => $name,
 			'message'    => $msg,
-			'msg_status' => '' === $msg ? '' : ( self::moderate() ? 'pending' : 'approved' ),
+			'msg_status' => '' === $msg ? '' : ( $review ? 'pending' : 'approved' ),
+			'review'     => $review ? 'pending' : '', // tekening en letters eerst laten goedkeuren
 			'pixels'     => count( $px ),
 			'pixel_data' => wp_json_encode( $px ),
 		], $px );
 	}
 
-	/** Doneren uit, of te snel achter elkaar? */
-	private static function busy(): ?WP_Error {
+	/**
+	 * Doneren uit, een robot, te snel achter elkaar, of al te veel onbetaalde bestellingen?
+	 * Zonder die drempels kan een script de hele muur blijven reserveren en bij Mollie betalingen aanmaken.
+	 */
+	private static function busy( WP_REST_Request $r ): ?WP_Error {
 		if ( 'off' === self::mode() ) {
 			return new WP_Error( 'pf_off', 'Doneren kan op dit moment nog niet. Kom later terug!', [ 'status' => 503 ] );
+		}
+		$ok = PF_Altcha::verify( $r['altcha'] );
+		if ( is_wp_error( $ok ) ) {
+			return $ok;
 		}
 		if ( PF_Rest::throttled( 'donate', 5 ) ) {
 			return new WP_Error( 'pf_slow', 'Even wachten, je startte net al een betaling.', [ 'status' => 429 ] );
 		}
+		if ( count( self::open_orders() ) >= self::MAX_OPEN ) {
+			return new WP_Error( 'pf_open', 'Je hebt nog een paar betalingen openstaan. Rond die eerst af, of probeer het over een halfuur opnieuw.', [ 'status' => 429 ] );
+		}
 		return null;
+	}
+
+	/**
+	 * Onbetaalde bestellingen van deze bezoeker uit het afgelopen halfuur. We onthouden alleen kort (als transient,
+	 * onder de gehashte bezoekerssleutel) welke bestellingen dat waren; niets daarvan komt in de donatietabel.
+	 */
+	private static function open_orders(): array {
+		global $wpdb;
+		$ids = array_filter( array_map( 'intval', (array) get_transient( PF_Rest::visitor_key( 'orders' ) ) ) );
+		if ( ! $ids ) {
+			return [];
+		}
+		return array_map( 'intval', $wpdb->get_col( $wpdb->prepare( // phpcs:ignore
+			'SELECT id FROM ' . self::table() . " WHERE status = 'open' AND created > %s AND id IN (" . implode( ',', $ids ) . ')',
+			gmdate( 'Y-m-d H:i:s', time() - self::RESERVE )
+		) ) );
+	}
+
+	private static function remember_order( int $id ) {
+		$ids   = self::open_orders();
+		$ids[] = $id;
+		set_transient( PF_Rest::visitor_key( 'orders' ), $ids, self::RESERVE );
 	}
 
 	/** Controleer de gekozen pixels: [[x, y, kleur], …], binnen de muur, geen dubbele. */
@@ -380,9 +425,14 @@ class PF_Donations {
 		$checkout = self::checkout( array_merge( $d, [ 'id' => $id, 'token' => $token ] ) );
 		if ( is_wp_error( $checkout ) ) {
 			self::release( $id );
+			$row = self::row( 'id', $id );
+			if ( $row && $row['customer_id'] ) {
+				self::forget_customer( $row ); // klant bij Mollie al aangemaakt, betaling niet: niets laten staan
+			}
 			$wpdb->delete( self::table(), [ 'id' => $id ] );
 			return $checkout;
 		}
+		self::remember_order( $id );
 		return [ 'checkout' => $checkout, 'token' => $token ];
 	}
 
@@ -482,6 +532,9 @@ class PF_Donations {
 
 		if ( 'paid' !== $status ) {
 			self::release( (int) $row['id'] );
+			if ( $row['recurring'] && ! $row['parent_id'] ) {
+				self::forget_customer( $row ); // eerste maandbetaling niet gelukt: e-mailadres en klant bij Mollie wissen
+			}
 			return;
 		}
 		if ( 'pixels' === $row['kind'] ) {
@@ -560,6 +613,14 @@ class PF_Donations {
 		self::notify_admin( $row );
 	}
 
+	/** E-mailadres wissen en de klant (met dat e-mailadres) bij Mollie verwijderen. */
+	private static function forget_customer( array $row ) {
+		if ( $row['customer_id'] && 'mollie' === self::mode() ) {
+			PF_Mollie::delete_customer( $row['customer_id'] );
+		}
+		self::update( (int) $row['id'], [ 'email' => '', 'customer_id' => '' ] );
+	}
+
 	private static function hash( string $s ): string {
 		return hash_hmac( 'sha256', $s, wp_salt( 'auth' ) );
 	}
@@ -569,6 +630,9 @@ class PF_Donations {
 		if ( 'pixels' === $row['kind'] ) {
 			$subject = sprintf( '[Pixelfart] %d pixels gekocht', $row['pixels'] );
 			$body    = sprintf( "%s kocht %d pixels (%s).\n", $row['name'] ?: 'Iemand', $row['pixels'], self::euro( (int) $row['amount'] ) );
+			if ( 'pending' === $row['review'] ) {
+				$body .= "\nDe tekening wacht op je goedkeuring. Tot dan zien anderen een grijs vlak.\n";
+			}
 			if ( 'pending' === $row['msg_status'] ) {
 				$body .= "\nBoodschap (wacht op goedkeuring):\n" . $row['message'] . "\n";
 			}
@@ -595,7 +659,8 @@ class PF_Donations {
 			'amount'    => (int) $row['amount'],
 			'recurring' => (bool) $row['recurring'],
 			'pixels'    => (int) $row['pixels'],
-			'moderated' => 'pending' === $row['msg_status'],
+			'moderated' => 'pending' === $row['msg_status'] || 'pending' === $row['review'],
+			'review'    => 'paid' === $row['status'] && 'pending' === $row['review'],
 		];
 	}
 
@@ -691,43 +756,49 @@ class PF_Donations {
 
 	/**
 	 * De muur voor de browser, zo compact mogelijk:
-	 * px = [x, y, kleur, wie, …] met wie = index in d, -1 = gereserveerd (wordt betaald), -2 = verborgen.
+	 * px = [x, y, kleur, wie, …] met wie = index in d, -1 = gereserveerd (wordt betaald), -2 = verborgen,
+	 * -3 = wacht op goedkeuring (kleur 0: de tekening zelf gaat pas mee als hij goedgekeurd is).
+	 * $preview (alleen voor beheerders): wachtende tekeningen wél laten zien, met letters en boodschap.
 	 */
-	public static function wall(): array {
+	public static function wall( bool $preview = false ): array {
 		global $wpdb;
 		self::release_stale();
 		$rows  = $wpdb->get_results(
-			'SELECT p.x, p.y, p.color, d.id, d.status, d.hidden, d.name, d.message, d.msg_status, d.pixels, d.paid FROM ' . self::pixel_table() . ' p JOIN ' . self::table() . ' d ON d.id = p.donation_id ORDER BY d.id', // phpcs:ignore
+			'SELECT p.x, p.y, p.color, d.id, d.status, d.hidden, d.review, d.name, d.message, d.msg_status, d.pixels, d.paid FROM ' . self::pixel_table() . ' p JOIN ' . self::table() . ' d ON d.id = p.donation_id ORDER BY d.id', // phpcs:ignore
 			ARRAY_A
 		);
 		$px    = [];
 		$donor = [];
 		$index = [];
 		foreach ( $rows as $r ) {
+			$wait = 'pending' === $r['review'];
 			if ( 'paid' !== $r['status'] ) {
 				$who = -1;
 			} elseif ( $r['hidden'] ) {
 				$who = -2;
+			} elseif ( $wait && ! $preview ) {
+				$who = -3;
 			} else {
 				if ( ! isset( $index[ $r['id'] ] ) ) {
 					$index[ $r['id'] ] = count( $donor );
 					$donor[]           = [
 						'n' => $r['name'] ?: '???',
-						'm' => 'approved' === $r['msg_status'] ? $r['message'] : '',
+						'm' => 'approved' === $r['msg_status'] || ( $preview && 'pending' === $r['msg_status'] ) ? $r['message'] : '',
 						'w' => 'pending' === $r['msg_status'],
 						't' => wp_date( 'j M Y', strtotime( $r['paid'] . ' UTC' ) ),
 						'k' => (int) $r['pixels'],
+						'r' => $wait, // wacht op goedkeuring (alleen in de beheerweergave)
 					];
 				}
 				$who = $index[ $r['id'] ];
 			}
-			array_push( $px, (int) $r['x'], (int) $r['y'], (int) $r['color'], $who );
+			array_push( $px, (int) $r['x'], (int) $r['y'], -3 === $who ? 0 : (int) $r['color'], $who );
 		}
 		return [ 'cols' => self::PIXEL_COLS, 'rows' => self::rows(), 'px' => $px, 'd' => $donor ];
 	}
 
-	public static function rest_wall() {
-		$res = new WP_REST_Response( self::wall() );
+	public static function rest_wall( WP_REST_Request $r ) {
+		$res = new WP_REST_Response( self::wall( $r['preview'] && current_user_can( 'manage_options' ) ) );
 		$res->header( 'Cache-Control', 'no-store' );
 		return $res;
 	}

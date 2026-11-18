@@ -38,8 +38,9 @@ $pf_keys = function_exists( 'pf_key' ) ? pf_key( 'left' ) . pf_key( 'up' ) . pf_
 					<textarea class="input" name="message" rows="2" maxlength="<?php echo (int) PF_Donations::MSG_MAX; ?>" placeholder="Bijvoorbeeld: Flipperkoorts is de beste game!"></textarea>
 				</label>
 			</div>
-			<p class="fine" id="wall-name-help">Drie letters, geen echte naam. Iedereen die op je pixels klikt, ziet je letters, je boodschap, de datum en hoeveel pixels je kocht.<?php echo PF_Donations::moderate() ? ' Je boodschap verschijnt nadat wij hem gelezen hebben.' : ''; ?></p>
+			<p class="fine" id="wall-name-help">Drie letters, geen echte naam. Iedereen die op je pixels klikt, ziet je letters, je boodschap, de datum en hoeveel pixels je kocht.<?php echo PF_Donations::moderate() ? ' Er spelen hier kinderen: je tekening, letters en boodschap verschijnen nadat wij ze bekeken hebben. Jij ziet je tekening meteen.' : ''; ?></p>
 			<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
+			<div class="robot" data-robot></div>
 			<?php if ( PF_Donations::fee( false ) ) : ?>
 				<label class="check"><input type="checkbox" name="kosten" value="1"> <span data-cover-label>Ik betaal de kosten van de betaaldienst ook</span></label>
 			<?php endif; ?>

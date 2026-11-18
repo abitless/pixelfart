@@ -68,18 +68,25 @@
 		};
 		form.addEventListener('focusin', mount, { once: true });
 		return {
+			mount,
 			async token() {
 				await mount();
 				if (!widget.verify) await new Promise((r) => widget.addEventListener('load', r, { once: true }));
-				if (widget.getState() !== 'verified') await widget.verify();
-				const input = $('input[name=altcha]', form);
-				const value = input ? input.value : '';
+				const solved = () => { const i = $('input[name=altcha]', form); return i ? i.value : ''; };
+				// Net aangeklikt? Dan rekent de widget misschien al: daarop wachten in plaats van opnieuw te beginnen.
+				for (let i = 0; !solved() && widget.getState() === 'verifying' && i < 200; i++) await wait(50);
+				if (!solved() && widget.getState() !== 'verified') await widget.verify();
+				// Het verborgen veld wordt net ná "verified" gevuld: wie heel snel verstuurt, wacht hier heel even.
+				for (let i = 0; !solved() && i < 60; i++) await wait(50);
+				const value = solved();
 				// Elke oplossing is eenmalig; bij een volgende keer versturen rekent hij opnieuw.
 				widget.reset();
 				return value;
 			},
 		};
 	}
+
+	window.pfRobot = robot; // ook voor de doneerformulieren (plugin)
 
 	/* ---------- grijpmachine-menu ---------- */
 	const nav = $('.claw-nav');

@@ -15,7 +15,8 @@
 	.pf-wall .wall-title { font-size: 13px; gap: 10px; }
 	.wall-title-deco { display: none; }
 }
-.wall-info { position: relative; margin-top: 12px; padding: 12px 44px 12px 14px; box-shadow: inset 4px 0 0 var(--pink); background: #111; display: flex; flex-direction: column; gap: 6px; }
+/* width 0 + min-width 100%: een lange tekst maakt het kader niet breder dan de muur */
+.wall-info { box-sizing: border-box; width: 0; min-width: 100%; position: relative; margin-top: 12px; padding: 12px 44px 12px 14px; box-shadow: inset 4px 0 0 var(--pink); background: #111; display: flex; flex-direction: column; gap: 6px; }
 .wall-info p { margin: 0; }
 .wall-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; color: var(--dim); }
 .wall-who .comment-name { color: var(--yellow); }
