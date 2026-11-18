@@ -24,8 +24,11 @@ $pf_keys = function_exists( 'pf_key' ) ? pf_key( 'left' ) . pf_key( 'up' ) . pf_
 
 	<?php if ( $pf_here ) : ?>
 		<div class="wall-tools js-only">
-			<div class="wall-palette" data-wall-palette role="radiogroup" aria-label="Kleur"></div>
-			<p class="fine wall-help">Kies een kleur en klik op lege vakjes. Klik nog eens om een vakje weer leeg te maken.<?php if ( $pf_keys ) : ?> Of gebruik <span class="nf-keys" aria-hidden="true"><?php echo $pf_keys; // phpcs:ignore ?></span><?php endif; ?></p>
+			<div class="wall-paint">
+				<div class="wall-palette" data-wall-palette role="radiogroup" aria-label="Kleur"></div>
+				<button type="button" class="btn btn-ghost wall-reset" data-wall-reset disabled>RESET</button>
+			</div>
+			<p class="fine wall-help">Kies een kleur en klik op lege vakjes. Klik nog eens om een vakje weer leeg te maken, of begin opnieuw met RESET.<?php if ( $pf_keys ) : ?> Of gebruik <span class="nf-keys" aria-hidden="true"><?php echo $pf_keys; // phpcs:ignore ?></span><?php endif; ?></p>
 		</div>
 		<form class="wall-buy js-only" data-wall-buy novalidate hidden>
 			<p class="wall-count" data-wall-count></p>
@@ -44,7 +47,6 @@ $pf_keys = function_exists( 'pf_key' ) ? pf_key( 'left' ) . pf_key( 'up' ) . pf_
 			<div class="form-error" data-error hidden></div>
 			<div class="wall-actions">
 				<button type="submit" class="btn btn-pink" data-submit>KOOP</button>
-				<button type="button" class="btn btn-ghost" data-clear>WISSEN</button>
 			</div>
 			<p class="fine">Je betaalt veilig met iDEAL | Wero via Mollie. Jonger dan 16? Vraag het eerst aan je ouders.</p>
 		</form>

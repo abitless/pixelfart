@@ -334,12 +334,14 @@
 		});
 		paintPal();
 
+		const reset = $('[data-wall-reset]', root);
 		const count = $('[data-wall-count]', form);
 		const btn = $('[data-submit]', form);
 		const left = $('[data-msg-left]', form);
 		function update() {
 			const n = sel.size;
 			form.hidden = !n;
+			reset.disabled = !n;
 			if (!n) return;
 			const amount = n * PFD.price;
 			const cover = !!(form.kosten && form.kosten.checked);
@@ -355,7 +357,8 @@
 		form.message.addEventListener('input', msgLeft);
 		msgLeft();
 		if (form.kosten) form.kosten.addEventListener('change', update);
-		$('[data-clear]', form).addEventListener('click', () => { sel.clear(); changed(); cv.focus(); });
+		// Reset: je eigen (nog niet betaalde) tekening weghalen. Gekochte pixels blijven natuurlijk staan.
+		reset.addEventListener('click', () => { sel.clear(); changed(); cv.focus(); });
 
 		form.addEventListener('submit', async (e) => {
 			e.preventDefault();
