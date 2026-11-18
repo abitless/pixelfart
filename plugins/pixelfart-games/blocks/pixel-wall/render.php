@@ -33,6 +33,9 @@ $pf_keys = function_exists( 'pf_key' ) ? pf_key( 'left' ) . pf_key( 'up' ) . pf_
 			</div>
 			<p class="fine" id="wall-name-help">Drie letters, geen echte naam. Iedereen die op je pixels klikt, ziet je letters, je boodschap, de datum en hoeveel pixels je kocht.<?php echo PF_Donations::moderate() ? ' Je boodschap verschijnt nadat wij hem gelezen hebben.' : ''; ?></p>
 			<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
+			<?php if ( PF_Donations::fee( false ) ) : ?>
+				<label class="check"><input type="checkbox" name="kosten" value="1"> <span data-cover-label>Ik betaal de kosten van de betaaldienst ook</span></label>
+			<?php endif; ?>
 			<p class="fine pf-fee" data-fee></p>
 			<div class="form-error" data-error hidden></div>
 			<div class="wall-actions">

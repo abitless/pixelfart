@@ -79,6 +79,9 @@ $pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( '
 			<span><span style="color:var(--pink)" aria-hidden="true">■</span> <a href="<?php echo esc_url( $pf_ouders ? get_permalink( $pf_ouders ) : home_url( '/ouders/' ) ); ?>">Voor ouders</a></span>
 		</div>
 		<div class="foot-right">
+			<?php if ( class_exists( 'PF_Donations' ) ) : ?>
+				<a class="btn btn-pink foot-donate" href="<?php echo esc_url( PF_Donations::page_url() ); ?>"><?php echo pf_icon( 'heart', 2 ); // phpcs:ignore ?> DONEER</a>
+			<?php endif; ?>
 			<span>Hosting gesponsord door <a href="https://bitless.nl" target="_blank" rel="noopener">bitless</a></span>
 			<span class="mute">Super groene hosting · gehost in Nederland</span>
 		</div>

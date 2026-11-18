@@ -5,7 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PF_THEME_VERSION = '1.4.0';
+const PF_THEME_VERSION = '1.5.0';
 
 /** Pixel-bitmaps voor iconen in het thema ('#' = pixel). */
 const PF_BMP = [
@@ -81,7 +81,7 @@ add_action( 'wp_enqueue_scripts', function () {
 
 // Preload de twee fonts (klein, en zonder flits van een ander font).
 add_action( 'wp_head', function () {
-	foreach ( [ 'press-start-2p-latin', 'vt323-latin' ] as $f ) {
+	foreach ( [ 'press-start-2p-latin', 'pixelify-sans-latin' ] as $f ) {
 		printf( '<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' . "\n", esc_url( get_theme_file_uri( "assets/fonts/$f.woff2" ) ) );
 	}
 }, 1 );

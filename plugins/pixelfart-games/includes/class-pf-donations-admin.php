@@ -219,6 +219,9 @@ class PF_Donations_Admin {
 			if ( $r['recurring'] && ! $r['parent_id'] && $r['sub_status'] ) {
 				$what .= ' · ' . ( [ 'active' => 'loopt', 'canceled' => 'gestopt', 'failed' => 'niet gestart' ][ $r['sub_status'] ] ?? $r['sub_status'] );
 			}
+			if ( $r['cover'] ) {
+				$what .= ' · incl. kosten';
+			}
 			if ( $r['hidden'] ) {
 				$what .= ' · verborgen';
 			}

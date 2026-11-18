@@ -28,10 +28,17 @@
 		return data;
 	}
 
-	const feeText = (amount, monthly) => {
-		const fee = monthly ? PFD.fee.month : PFD.fee.once;
+	const feeOf = (monthly) => (monthly ? PFD.fee.month : PFD.fee.once);
+	/** Uitleg onder de knop: eerlijk wat er naar de betaaldienst gaat, of dat jij die kosten betaalt. */
+	const feeText = (amount, monthly, cover) => {
+		const fee = feeOf(monthly);
 		if (!fee || fee >= amount) return '';
+		if (cover) return `Je betaalt ${euro(amount + fee)}: zo gaat de hele ${euro(amount)} naar Pixelfart. Lief!`;
 		return `Hiervan gaat ongeveer ${euro(fee)} naar de betaaldienst${monthly ? ' (per keer)' : ''}. ${euro(amount - fee)} is voor Pixelfart.`;
+	};
+	const coverLabel = (form, monthly) => {
+		const l = $('[data-cover-label]', form);
+		if (l) l.textContent = `Ik betaal de kosten van de betaaldienst ook (${euro(feeOf(monthly))}${monthly ? ' per keer' : ''})`;
 	};
 
 	/** Meldingsvak bovenaan het eerste doneerblok (bedankt, mislukt, stoppen). */
@@ -58,11 +65,13 @@
 		const read = () => ({
 			amount: Number((form.bedrag.value || '1')) * 100,
 			monthly: form.per.value === 'maand',
+			cover: !!(form.kosten && form.kosten.checked),
 		});
 		const sync = () => {
-			const { amount, monthly } = read();
-			btn.textContent = `DONEER ${euro(amount)}${monthly ? ' PER MAAND' : ''} ▶`;
-			$('[data-fee]', form).textContent = feeText(amount, monthly);
+			const { amount, monthly, cover } = read();
+			btn.textContent = `DONEER ${euro(amount + (cover ? feeOf(monthly) : 0))}${monthly ? ' PER MAAND' : ''} ▶`;
+			$('[data-fee]', form).textContent = feeText(amount, monthly, cover);
+			coverLabel(form, monthly);
 			if (emailRow) emailRow.hidden = !monthly;
 		};
 		// Keuze meegenomen vanaf een andere pagina (?bedrag=5&per=maand).
@@ -72,6 +81,7 @@
 			const rp = p && $(`input[name="per"][value="${CSS.escape(p)}"]`, form);
 			if (rb) rb.checked = true;
 			if (rp) rp.checked = true;
+			if (form.kosten && params.get('kosten') === '1') form.kosten.checked = true;
 			if (rb || rp) requestAnimationFrame(() => { w.scrollIntoView({ block: 'center' }); btn.focus({ preventScroll: true }); });
 		}
 		form.addEventListener('change', sync);
@@ -80,7 +90,7 @@
 
 		form.addEventListener('submit', async (e) => {
 			e.preventDefault();
-			const { amount, monthly } = read();
+			const { amount, monthly, cover } = read();
 			err.hidden = true;
 			if (monthly && (!form.email.value.trim() || !form.email.checkValidity())) {
 				err.textContent = 'Vul je e-mailadres in. Daar sturen we de link om te stoppen naartoe.';
@@ -90,7 +100,7 @@
 			}
 			btn.disabled = true;
 			try {
-				const r = await api('donate', { amount, interval: monthly ? 'month' : 'once', email: monthly ? form.email.value.trim() : '', hp: form.hp.value });
+				const r = await api('donate', { amount, interval: monthly ? 'month' : 'once', email: monthly ? form.email.value.trim() : '', cover, hp: form.hp.value });
 				location.href = r.checkout;
 			} catch (ex) {
 				err.textContent = ex.message;
@@ -307,9 +317,11 @@
 			form.hidden = !n;
 			if (!n) return;
 			const amount = n * PFD.price;
+			const cover = !!(form.kosten && form.kosten.checked);
 			count.textContent = `${n} ${n === 1 ? 'pixel' : 'pixels'} gekozen · ${euro(amount)}`;
-			btn.textContent = `KOOP ${n === 1 ? 'PIXEL' : n + ' PIXELS'} VOOR ${euro(amount)} ▶`;
-			$('[data-fee]', form).textContent = feeText(amount, false);
+			btn.textContent = `KOOP ${n === 1 ? 'PIXEL' : n + ' PIXELS'} VOOR ${euro(amount + (cover ? feeOf(false) : 0))} ▶`;
+			$('[data-fee]', form).textContent = feeText(amount, false, cover);
+			coverLabel(form, false);
 		}
 		const nameIn = form.elements.namedItem('name'); // niet form.name: dat is de naam van het formulier zelf
 		nameIn.value = store.get('pf_initials') || '';
@@ -317,6 +329,7 @@
 		const msgLeft = () => { left.textContent = `(nog ${form.message.maxLength - form.message.value.length})`; };
 		form.message.addEventListener('input', msgLeft);
 		msgLeft();
+		if (form.kosten) form.kosten.addEventListener('change', update);
 		$('[data-clear]', form).addEventListener('click', () => { sel.clear(); changed(); cv.focus(); });
 
 		form.addEventListener('submit', async (e) => {
@@ -328,7 +341,7 @@
 			btn.disabled = true;
 			try {
 				const pixels = [...sel].map(([k, c]) => [...k.split(',').map(Number), c]);
-				const r = await api('pixels', { pixels, name, message: form.message.value.trim(), hp: form.hp.value });
+				const r = await api('pixels', { pixels, name, message: form.message.value.trim(), cover: !!(form.kosten && form.kosten.checked), hp: form.hp.value });
 				if (name) store.set('pf_initials', name);
 				location.href = r.checkout;
 			} catch (ex) {

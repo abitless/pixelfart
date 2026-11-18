@@ -1,14 +1,14 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.4.0
+Version: 1.5.0
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
 License: GNU General Public License v2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Fonts: Press Start 2P (CodeMan38) en VT323 (Peter Hull), beide SIL Open Font License 1.1, lokaal in assets/fonts.
+Fonts: Press Start 2P (CodeMan38), Pixelify Sans (Stefie Justprince) en VT323 (Peter Hull), alle SIL Open Font License 1.1, lokaal in assets/fonts.
 ALTCHA 3.5.0 (MIT) in assets/vendor/altcha.
 */
 
@@ -28,12 +28,15 @@ ALTCHA 3.5.0 (MIT) in assets/vendor/altcha.
 	--pink: #ff5c8a;
 	--pix: 'Press Start 2P', ui-monospace, monospace;
 	--vt: 'VT323', ui-monospace, monospace;
+	--txt: 'Pixelify Sans', system-ui, sans-serif; /* leesletter: pixelig, maar goed leesbaar. Raster = 1/11 em, dus 22px is haarscherp */
 	--gutter: clamp(16px, 4vw, 56px);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: none; }
-body { font-family: var(--vt); font-size: 22px; line-height: 1.2; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+/* de pixelkoppen zonder randjes; de leesletter mag zacht, dat leest beter bij kleinere maten */
+.h-pix, .btn, .logo, .wp-element-button, h1, h2, h3, h4 { -webkit-font-smoothing: none; }
+body { font-family: var(--txt); font-size: 22px; line-height: 1.4; }
 a { color: var(--green); text-decoration: none; }
 a:hover { color: var(--ink); text-decoration: underline; }
 ::selection { background: var(--ink); color: #000; }
@@ -91,7 +94,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 
 /* tags */
 .tag-menu { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 28px; padding: 0; list-style: none; }
-.tag-btn { display: flex; align-items: center; gap: 10px; margin: 4px; padding: 8px 12px 8px 10px; font-family: var(--vt); font-size: 22px; line-height: 1; background: #000; color: var(--dim); box-shadow: 0 0 0 4px var(--dark); }
+.tag-btn { display: flex; align-items: center; gap: 10px; margin: 4px; padding: 8px 12px 8px 10px; font-family: var(--txt); font-size: 22px; line-height: 1; background: #000; color: var(--dim); box-shadow: 0 0 0 4px var(--dark); }
 .tag-btn:hover { box-shadow: 0 0 0 4px var(--ink); color: var(--dim); text-decoration: none; }
 .tag-btn.is-active { background: var(--ink); color: #000; box-shadow: 0 0 0 4px var(--ink); }
 .tag-btn .n { opacity: .55; }
@@ -175,7 +178,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 /* ---------- formulieren ---------- */
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field > span { font-family: var(--pix); font-size: 10px; }
-.input { background: #000; color: var(--ink); border: 0; box-shadow: 0 0 0 4px var(--line); padding: 10px 12px; font-family: var(--vt); font-size: 22px; outline: none; margin: 4px; border-radius: 0; }
+.input { background: #000; color: var(--ink); border: 0; box-shadow: 0 0 0 4px var(--line); padding: 10px 12px; font-family: var(--txt); font-size: 22px; outline: none; margin: 4px; border-radius: 0; }
 .input:focus { box-shadow: 0 0 0 4px var(--ink); }
 textarea.input { resize: vertical; }
 .input::placeholder { color: var(--line); }
@@ -217,7 +220,7 @@ textarea.input { resize: vertical; }
 	--altcha-shadow: none;
 	--altcha-spinner-color: var(--yellow);
 	--altcha-transition-duration: 0s;
-	font-family: var(--vt);
+	font-family: var(--txt);
 	font-size: 22px;
 }
 .robot .altcha-main { box-shadow: 0 0 0 4px var(--dark); flex-direction: row; align-items: center; }
@@ -294,10 +297,12 @@ textarea.input { resize: vertical; }
 .foot-left { flex: 1 1 360px; display: flex; flex-wrap: wrap; gap: 10px 28px; }
 .foot-right { display: flex; flex-direction: column; gap: 4px; text-align: right; }
 .foot-right .mute { color: var(--mute); }
+.foot-right .foot-donate { align-self: flex-end; margin: 0 0 12px; }
+@media (max-width: 760px) { .foot-right .foot-donate { align-self: flex-start; } }
 
 /* ---------- soort idee ---------- */
 .idea-types { display: flex; flex-wrap: wrap; gap: 10px; }
-.idea-types button { border: 0; cursor: pointer; margin: 4px; padding: 8px 12px; font-family: var(--vt); font-size: 22px; line-height: 1; background: #000; color: var(--yellow); box-shadow: 0 0 0 4px var(--yellow); }
+.idea-types button { border: 0; cursor: pointer; margin: 4px; padding: 8px 12px; font-family: var(--txt); font-size: 22px; line-height: 1; background: #000; color: var(--yellow); box-shadow: 0 0 0 4px var(--yellow); }
 .idea-types button[aria-pressed="true"] { background: var(--yellow); color: #000; }
 
 /* ---------- speler ---------- */
@@ -349,6 +354,7 @@ textarea.input { resize: vertical; }
 .fs-exit { position: absolute; top: 8px; right: 8px; z-index: 5; }
 
 @media (max-width: 760px) {
+	.tag-btn { font-size: 18px; padding: 6px 10px 6px 8px; }
 	body { font-size: 20px; }
 	.site-header { padding-top: 20px; }
 	.player-bar { flex-wrap: wrap; padding: 10px 12px; gap: 10px 8px; }
@@ -453,3 +459,5 @@ textarea.input { resize: vertical; }
 .wall-msg small { font-size: 18px; color: var(--line); }
 .wall-msg .input { width: calc(100% - 8px); resize: vertical; }
 .wall-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.check { display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--dim); line-height: 1.2; }
+.check input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--pink); cursor: pointer; }

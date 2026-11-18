@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
 
 class PF_Donations {
 
-	const DB_VERSION  = '1';
+	const DB_VERSION  = '2';
 	const AMOUNTS     = [ 100, 200, 500, 1000 ]; // centen
 	const PIXEL_PRICE = 100;                     // centen per pf-pixel
 	const PIXEL_COLS  = 48;                      // breedte van de muur in pf-pixels (480 schermpixels)
@@ -81,6 +81,7 @@ class PF_Donations {
 			pixel_data mediumtext NULL,
 			hidden tinyint(1) NOT NULL DEFAULT 0,
 			conflict tinyint(1) NOT NULL DEFAULT 0,
+			cover tinyint(1) NOT NULL DEFAULT 0,
 			created datetime NOT NULL,
 			paid datetime NULL,
 			PRIMARY KEY  (id),
@@ -185,6 +186,7 @@ class PF_Donations {
 				'amount'   => [ 'required' => true, 'type' => 'integer', 'enum' => self::AMOUNTS ],
 				'interval' => [ 'type' => 'string', 'enum' => [ 'once', 'month' ], 'default' => 'once' ],
 				'email'    => [ 'type' => 'string', 'default' => '' ],
+				'cover'    => [ 'type' => 'boolean', 'default' => false ],
 				'hp'       => [ 'type' => 'string', 'default' => '' ],
 			],
 		] );
@@ -202,6 +204,7 @@ class PF_Donations {
 					'pixels'  => [ 'required' => true, 'type' => 'array' ],
 					'name'    => [ 'type' => 'string', 'default' => '' ],
 					'message' => [ 'type' => 'string', 'default' => '' ],
+					'cover'   => [ 'type' => 'boolean', 'default' => false ],
 					'hp'      => [ 'type' => 'string', 'default' => '' ],
 				],
 			],
@@ -244,7 +247,8 @@ class PF_Donations {
 		return self::start( [
 			'kind'      => 'gift',
 			'recurring' => $monthly ? 1 : 0,
-			'amount'    => (int) $r['amount'],
+			'amount'    => (int) $r['amount'] + ( $r['cover'] ? self::fee( $monthly ) : 0 ), // "ik betaal de kosten ook"
+			'cover'     => $r['cover'] ? 1 : 0,
 			'email'     => $email,
 		] );
 	}
@@ -278,7 +282,8 @@ class PF_Donations {
 		}
 		return self::start( [
 			'kind'       => 'pixels',
-			'amount'     => count( $px ) * self::PIXEL_PRICE,
+			'amount'     => count( $px ) * self::PIXEL_PRICE + ( $r['cover'] ? self::fee( false ) : 0 ),
+			'cover'      => $r['cover'] ? 1 : 0,
 			'name'       => $name,
 			'message'    => $msg,
 			'msg_status' => '' === $msg ? '' : ( self::moderate() ? 'pending' : 'approved' ),

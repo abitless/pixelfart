@@ -41,6 +41,9 @@ $pf_text  = trim( (string) ( $attributes['text'] ?? '' ) );
 			</div>
 			<label class="hp" aria-hidden="true">Website <input name="hp" tabindex="-1" autocomplete="off"></label>
 		<?php endif; ?>
+		<?php if ( PF_Donations::fee( false ) ) : ?>
+			<label class="check"><input type="checkbox" name="kosten" value="1"> <span data-cover-label>Ik betaal de kosten van de betaaldienst ook</span></label>
+		<?php endif; ?>
 		<p class="fine pf-fee" data-fee></p>
 		<div class="form-error" data-error hidden></div>
 		<button type="submit" class="btn btn-pink" data-submit>DONEER <?php echo esc_html( PF_Donations::euro( PF_Donations::AMOUNTS[0] ) ); ?> ▶</button>
