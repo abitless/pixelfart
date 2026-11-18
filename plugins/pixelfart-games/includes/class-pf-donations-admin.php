@@ -310,6 +310,16 @@ class PF_Donations_Admin {
 						Begin met de <code>test_</code>-sleutel om alles uit te proberen.
 					</p>
 				</td></tr>
+				<tr><th>Ondertekenen</th><td>
+					<?php if ( PF_Mollie::signing_broken() ) : ?>
+						<p><strong style="color:#b32d2e">De sleutel uit <code>PIXELFART_MOLLIE_SIGNING_KEY</code> is niet te lezen.</strong> Betalingen starten nu niet. Controleer het pad en of PHP het bestand mag lezen; het moet een Ed25519-sleutel in PEM zijn.</p>
+					<?php elseif ( PF_Mollie::signing_key() ) : ?>
+						<p>Aan. Elk verzoek naar Mollie krijgt een Ed25519-handtekening. Deze publieke sleutel hoort bij je API-sleutel in het Mollie-dashboard:</p>
+						<textarea class="large-text code" rows="3" readonly onclick="this.select()"><?php echo esc_textarea( PF_Mollie::signing_public_pem() ); ?></textarea>
+					<?php else : ?>
+						<p class="description">Uit. Zet <code>define( 'PIXELFART_MOLLIE_SIGNING_KEY', '/pad/naar/mollie-ed25519.pem' );</code> in wp-config.php, met het bestand buiten de webroot.</p>
+					<?php endif; ?>
+				</td></tr>
 				<tr><th><label for="pf_donate_page">Doneerpagina</label></th><td>
 					<?php wp_dropdown_pages( [ 'name' => 'pf_donate_page', 'id' => 'pf_donate_page', 'selected' => PF_Donations::page_id(), 'show_option_none' => '— kies —', 'option_none_value' => 0 ] ); ?>
 					<p class="description">Hier wordt betaald. De blokken "Doneerknop" en "Doneren" elders op de site sturen bezoekers hierheen.</p>
