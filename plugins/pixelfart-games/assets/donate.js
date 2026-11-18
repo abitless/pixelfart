@@ -115,7 +115,11 @@
 	if (wall) initWall(wall);
 
 	function initWall(root) {
-		const S = 10; // één pf-pixel = 10×10 schermpixels
+		// Eén pf-pixel is 10×10 punten op de muur; op het scherm schalen we dat mee met de ruimte,
+		// altijd met een heel aantal schermpixels per vakje, zodat de muur scherp blijft.
+		const MAX_W = 960;   // breder dan dit wordt de muur niet (20 px per vakje)
+		const SHOW_ROWS = 32; // zoveel rijen zie je tegelijk; de rest scrollt
+		let S = 10, u = 1;    // S = schermpixels per vakje (in canvaspixels), u = S / 10 voor de details
 		const here = root.hasAttribute('data-here');
 		const cv = $('[data-wall-canvas]', root);
 		const g = cv.getContext('2d');
@@ -141,12 +145,13 @@
 			g.fillRect(0, 0, cv.width, cv.height);
 			// lege vakjes: een stipje in het midden
 			g.fillStyle = '#262626';
-			for (let y = 0; y < W.rows; y++) for (let x = 0; x < W.cols; x++) g.fillRect(x * S + 4, toCanvasY(y) + 4, 2, 2);
+			const dot = Math.max(1, 2 * u), mid = (S - dot) / 2 | 0;
+			for (let y = 0; y < W.rows; y++) for (let x = 0; x < W.cols; x++) g.fillRect(x * S + mid, toCanvasY(y) + mid, dot, dot);
 			for (const [k, [c, who]] of grid) {
 				const [x, y] = k.split(',').map(Number), cy = toCanvasY(y);
 				if (who === -1) { // er wordt nu voor betaald
 					g.fillStyle = '#3a3a3a';
-					for (let i = 0; i < S; i += 2) g.fillRect(x * S + i, cy + i, 2, 2);
+					for (let i = 0; i < 10; i += 2) g.fillRect(x * S + i * u, cy + i * u, 2 * u, 2 * u);
 					continue;
 				}
 				g.fillStyle = who === -2 ? '#2a2a2a' : pal[c];
@@ -157,9 +162,9 @@
 				g.fillStyle = pal[c];
 				g.fillRect(x * S, cy, S, S);
 				g.fillStyle = '#000'; // hoekje: deze zijn van jou (nog niet betaald)
-				g.fillRect(x * S, cy, 3, 3);
+				g.fillRect(x * S, cy, 3 * u, 3 * u);
 				g.fillStyle = '#fff';
-				g.fillRect(x * S, cy, 2, 2);
+				g.fillRect(x * S, cy, 2 * u, 2 * u);
 			}
 			if (focusDonor >= 0) { // de rest wat donkerder, zodat je ziet wat bij elkaar hoort
 				g.fillStyle = 'rgba(0,0,0,.65)';
@@ -171,8 +176,8 @@
 			const ring = cursor || hover;
 			if (ring) {
 				g.strokeStyle = '#ffcf4a';
-				g.lineWidth = 2;
-				g.strokeRect(ring[0] * S + 1, toCanvasY(ring[1]) + 1, S - 2, S - 2);
+				g.lineWidth = 2 * u;
+				g.strokeRect(ring[0] * S + u, toCanvasY(ring[1]) + u, S - 2 * u, S - 2 * u);
 			}
 		}
 
@@ -185,13 +190,33 @@
 				const [x, y] = k.split(',').map(Number);
 				if (grid.has(k) || x >= W.cols || y >= W.rows) sel.delete(k); // intussen verkocht
 			}
-			cv.width = W.cols * S;
-			cv.height = W.rows * S;
-			cv.style.aspectRatio = `${W.cols} / ${W.rows}`;
+			fit();
 			draw();
 			scroller.scrollTop = keepScroll ? scroller.scrollHeight - fromBottom : scroller.scrollHeight; // onderaan beginnen
 			update();
 		}
+
+		/** Hoe groot kan de muur? Zo breed als de pagina (niet alleen de tekstkolom), tot MAX_W. */
+		function fit() {
+			const dpr = window.devicePixelRatio || 1;
+			const main = root.closest('.site-main') || document.body;
+			const cs = getComputedStyle(main);
+			const room = main.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+			const frame = getComputedStyle(scroller.parentElement);
+			const chrome = parseFloat(frame.paddingLeft) + parseFloat(frame.paddingRight) + 2 * 4 + 16; // rand van het kader + scrollbalk
+			const css = Math.max(W.cols * 4, Math.min(MAX_W, room - chrome));
+			const s = Math.max(4, Math.floor(css * dpr / W.cols)); // hele schermpixels per vakje
+			if (s === S && cv.width === W.cols * S && cv.height === W.rows * S) return;
+			S = s; u = Math.max(1, Math.round(S / 10));
+			cv.width = W.cols * S;
+			cv.height = W.rows * S;
+			cv.style.width = (cv.width / dpr) + 'px';
+			cv.style.aspectRatio = `${W.cols} / ${W.rows}`;
+			scroller.style.maxHeight = (SHOW_ROWS * S / dpr + 8) + 'px';
+			draw();
+		}
+		let fitT = 0;
+		window.addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(fit, 100); });
 
 		function cellAt(e) {
 			const r = cv.getBoundingClientRect();

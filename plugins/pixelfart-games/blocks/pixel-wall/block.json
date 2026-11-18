@@ -6,10 +6,26 @@
 	"category": "widgets",
 	"icon": "grid-view",
 	"description": "Muur waarop bezoekers pixels kopen (€ 1 per stuk) en er iets mee tekenen, met drie letters en een boodschap.",
-	"keywords": [ "pixels", "doneren", "muur" ],
+	"keywords": [
+		"pixels",
+		"doneren",
+		"muur"
+	],
 	"textdomain": "pixelfart",
-	"supports": { "html": false, "multiple": false, "align": [ "wide" ] },
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [
+			"wide"
+		]
+	},
 	"editorScript": "file:./editor.js",
 	"viewScript": "pixelfart-donate",
-	"render": "file:./render.php"
+	"render": "file:./render.php",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": "ONZE PIXELFANS"
+		}
+	}
 }

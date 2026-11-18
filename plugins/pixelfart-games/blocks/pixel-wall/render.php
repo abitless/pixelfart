@@ -6,12 +6,16 @@
 
 defined( 'ABSPATH' ) || exit;
 
-$pf_here = PF_Donations::on_donate_page();
+$pf_here  = PF_Donations::on_donate_page();
+$pf_title = trim( (string) ( $attributes['title'] ?? 'ONZE PIXELFANS' ) );
 $pf_keys = function_exists( 'pf_key' ) ? pf_key( 'left' ) . pf_key( 'up' ) . pf_key( 'down' ) . pf_key( 'right' ) . ' ' . pf_key( 'SPATIE' ) : '';
 ?>
 <div <?php echo get_block_wrapper_attributes( [ 'class' => 'pf-wall' ] ); // phpcs:ignore ?> data-pixel-wall<?php echo $pf_here ? ' data-here id="pixelmuur"' : ''; ?>>
 	<noscript><p>Voor de pixelmuur heb je JavaScript nodig.</p></noscript>
 	<div class="wall-frame js-only">
+		<?php if ( '' !== $pf_title ) : ?>
+			<h3 class="wall-title"><span class="wall-title-deco" aria-hidden="true"></span><?php echo esc_html( $pf_title ); ?><span class="wall-title-deco" aria-hidden="true"></span></h3>
+		<?php endif; ?>
 		<div class="wall-scroll" data-wall-scroll>
 			<canvas class="wall-canvas" data-wall-canvas width="480" height="240" tabindex="0" role="img" aria-label="Pixelmuur. Klik op een gekleurde pixel om te zien wie hem kocht."></canvas>
 		</div>
