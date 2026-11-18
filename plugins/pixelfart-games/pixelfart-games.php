@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Pixelfart Games
- * Description: Games als losse HTML-bestanden met metadata (game.json), thumbnail, speelteller, sterren, reacties en het idee/contactformulier.
- * Version:     1.2.0
+ * Description: Games als losse HTML-bestanden met metadata (game.json), thumbnail, speelteller, sterren, reacties, het idee/contactformulier, donaties en de pixelmuur.
+ * Version:     1.3.0
  * Author:      Bitless
  * Text Domain: pixelfart
  * Requires PHP: 8.2
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PIXELFART_VERSION = '1.2.0';
+const PIXELFART_VERSION = '1.3.0';
 define( 'PIXELFART_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PIXELFART_URL', plugin_dir_url( __FILE__ ) );
 
@@ -29,6 +29,9 @@ require_once PIXELFART_DIR . 'includes/class-pf-scores.php';
 require_once PIXELFART_DIR . 'includes/class-pf-makers.php';
 require_once PIXELFART_DIR . 'includes/class-pf-messages.php';
 require_once PIXELFART_DIR . 'includes/class-pf-newsletter.php';
+require_once PIXELFART_DIR . 'includes/class-pf-mollie.php';
+require_once PIXELFART_DIR . 'includes/class-pf-donations.php';
+require_once PIXELFART_DIR . 'includes/class-pf-donations-admin.php';
 
 PF_Games::init();
 PF_Hosting::init();
@@ -42,6 +45,10 @@ PF_Scores::init();
 PF_Makers::init();
 PF_Messages::init();
 PF_Newsletter::init();
+PF_Donations::init();
+if ( is_admin() ) {
+	PF_Donations_Admin::init();
+}
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once PIXELFART_DIR . 'includes/class-pf-cli.php';

@@ -75,6 +75,8 @@ $pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( '
 			<span><span style="color:var(--green)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_option( 'pf_source_url' ) ?: '#' ); ?>">Open source</a></span>
 			<span><span style="color:var(--blue)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_privacy_policy_url() ?: home_url( '/privacy/' ) ); ?>">Privacy first</a> — geen cookies, geen tracking</span>
 			<span><span style="color:var(--yellow)" aria-hidden="true">■</span> Een hobbyproject van vader &amp; zoon</span>
+			<?php $pf_ouders = get_page_by_path( 'ouders' ); ?>
+			<span><span style="color:var(--pink)" aria-hidden="true">■</span> <a href="<?php echo esc_url( $pf_ouders ? get_permalink( $pf_ouders ) : home_url( '/ouders/' ) ); ?>">Voor ouders</a></span>
 		</div>
 		<div class="foot-right">
 			<span>Hosting gesponsord door <a href="https://bitless.nl" target="_blank" rel="noopener">bitless</a></span>

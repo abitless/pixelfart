@@ -1,0 +1,19 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "pixelfart/donate-widget",
+	"title": "Doneren",
+	"category": "widgets",
+	"icon": "money-alt",
+	"description": "Kies meteen een bedrag (1, 2, 5 of 10 euro), eenmalig of per maand. Betalen gebeurt op de doneerpagina.",
+	"keywords": [ "doneren", "donatie", "steun", "bedrag" ],
+	"textdomain": "pixelfart",
+	"attributes": {
+		"title": { "type": "string", "default": "STEUN PIXELFART" },
+		"text": { "type": "string", "default": "Vind je Pixelfart leuk? Met een kleine donatie help je de site draaiende te houden. Geen verplichting, spelen blijft altijd gratis." }
+	},
+	"supports": { "html": false, "multiple": true },
+	"editorScript": "file:./editor.js",
+	"viewScript": "pixelfart-donate",
+	"render": "file:./render.php"
+}

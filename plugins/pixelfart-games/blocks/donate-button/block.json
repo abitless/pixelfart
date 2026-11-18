@@ -1,0 +1,17 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "pixelfart/donate-button",
+	"title": "Doneerknop",
+	"category": "widgets",
+	"icon": "heart",
+	"description": "Knop naar de doneerpagina.",
+	"keywords": [ "doneren", "donatie", "steun", "knop" ],
+	"textdomain": "pixelfart",
+	"attributes": {
+		"text": { "type": "string", "default": "DONEER" }
+	},
+	"supports": { "html": false },
+	"editorScript": "file:./editor.js",
+	"render": "file:./render.php"
+}
