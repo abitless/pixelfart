@@ -112,6 +112,7 @@
 
 	/* ---------- Pixelmuur ---------- */
 	const wall = $('[data-pixel-wall]');
+	let wallRetry = null; // gezet door de muur: tekening terugzetten na een mislukte betaling
 	if (wall) initWall(wall);
 
 	function initWall(root) {
@@ -137,6 +138,7 @@
 
 		try { const s = JSON.parse(store.get('pf_wall_sel') || '{}'); if (s.sel) sel = new Map(s.sel); if (Number.isInteger(s.color)) color = s.color; } catch (e) { /* oud */ }
 		const save = () => store.set('pf_wall_sel', sel.size ? JSON.stringify({ sel: [...sel], color }) : null);
+		const saved = new Map(sel); // zoals hij was voor het betalen, voor als de betaling mislukt
 
 		const toCanvasY = (y) => (W.rows - 1 - y) * S; // y telt vanaf onder: zo groeit de muur naar boven
 
@@ -354,6 +356,7 @@
 		nameIn.value = store.get('pf_initials') || '';
 		nameIn.addEventListener('input', () => { nameIn.value = nameIn.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3); });
 		const msgLeft = () => { left.textContent = `(nog ${form.message.maxLength - form.message.value.length})`; };
+		form.message.value = store.get('pf_wall_msg') || ''; // terug van een mislukte betaling
 		form.message.addEventListener('input', msgLeft);
 		msgLeft();
 		if (form.kosten) form.kosten.addEventListener('change', update);
@@ -371,6 +374,7 @@
 				const pixels = [...sel].map(([k, c]) => [...k.split(',').map(Number), c]);
 				const r = await api('pixels', { pixels, name, message: form.message.value.trim(), cover: !!(form.kosten && form.kosten.checked), hp: form.hp.value });
 				if (name) store.set('pf_initials', name);
+				store.set('pf_wall_msg', form.message.value.trim() || null);
 				location.href = r.checkout;
 			} catch (ex) {
 				err.textContent = ex.message;
@@ -380,7 +384,16 @@
 			}
 		});
 
-		load().catch(() => { scroller.insertAdjacentHTML('afterend', '<p class="form-error">De pixelmuur kon niet geladen worden. Probeer het later nog eens.</p>'); });
+		/** Na een mislukte betaling zijn de pixels weer vrij: muur opnieuw laden en de tekening terugzetten. */
+		wallRetry = async () => {
+			await first; // eerst de gewone eerste lading afwachten, anders gooit die de tekening er weer af
+			if (saved.size) sel = new Map(saved);
+			await load(true); // haalt alleen pixels weg die intussen echt van iemand anders zijn
+			save();
+			return sel.size;
+		};
+
+		const first = load().catch(() => { scroller.insertAdjacentHTML('afterend', '<p class="form-error">De pixelmuur kon niet geladen worden. Probeer het later nog eens.</p>'); });
 	}
 
 	/* ---------- Terug van het betalen: ?bedankt=… ---------- */
@@ -399,6 +412,7 @@
 					box.classList.remove('is-bad');
 					if (s.kind === 'pixels') {
 						store.set('pf_wall_sel', null);
+						store.set('pf_wall_msg', null);
 						box.innerHTML = `<strong>BEDANKT!</strong><span>Je ${s.pixels === 1 ? 'pixel staat' : s.pixels + ' pixels staan'} op de muur. Klik erop om ze terug te zien.${s.moderated ? ' Je boodschap verschijnt zodra we hem gelezen hebben.' : ''}</span>`;
 					} else {
 						box.innerHTML = `<strong>BEDANKT!</strong><span>Je donatie van ${euro(s.amount)}${s.recurring ? ' per maand' : ''} is binnen. Super lief, daar kunnen we echt iets mee.${s.recurring ? ' Je krijgt een mail met een link om te stoppen, mocht je dat ooit willen.' : ''}</span>`;
@@ -407,7 +421,22 @@
 					box.innerHTML = '<strong>NOG BEZIG</strong><span>Je betaling is nog niet afgerond. Kijk over een paar minuten nog eens, of probeer het opnieuw.</span>';
 				} else {
 					box.classList.add('is-bad');
-					box.innerHTML = `<strong>NIET GELUKT</strong><span>${s.status === 'canceled' ? 'Je hebt de betaling geannuleerd.' : 'De betaling is niet gelukt.'} Er is niets afgeschreven.${s.kind === 'pixels' ? ' Je tekening staat nog klaar, je kunt het gewoon opnieuw proberen.' : ''}</span>`;
+					const why = (s.status === 'canceled' ? 'Je hebt de betaling geannuleerd.' : s.status === 'expired' ? 'De betaling is verlopen.' : 'De betaling is niet gelukt.') + ' Er is niets afgeschreven.';
+					box.innerHTML = `<strong>NIET GELUKT</strong><span>${why}</span>`;
+					if (s.kind === 'pixels' && wallRetry) {
+						const n = await wallRetry().catch(() => 0);
+						const buy = $('[data-wall-buy]');
+						if (n && buy && !buy.hidden) {
+							box.insertAdjacentHTML('beforeend', `<span>Je tekening staat weer op de muur${n < s.pixels ? ' (op de pixels die nog vrij zijn)' : ''}. Probeer het gewoon nog eens.</span><div><button type="button" class="btn btn-pink" data-retry>OPNIEUW BETALEN ▼</button></div>`);
+							$('[data-retry]', box).addEventListener('click', () => {
+								const btn = $('[data-submit]', buy);
+								btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+								btn.focus({ preventScroll: true });
+							});
+						} else {
+							box.insertAdjacentHTML('beforeend', '<span>Je pixels zijn intussen door iemand anders gekocht. Kies gewoon nieuwe vakjes.</span>');
+						}
+					}
 				}
 			};
 			poll();

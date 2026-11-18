@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Pixelfart Games
  * Description: Games als losse HTML-bestanden met metadata (game.json), thumbnail, speelteller, sterren, reacties, het idee/contactformulier, donaties en de pixelmuur.
- * Version:     1.3.2
+ * Version:     1.3.3
  * Author:      Bitless
  * Text Domain: pixelfart
  * Requires PHP: 8.2
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PIXELFART_VERSION = '1.3.2';
+const PIXELFART_VERSION = '1.3.3';
 define( 'PIXELFART_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PIXELFART_URL', plugin_dir_url( __FILE__ ) );
 
