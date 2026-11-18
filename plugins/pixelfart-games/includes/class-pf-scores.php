@@ -24,7 +24,7 @@ class PF_Scores {
 	const MAX_RUN    = 6 * HOUR_IN_SECONDS;
 
 	/** Drieletterwoorden die we niet op de lijst willen (kinderen spelen mee). */
-	const BLOCKED = [ 'ASS', 'FUK', 'FUC', 'FCK', 'KUT', 'SEX', 'DIK', 'PIK', 'PIS', 'KKK', 'NSB', 'SSS', 'HOE', 'TIT', 'CUM', 'GAY', 'NIG', 'NGR', 'WTF', 'STF', 'KLT', 'LUL', 'SUX', 'POO' ];
+	const BLOCKED = [ 'ASS', 'FUK', 'FUC', 'FCK', 'KUT', 'SEX', 'DIK', 'PIK', 'PIS', 'KKK', 'NSB', 'SSS', 'HOE', 'TIT', 'CUM', 'GAY', 'NIG', 'NGR', 'WTF', 'STF', 'KLT', 'LUL', 'SUX', 'POO', 'AKYS', 'FAG', 'NZI', 'KNK', 'KKR' ];
 
 	public static function init() {
 		add_action( 'plugins_loaded', [ __CLASS__, 'maybe_install' ] );
