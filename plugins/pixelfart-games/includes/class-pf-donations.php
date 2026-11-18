@@ -153,6 +153,7 @@ class PF_Donations {
 	/* ---------- blokken ---------- */
 
 	public static function register_blocks() {
+		wp_register_style( 'pixelfart-wall', PIXELFART_URL . 'assets/wall.css', [], PIXELFART_VERSION );
 		wp_register_script( 'pixelfart-donate', PIXELFART_URL . 'assets/donate.js', [], PIXELFART_VERSION, [ 'strategy' => 'defer', 'in_footer' => true ] );
 		wp_localize_script( 'pixelfart-donate', 'PFD', [
 			'rest'    => esc_url_raw( rest_url( PF_Rest::NS . '/' ) ),

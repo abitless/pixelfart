@@ -5,7 +5,7 @@
 	"title": "Pixelmuur",
 	"category": "widgets",
 	"icon": "grid-view",
-	"description": "Muur waarop bezoekers pixels kopen (€ 1 per stuk) en er iets mee tekenen, met drie letters en een boodschap.",
+	"description": "Muur met alle gekochte pixels. Klik op een pixel om te zien wie hem kocht. Op de doneerpagina kun je er ook pixels kopen.",
 	"keywords": [
 		"pixels",
 		"doneren",
@@ -26,6 +26,11 @@
 		"title": {
 			"type": "string",
 			"default": "ONZE PIXELFANS"
+		},
+		"link": {
+			"type": "boolean",
+			"default": true
 		}
-	}
+	},
+	"style": "pixelfart-wall"
 }

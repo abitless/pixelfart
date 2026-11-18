@@ -112,7 +112,8 @@
 
 	/* ---------- Pixelmuur ---------- */
 	const wall = $('[data-pixel-wall]');
-	let wallRetry = null; // gezet door de muur: tekening terugzetten na een mislukte betaling
+	let wallRetry = null;   // gezet door de muur: tekening terugzetten na een mislukte betaling
+	let wallRefresh = null; // gezet door de muur: opnieuw laden na een gelukte betaling
 	if (wall) initWall(wall);
 
 	function initWall(root) {
@@ -120,6 +121,7 @@
 		// altijd met een heel aantal schermpixels per vakje, zodat de muur scherp blijft.
 		const MAX_W = 960;   // breder dan dit wordt de muur niet (20 px per vakje)
 		const SHOW_ROWS = 32; // zoveel rijen zie je tegelijk; de rest scrollt
+		let first = null;     // de eerste lading van de muur
 		let S = 10, u = 1;    // S = schermpixels per vakje (in canvaspixels), u = S / 10 voor de details
 		const here = root.hasAttribute('data-here');
 		const cv = $('[data-wall-canvas]', root);
@@ -168,12 +170,29 @@
 				g.fillStyle = '#fff';
 				g.fillRect(x * S, cy, 2 * u, 2 * u);
 			}
-			if (focusDonor >= 0) { // de rest wat donkerder, zodat je ziet wat bij elkaar hoort
+			if (focusDonor >= 0) { // de rest wat donkerder en een geel randje om alles wat samen besteld is
+				const mine = (x, y) => { const v = grid.get(x + ',' + y); return !!v && v[1] === focusDonor; };
 				g.fillStyle = 'rgba(0,0,0,.65)';
-				for (let y = 0; y < W.rows; y++) for (let x = 0; x < W.cols; x++) {
-					const v = grid.get(x + ',' + y);
-					if (!v || v[1] !== focusDonor) g.fillRect(x * S, toCanvasY(y), S, S);
+				for (let y = 0; y < W.rows; y++) for (let x = 0; x < W.cols; x++) if (!mine(x, y)) g.fillRect(x * S, toCanvasY(y), S, S);
+				const t = Math.max(2, 2 * u); // dikte van het randje, buiten de pixels zelf
+				const edge = []; // aan de rand van de muur valt het randje erbuiten: dat tekenen we binnen de pixel
+				g.fillStyle = '#ffcf4a';
+				for (const [k, v] of grid) {
+					if (v[1] !== focusDonor) continue;
+					const [x, y] = k.split(',').map(Number), px = x * S, cy = toCanvasY(y);
+					if (!mine(x - 1, y)) (x === 0 ? edge.push([px, cy, t, S]) : g.fillRect(px - t, cy - t, t, S + 2 * t));
+					if (!mine(x + 1, y)) (x === W.cols - 1 ? edge.push([px + S - t, cy, t, S]) : g.fillRect(px + S, cy - t, t, S + 2 * t));
+					if (!mine(x, y + 1)) (y === W.rows - 1 ? edge.push([px, cy, S, t]) : g.fillRect(px - t, cy - t, S + 2 * t, t));
+					if (!mine(x, y - 1)) (y === 0 ? edge.push([px, cy + S - t, S, t]) : g.fillRect(px - t, cy + S, S + 2 * t, t));
 				}
+				for (const [k, v] of grid) { // bij binnenhoeken valt het randje over een eigen pixel: die er weer overheen
+					if (v[1] !== focusDonor) continue;
+					const [x, y] = k.split(',').map(Number);
+					g.fillStyle = pal[v[0]];
+					g.fillRect(x * S, toCanvasY(y), S, S);
+				}
+				g.fillStyle = '#ffcf4a';
+				for (const r of edge) g.fillRect(...r);
 			}
 			const ring = cursor || hover;
 			if (ring) {
@@ -201,7 +220,7 @@
 		/** Hoe groot kan de muur? Zo breed als de pagina (niet alleen de tekstkolom), tot MAX_W. */
 		function fit() {
 			const dpr = window.devicePixelRatio || 1;
-			const main = root.closest('.site-main') || document.body;
+			const main = root.closest('.site-main, [data-wall-room]') || root.parentElement;
 			const cs = getComputedStyle(main);
 			const room = main.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
 			const frame = getComputedStyle(scroller.parentElement);
@@ -312,7 +331,25 @@
 			flashT = setTimeout(() => { err.hidden = true; }, 4000);
 		}
 
-		if (!here || !form) { load().catch(() => {}); return; }
+		/** Opnieuw laden (na een gelukte betaling) en de pixels van `keys` meteen uitlichten. */
+		const refresh = async (keys) => {
+			await first;
+			await load(true);
+			const k = keys && [...keys].find((c) => grid.has(c));
+			if (k) {
+				const [x, y] = k.split(',').map(Number);
+				showInfo(x, y);
+				draw();
+				const top = toCanvasY(y) / cv.height * scroller.scrollHeight; // de muur kan scrollen: laat ze zien
+				if (top < scroller.scrollTop || top > scroller.scrollTop + scroller.clientHeight) scroller.scrollTop = top - scroller.clientHeight / 2;
+			}
+		};
+
+		if (!here || !form) {
+			first = load().catch(() => {});
+			wallRefresh = refresh;
+			return;
+		}
 
 		// Kleuren kiezen
 		const palBox = $('[data-wall-palette]', root);
@@ -341,6 +378,7 @@
 		const btn = $('[data-submit]', form);
 		const left = $('[data-msg-left]', form);
 		function update() {
+			if (!form) return;
 			const n = sel.size;
 			form.hidden = !n;
 			reset.disabled = !n;
@@ -385,6 +423,7 @@
 		});
 
 		/** Na een mislukte betaling zijn de pixels weer vrij: muur opnieuw laden en de tekening terugzetten. */
+		wallRefresh = refresh;
 		wallRetry = async () => {
 			await first; // eerst de gewone eerste lading afwachten, anders gooit die de tekening er weer af
 			if (saved.size) sel = new Map(saved);
@@ -393,7 +432,7 @@
 			return sel.size;
 		};
 
-		const first = load().catch(() => { scroller.insertAdjacentHTML('afterend', '<p class="form-error">De pixelmuur kon niet geladen worden. Probeer het later nog eens.</p>'); });
+		first = load().catch(() => { scroller.insertAdjacentHTML('afterend', '<p class="form-error">De pixelmuur kon niet geladen worden. Probeer het later nog eens.</p>'); });
 	}
 
 	/* ---------- Terug van het betalen: ?bedankt=… ---------- */
@@ -411,8 +450,15 @@
 				if (s.status === 'paid') {
 					box.classList.remove('is-bad');
 					if (s.kind === 'pixels') {
+						const mine = store.get('pf_wall_sel');
 						store.set('pf_wall_sel', null);
 						store.set('pf_wall_msg', null);
+						// De muur werd geladen toen de betaling nog liep: nu opnieuw, zodat je pixels meteen kleur hebben.
+						if (wallRefresh) {
+							let keys = null;
+							try { keys = new Set(JSON.parse(mine || '{}').sel.map((e) => e[0])); } catch (e) { /* geen tekening bewaard */ }
+							wallRefresh(keys).catch(() => {});
+						}
 						box.innerHTML = `<strong>BEDANKT!</strong><span>Je ${s.pixels === 1 ? 'pixel staat' : s.pixels + ' pixels staan'} op de muur. Klik erop om ze terug te zien.${s.moderated ? ' Je boodschap verschijnt zodra we hem gelezen hebben.' : ''}</span>`;
 					} else {
 						box.innerHTML = `<strong>BEDANKT!</strong><span>Je donatie van ${euro(s.amount)}${s.recurring ? ' per maand' : ''} is binnen. Super lief, daar kunnen we echt iets mee.${s.recurring ? ' Je krijgt een mail met een link om te stoppen, mocht je dat ooit willen.' : ''}</span>`;

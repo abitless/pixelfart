@@ -16,6 +16,7 @@ class PF_Donations_Admin {
 		add_action( 'admin_init', [ __CLASS__, 'settings' ] );
 		add_action( 'admin_post_pf_donation', [ __CLASS__, 'action' ] );
 		add_action( 'admin_post_pf_wall_grow', [ __CLASS__, 'grow' ] );
+		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'assets' ] );
 	}
 
 	public static function menu() {
@@ -23,6 +24,26 @@ class PF_Donations_Admin {
 		$wait  = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . PF_Donations::table() . " WHERE status = 'paid' AND msg_status = 'pending'" ); // phpcs:ignore
 		$badge = $wait ? ' <span class="awaiting-mod count-' . $wait . '"><span class="pending-count">' . $wait . '</span></span>' : '';
 		add_menu_page( 'Donaties', 'Donaties' . $badge, self::CAP, self::SLUG, [ __CLASS__, 'render' ], 'dashicons-heart', 26 );
+	}
+
+	/** Op het tabblad Pixelmuur dezelfde muur als op de site: kleuren en letters van het thema, zonder het hele thema. */
+	public static function assets( string $hook ) {
+		if ( 'toplevel_page_' . self::SLUG !== $hook || 'muur' !== ( $_GET['tab'] ?? '' ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+			return;
+		}
+		wp_enqueue_style( 'pixelfart-wall' );
+		wp_enqueue_script( 'pixelfart-donate' );
+		$font = static fn( string $f ) => esc_url( get_theme_file_uri( 'assets/fonts/' . $f ) );
+		wp_add_inline_style( 'pixelfart-wall', "
+@font-face { font-family: 'Press Start 2P'; src: url({$font( 'press-start-2p-latin.woff2' )}) format('woff2'); font-display: swap; }
+@font-face { font-family: 'Pixelify Sans'; src: url({$font( 'pixelify-sans-latin.woff2' )}) format('woff2'); font-weight: 400 700; font-display: swap; }
+.pf-wall-admin { --ink: #f2f2f2; --dim: #bdbdbd; --mute: #8a8a8a; --line: #6a6a6a; --darker: #2a2a2a; --green: #5dde7a; --blue: #6ec9ff; --yellow: #ffcf4a; --pink: #ff5c8a;
+	--pix: 'Press Start 2P', ui-monospace, monospace; background: #000; color: var(--ink); padding: 24px; margin: 16px 0; font-family: 'Pixelify Sans', system-ui, sans-serif; font-size: 20px; line-height: 1.4; }
+.pf-wall-admin h3, .pf-wall-admin .comment-name, .pf-wall-admin .wall-close { -webkit-font-smoothing: none; }
+.pf-wall-admin .comment-name { font-family: var(--pix); font-size: 11px; letter-spacing: 2px; }
+.pf-wall-admin .fine { margin: 0; font-size: 16px; color: var(--mute); }
+.pf-wall-admin .js-only[hidden], .pf-wall-admin [hidden] { display: none !important; }
+" );
 	}
 
 	public static function settings() {
@@ -266,7 +287,8 @@ class PF_Donations_Admin {
 	private static function tab_muur() {
 		$w = PF_Donations::wall();
 		printf( '<p>De muur is %d pf-pixels breed en %d rijen hoog (%d × %d schermpixels). Nieuwe rijen komen er bovenaan bij; wat er al staat, schuift niet.</p>', $w['cols'], $w['rows'], $w['cols'] * 10, $w['rows'] * 10 );
-		printf( '<canvas id="pf-wall-admin" width="%d" height="%d"></canvas>', $w['cols'] * 10, $w['rows'] * 10 );
+		// Dezelfde weergave als op de site (blok Pixelmuur, zonder koopknop). Klik op een pixel om te zien van wie hij is.
+		echo '<div class="pf-wall-admin" data-wall-room>' . render_block( [ 'blockName' => 'pixelfart/pixel-wall', 'attrs' => [ 'link' => false ], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => [] ] ) . '</div>'; // phpcs:ignore
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:16px 0">
 			<input type="hidden" name="action" value="pf_wall_grow">
@@ -274,19 +296,7 @@ class PF_Donations_Admin {
 			<label>Rijen erbij bovenaan: <input type="number" name="rows" value="4" min="1" max="48" style="width:70px"></label>
 			<?php submit_button( 'Muur uitbreiden', 'secondary', 'submit', false ); ?>
 		</form>
-		<p class="description">Verborgen pixels zijn grijs. Arceringen zijn pixels waarvoor nu betaald wordt.</p>
-		<script>
-		( () => {
-			const w = <?php echo wp_json_encode( $w ); ?>, pal = <?php echo wp_json_encode( PF_Donations::PALETTE ); ?>;
-			const g = document.getElementById( 'pf-wall-admin' ).getContext( '2d' );
-			for ( let i = 0; i < w.px.length; i += 4 ) {
-				const [ x, y, c, d ] = w.px.slice( i, i + 4 );
-				g.fillStyle = d === -2 ? '#3a3a3a' : pal[ c ];
-				g.globalAlpha = d === -1 ? .4 : 1;
-				g.fillRect( x * 10, ( w.rows - 1 - y ) * 10, 10, 10 );
-			}
-		} )();
-		</script>
+		<p class="description">Dit is wat bezoekers zien. Klik op een pixel: alles wat in dezelfde bestelling zat, krijgt een geel randje. Verborgen pixels zijn donkergrijs, arceringen zijn pixels waarvoor nu betaald wordt. Boodschappen die nog gelezen moeten worden, keur je goed onder Lijst.</p>
 		<?php
 	}
 

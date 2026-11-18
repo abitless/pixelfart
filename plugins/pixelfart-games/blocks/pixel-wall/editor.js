@@ -11,7 +11,11 @@
 				onChange: ( e ) => setAttributes( { title: e.target.value } ),
 				style: { width: '100%', textAlign: 'center', fontWeight: 700, marginBottom: '8px' },
 			} ),
-			el( 'p', null, 'Hier staat op de site de pixelmuur. Beheer: Donaties › Pixelmuur.' )
+			el( 'p', null, 'Hier staat op de site de pixelmuur. Klik op een pixel om te zien wie hem kocht. Op de doneerpagina kun je er ook pixels kopen. Beheer: Donaties › Pixelmuur.' ),
+			el( 'label', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } },
+				el( 'input', { type: 'checkbox', checked: attributes.link, onChange: ( e ) => setAttributes( { link: e.target.checked } ) } ),
+				'Knop "Koop ook een pixel" eronder (niet op de doneerpagina)'
+			)
 		),
 		save: () => null,
 	} );

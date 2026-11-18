@@ -50,7 +50,7 @@ $pf_keys = function_exists( 'pf_key' ) ? pf_key( 'left' ) . pf_key( 'up' ) . pf_
 			</div>
 			<p class="fine">Je betaalt veilig met iDEAL | Wero via Mollie. Jonger dan 16? Vraag het eerst aan je ouders.</p>
 		</form>
-	<?php else : ?>
+	<?php elseif ( $attributes['link'] ?? true ) : ?>
 		<p class="js-only"><a class="btn btn-pink" href="<?php echo esc_url( PF_Donations::page_url() ); ?>#pixelmuur">KOOP OOK EEN PIXEL ▶</a></p>
 	<?php endif; ?>
 </div>
