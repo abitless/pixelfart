@@ -38,6 +38,22 @@ add_action( 'after_setup_theme', function () {
 // Geen patronen van wordpress.org ophalen (scheelt verzoeken naar buiten).
 add_filter( 'should_load_remote_block_patterns', '__return_false' );
 
+/*
+ * Dit thema staat niet op wordpress.org. Bij de updatecheck sturen we het niet mee: zo kan een
+ * vreemd thema met dezelfde naam ("pixelfart") het nooit via een (auto-)update vervangen.
+ */
+add_filter( 'http_request_args', function ( $args, $url ) {
+	if ( ! str_contains( (string) $url, 'api.wordpress.org/themes/update-check' ) || empty( $args['body']['themes'] ) ) {
+		return $args;
+	}
+	$themes = json_decode( (string) $args['body']['themes'], true );
+	if ( is_array( $themes ) ) {
+		unset( $themes['themes'][ get_template() ] );
+		$args['body']['themes'] = wp_json_encode( $themes );
+	}
+	return $args;
+}, 10, 2 );
+
 // Alleen de CSS van blokken die echt op de pagina staan.
 add_filter( 'should_load_separate_core_block_assets', '__return_true' );
 

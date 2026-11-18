@@ -1,5 +1,17 @@
-# wp-content-repo: thema's, plugins, mu-plugins en talen gaan mee.
-# Alles wat WordPress of plugins zelf genereren niet.
+# wp-content-repo: alleen wat we zelf voor deze website maken.
+# Plugins, thema's en vertalingen van anderen niet: die werken zichzelf bij (auto-updates).
+# Alles wat WordPress of plugins zelf genereren ook niet.
+
+# Plugins en thema's: alles negeren behalve onze eigen
+/plugins/*
+!/plugins/index.php
+!/plugins/pixelfart-games/
+/themes/*
+!/themes/index.php
+!/themes/pixelfart/
+
+# Vertalingen: haalt WordPress zelf op en houdt het bij
+/languages/
 
 # Media
 /uploads/
