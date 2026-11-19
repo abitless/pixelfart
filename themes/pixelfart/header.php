@@ -9,7 +9,7 @@
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#000000">
-<script>document.documentElement.classList.replace('no-js','js');try{sessionStorage.getItem('pf_logo')?document.documentElement.classList.add('logo-seen'):sessionStorage.setItem('pf_logo','1')}catch(e){}</script>
+<script>document.documentElement.classList.replace('no-js','js');try{sessionStorage.getItem('pf_logo')==='1'?document.documentElement.classList.add('logo-seen'):sessionStorage.setItem('pf_logo','1')}catch(e){}</script>
 <?php wp_head(); ?>
 </head>
 <body <?php body_class(); ?>>

@@ -119,7 +119,11 @@
 		});
 		$$('.claw-menu a', nav).forEach((a) => intercept(a, +a.dataset.i));
 		const logo = $('.logo');
-		logo && intercept(logo, 0);
+		if (logo) {
+			// klik op het logo: de spetters en de wolk spelen op de volgende pagina opnieuw af
+			logo.addEventListener('click', () => { try { sessionStorage.setItem('pf_logo', 'again'); } catch (e) {} });
+			intercept(logo, 0);
+		}
 		// pijltjes links/rechts bewegen de grijper (niet tijdens typen)
 		addEventListener('keydown', (e) => {
 			if (e.defaultPrevented || !['ArrowLeft', 'ArrowRight'].includes(e.key) || e.target.closest('input,textarea,select,dialog,[contenteditable]')) return;
