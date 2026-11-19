@@ -75,7 +75,7 @@ $pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( '
 	</section>
 	<footer class="site-footer">
 		<div class="foot-left">
-			<span><span style="color:var(--green)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_option( 'pf_source_url' ) ?: '#' ); ?>">Open source</a></span>
+			<span><span style="color:var(--green)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_option( 'pf_source_url' ) ?: ( defined( 'PIXELFART_SOURCE_URL' ) ? PIXELFART_SOURCE_URL : 'https://github.com/abitless/pixelfart' ) ); ?>" rel="noopener">Open source</a></span>
 			<span><span style="color:var(--blue)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_privacy_policy_url() ?: home_url( '/privacy/' ) ); ?>">Privacy first</a> — geen cookies, geen tracking</span>
 			<span><span style="color:var(--yellow)" aria-hidden="true">■</span> Een hobbyproject van vader &amp; zoon</span>
 			<?php $pf_ouders = get_page_by_path( 'ouders' ); ?>

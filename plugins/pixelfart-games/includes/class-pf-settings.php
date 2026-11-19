@@ -21,7 +21,7 @@ class PF_Settings {
 	public static function register() {
 		register_setting( self::PAGE, 'pf_games_url', [ 'type' => 'string', 'sanitize_callback' => [ __CLASS__, 'sanitize_games_url' ], 'default' => '' ] );
 		register_setting( self::PAGE, 'pf_mail_to', [ 'type' => 'string', 'sanitize_callback' => 'sanitize_email', 'default' => '' ] );
-		register_setting( self::PAGE, 'pf_source_url', [ 'type' => 'string', 'sanitize_callback' => 'esc_url_raw', 'default' => '' ] );
+		register_setting( self::PAGE, 'pf_source_url', [ 'type' => 'string', 'sanitize_callback' => 'esc_url_raw', 'default' => PIXELFART_SOURCE_URL ] );
 
 		add_settings_section( 'pf_main', '', '__return_false', self::PAGE );
 		add_settings_field( 'pf_games_url', 'Adres van de games', [ __CLASS__, 'field_games_url' ], self::PAGE, 'pf_main', [ 'label_for' => 'pf_games_url' ] );
@@ -66,7 +66,7 @@ class PF_Settings {
 	public static function field_source_url() {
 		printf(
 			'<input type="url" class="regular-text code" id="pf_source_url" name="pf_source_url" value="%s" placeholder="https://github.com/…"><p class="description">Waar de broncode staat (link in de footer).</p>',
-			esc_attr( get_option( 'pf_source_url' ) )
+			esc_attr( get_option( 'pf_source_url' ) ?: PIXELFART_SOURCE_URL )
 		);
 	}
 

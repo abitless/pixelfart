@@ -13,6 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
+const PIXELFART_SOURCE_URL = 'https://github.com/abitless/pixelfart'; // standaard voor de link "Open source"
 const PIXELFART_VERSION = '1.6.1';
 define( 'PIXELFART_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PIXELFART_URL', plugin_dir_url( __FILE__ ) );
