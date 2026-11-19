@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Pixelfart Games
  * Description: Games als losse HTML-bestanden met metadata (game.json), thumbnail, speelteller, sterren, reacties, het idee/contactformulier, donaties en de pixelmuur.
- * Version:     1.5.2
+ * Version:     1.6.1
  * Author:      Bitless
  * Text Domain: pixelfart
  * Requires PHP: 8.2
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PIXELFART_VERSION = '1.5.2';
+const PIXELFART_VERSION = '1.6.1';
 define( 'PIXELFART_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PIXELFART_URL', plugin_dir_url( __FILE__ ) );
 
@@ -29,6 +29,7 @@ require_once PIXELFART_DIR . 'includes/class-pf-altcha.php';
 require_once PIXELFART_DIR . 'includes/class-pf-scores.php';
 require_once PIXELFART_DIR . 'includes/class-pf-makers.php';
 require_once PIXELFART_DIR . 'includes/class-pf-messages.php';
+require_once PIXELFART_DIR . 'includes/class-pf-announcements.php';
 require_once PIXELFART_DIR . 'includes/class-pf-newsletter.php';
 require_once PIXELFART_DIR . 'includes/class-pf-mollie.php';
 require_once PIXELFART_DIR . 'includes/class-pf-donations.php';
@@ -45,6 +46,7 @@ PF_Altcha::init();
 PF_Scores::init();
 PF_Makers::init();
 PF_Messages::init();
+PF_Announcements::init();
 PF_Newsletter::init();
 PF_Donations::init();
 if ( is_admin() ) {

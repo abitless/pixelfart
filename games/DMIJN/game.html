@@ -1,0 +1,758 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Diepe Mijn</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one centered game column. HUD strip, 4:3 pixel canvas with shop overlay, touch pad, ore guide.
+   Look: committed night-slate arcade UI (single theme by choice), gold for money, ore colours only inside the world. */
+:root {
+  --bg: #171d2b;
+  --panel: #222b3f;
+  --panel2: #2d3956;
+  --ink: #e9eef8;
+  --muted: #9aa8c4;
+  --gold: #f4b72e;
+  --good: #5fd38a;
+  --bad: #ff7a6b;
+  --line: #3b4868;
+  --px: 'Press Start 2P', ui-monospace, Menlo, Consolas, monospace;
+  --body: 'VT323', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 21px;
+  line-height: 1.3;
+  padding-block: 18px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+h1 { font-family: var(--px); font-size: 20px; line-height: 1.4; margin: 0; letter-spacing: 1px; color: var(--gold); text-wrap: balance; }
+.sub { margin: 4px 0 0; color: var(--muted); }
+.hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
+.cell { background: var(--panel); border: 2px solid var(--line); padding: 8px 10px; min-width: 0; }
+.cell .lab { font-family: var(--px); font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.cell .val { font-family: var(--px); font-size: 12px; margin-top: 7px; overflow-wrap: anywhere; }
+.cell .note { font-size: 17px; color: var(--muted); margin-top: 2px; }
+.cell.money .val { color: var(--gold); }
+.cell.full { border-color: var(--bad); }
+.cell.full .val { color: var(--bad); }
+.stage { position: relative; width: 100%; aspect-ratio: 4 / 3; border: 3px solid var(--line); background: #2a1c12; overflow: hidden; }
+canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.toast {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  max-width: calc(100% - 20px); background: rgba(18, 22, 36, 0.94); border: 2px solid var(--line);
+  padding: 3px 12px; text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.15s;
+}
+.toast.on { opacity: 1; }
+.shop { position: absolute; inset: 0; background: rgba(16, 20, 32, 0.97); overflow: auto; padding: 14px; }
+.shop h2 { font-family: var(--px); font-size: 14px; margin: 0; color: var(--gold); }
+.shop h3 { font-family: var(--px); font-size: 10px; margin: 16px 0 8px; color: var(--muted); letter-spacing: 1px; }
+.shop-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.shop .cash { font-family: var(--px); font-size: 11px; color: var(--gold); margin-top: 8px; }
+.sell { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
+.sell li { display: flex; align-items: center; gap: 8px; }
+.sell li span { flex: 1; min-width: 0; }
+.sell li b { color: var(--gold); font-weight: normal; }
+.dot { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(0, 0, 0, 0.45); flex: none; }
+.ups { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.up { background: var(--panel); border: 2px solid var(--line); padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.up h4 { margin: 0; font-family: var(--px); font-size: 9px; letter-spacing: 1px; color: var(--muted); font-weight: normal; }
+.up p { margin: 0; }
+.up .next { color: var(--good); }
+.up .max { color: var(--gold); }
+button {
+  font-family: var(--px); font-size: 10px; line-height: 1.4; color: var(--ink); background: var(--panel2);
+  border: 2px solid var(--line); border-bottom-width: 4px; padding: 10px 12px; min-height: 44px; cursor: pointer;
+  touch-action: manipulation;
+}
+button:hover:not(:disabled) { background: #384766; }
+button:active:not(:disabled) { transform: translateY(2px); border-bottom-width: 2px; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+button.primary { background: var(--gold); color: #1b1608; border-color: #b4801a; }
+button.primary:hover:not(:disabled) { background: #ffc94a; }
+.pad { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+.dpad { flex: 1 1 260px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.dpad button, .act { min-height: 58px; font-size: 16px; user-select: none; -webkit-user-select: none; touch-action: none; }
+.dpad button.on { background: var(--gold); color: #1b1608; }
+.act { flex: 0 1 150px; font-size: 10px; }
+.act.ready { background: var(--good); color: #0b2216; border-color: #2f8f57; }
+.help { margin: 0; color: var(--muted); }
+.help b { color: var(--ink); font-weight: normal; }
+.guide { overflow-x: auto; border: 2px solid var(--line); background: var(--panel); }
+table { border-collapse: collapse; width: 100%; min-width: 360px; }
+th, td { text-align: left; padding: 5px 10px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--px); font-size: 8px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-weight: normal; }
+tr:last-child td { border-bottom: 0; }
+td.v { color: var(--gold); font-variant-numeric: tabular-nums; }
+td .dot { margin-right: 8px; vertical-align: -1px; }
+.reset { align-self: flex-start; font-size: 8px; min-height: 36px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <h1>Diepe Mijn</h1>
+    <p class="sub">Graaf erts, verkoop het bij de winkel en koop een beter houweel.</p>
+  </header>
+
+  <section class="hud" aria-label="Status">
+    <div class="cell money"><div class="lab">Geld</div><div class="val" id="hMoney">€ 0</div></div>
+    <div class="cell" id="hBagC"><div class="lab">Rugzak</div><div class="val" id="hBag">0 / 10</div></div>
+    <div class="cell"><div class="lab">Diepte</div><div class="val" id="hDepth">0 m</div><div class="note" id="hBest">record 0 m</div></div>
+    <div class="cell"><div class="lab">Houweel</div><div class="val" id="hPick">Houten</div></div>
+  </section>
+
+  <div class="stage" id="stage">
+    <canvas id="c" width="640" height="480" aria-label="Spelveld van de mijn"></canvas>
+    <div class="toast" id="toast" role="status"></div>
+    <div class="shop" id="shop" hidden></div>
+  </div>
+
+  <div class="pad" role="group" aria-label="Besturing">
+    <div class="dpad">
+      <button type="button" data-k="l" aria-label="Links">◀</button>
+      <button type="button" data-k="u" aria-label="Omhoog, springen of klimmen">▲</button>
+      <button type="button" data-k="d" aria-label="Omlaag graven">▼</button>
+      <button type="button" data-k="r" aria-label="Rechts">▶</button>
+    </div>
+    <button type="button" class="act" id="act">Winkel (E)</button>
+  </div>
+
+  <p class="help"><b>Pijltjes of WASD</b> om te lopen. <b>Houd ▼ ingedrukt</b> om omlaag te graven, en loop tegen een blok om opzij te graven. In je eigen tunnels klim je omhoog met <b>▲</b>. Bij het gebouw links open je de winkel met <b>E</b>.</p>
+
+  <div class="guide">
+    <table>
+      <thead><tr><th>Erts</th><th>Waarde</th><th>Houweel nodig</th></tr></thead>
+      <tbody id="legend"></tbody>
+    </table>
+  </div>
+
+  <button type="button" class="reset" id="reset">Voortgang wissen</button>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var T = 32, W = 20, H = 72, VW = 20, VH = 15, SURF = 4;
+  var PW = 0.7, PH = 0.9, SPEED = 5, JUMP = 11.4, G = 40, MAXF = 18, CLIMB = 4.6;
+
+  var PICKS = [
+    { n: 'Houten', p: 1, c: '#a8794a', cost: 0 },
+    { n: 'Stenen', p: 1.8, c: '#a3a9b3', cost: 50 },
+    { n: 'Koperen', p: 3, c: '#d9803f', cost: 200 },
+    { n: 'IJzeren', p: 4.5, c: '#dfe5ef', cost: 600 },
+    { n: 'Stalen', p: 7, c: '#86aee0', cost: 1800 },
+    { n: 'Gouden', p: 11, c: '#f6c62b', cost: 5000 },
+    { n: 'Diamanten', p: 18, c: '#5fe3f0', cost: 15000 }
+  ];
+  var BAGS = [
+    { cap: 10, cost: 0 }, { cap: 20, cost: 40 }, { cap: 35, cost: 150 },
+    { cap: 55, cost: 500 }, { cap: 80, cost: 1500 }, { cap: 120, cost: 4000 }
+  ];
+  var LAMPS = [
+    { n: 'Kaarsje', r: 105, cost: 0 }, { n: 'Olielamp', r: 150, cost: 100 },
+    { n: 'Mijnlamp', r: 200, cost: 400 }, { n: 'Koplamp', r: 260, cost: 1200 },
+    { n: 'Schijnwerper', r: 340, cost: 3500 }
+  ];
+  // h = seconds to mine at power 1, t = pickaxe tier needed, v = sell value
+  var DEF = {
+    1:  { n: 'Aarde',   h: 0.5, t: 0, v: 0,    c: '#7a5233', d: '#5e3e26', l: '#8d6140' },
+    2:  { n: 'Steen',   h: 1.6, t: 1, v: 0,    c: '#7c818c', d: '#5f646f', l: '#979ca8' },
+    3:  { n: 'Kolen',   h: 1.2, t: 0, v: 5,    o: '#1d1d24', ol: '#55556a' },
+    4:  { n: 'Koper',   h: 2,   t: 1, v: 15,   o: '#d9803f', ol: '#f5b57e' },
+    5:  { n: 'IJzer',   h: 3,   t: 2, v: 40,   o: '#c9b2a2', ol: '#f3e6dc' },
+    6:  { n: 'Zilver',  h: 4.5, t: 3, v: 100,  o: '#d4dce8', ol: '#ffffff' },
+    7:  { n: 'Goud',    h: 6,   t: 4, v: 250,  o: '#f6c62b', ol: '#fff2a8' },
+    8:  { n: 'Robijn',  h: 8,   t: 5, v: 700,  o: '#e2284f', ol: '#ff93a9' },
+    9:  { n: 'Diamant', h: 12,  t: 6, v: 2000, o: '#5fe3f0', ol: '#dcfbff' },
+    10: { n: 'Gesteente', h: Infinity, t: 99, v: 0, c: '#2b2b33', d: '#1d1d24', l: '#464653' },
+    11: { n: 'Gras',    h: 0.5, t: 0, v: 0,    c: '#7a5233', d: '#5e3e26', l: '#8d6140' }
+  };
+  var ORE_IDS = [3, 4, 5, 6, 7, 8, 9];
+
+  var cv = document.getElementById('c');
+  var ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  var dk = document.createElement('canvas');
+  dk.width = 640; dk.height = 480;
+  var dkc = dk.getContext('2d');
+
+  var $ = function (id) { return document.getElementById(id); };
+  var hMoney = $('hMoney'), hBag = $('hBag'), hBagC = $('hBagC'), hDepth = $('hDepth'), hBest = $('hBest'), hPick = $('hPick');
+  var shopEl = $('shop'), toastEl = $('toast'), actBtn = $('act');
+
+  function fmt(n) { return Number(n).toLocaleString('nl-NL'); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  /* ---------- save ---------- */
+  var KEY = 'diepe-mijn-v1';
+  function defaults() { return { money: 0, pick: 0, bag: 0, lamp: 0, best: 0, inv: {} }; }
+  function load() {
+    var s = defaults();
+    try {
+      var j = JSON.parse(localStorage.getItem(KEY));
+      if (j && typeof j === 'object') {
+        s.money = Math.max(0, +j.money || 0);
+        s.pick = clamp(j.pick | 0, 0, PICKS.length - 1);
+        s.bag = clamp(j.bag | 0, 0, BAGS.length - 1);
+        s.lamp = clamp(j.lamp | 0, 0, LAMPS.length - 1);
+        s.best = Math.max(0, j.best | 0);
+        if (j.inv && typeof j.inv === 'object') {
+          ORE_IDS.forEach(function (id) { var n = j.inv[id] | 0; if (n > 0) s.inv[id] = n; });
+        }
+      }
+    } catch (e) { /* no storage */ }
+    return s;
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
+  var S = load();
+
+  function bagCount() { var n = 0; ORE_IDS.forEach(function (id) { n += S.inv[id] || 0; }); return n; }
+
+  /* ---------- world ---------- */
+  var tiles = [];
+  function gen() {
+    tiles = [];
+    var x, y;
+    for (y = 0; y < H; y++) tiles.push(new Array(W).fill(0));
+    for (y = SURF; y < H; y++) {
+      for (x = 0; x < W; x++) {
+        var id;
+        if (y === H - 1) id = 10;
+        else if (y === SURF) id = 11;
+        else id = (y - SURF) < 10 ? 1 : 2;
+        tiles[y][x] = id;
+      }
+    }
+    var ORES = [[9, 52, 0.03], [8, 42, 0.035], [7, 30, 0.04], [6, 20, 0.05], [5, 10, 0.06], [4, 4, 0.075], [3, 1, 0.1]];
+    for (y = SURF + 1; y < H - 1; y++) {
+      var d = y - SURF;
+      for (x = 0; x < W; x++) {
+        for (var k = 0; k < ORES.length; k++) {
+          var o = ORES[k], p = o[2];
+          if (o[0] === 3 && d >= 30) p = 0.04;
+          if (d >= o[1] && Math.random() < p) {
+            tiles[y][x] = o[0];
+            if (Math.random() < 0.45 && x + 1 < W) tiles[y][x + 1] = o[0];
+            if (Math.random() < 0.35 && y + 1 < H - 1) tiles[y + 1][x] = o[0];
+            break;
+          }
+        }
+      }
+    }
+    for (var c = 0; c < 10; c++) {
+      var cy = SURF + 8 + Math.floor(Math.random() * (H - SURF - 16));
+      var cx = 2 + Math.floor(Math.random() * (W - 4));
+      var rx = 1.5 + Math.random() * 2, ry = 1 + Math.random();
+      for (y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
+        for (x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+          if (x < 0 || x >= W || y <= SURF + 4 || y >= H - 1) continue;
+          var dx = (x - cx) / rx, dy = (y - cy) / ry;
+          if (dx * dx + dy * dy <= 1) tiles[y][x] = 0;
+        }
+      }
+    }
+  }
+  function inB(x, y) { return x >= 0 && x < W && y >= 0 && y < H; }
+  function solid(x, y) {
+    if (y < 0) return false;
+    if (x < 0 || x >= W || y >= H) return true;
+    return tiles[y][x] !== 0;
+  }
+  function climbable(x, y) { return inB(x, y) && y >= SURF && tiles[y][x] === 0; }
+
+  /* ---------- textures ---------- */
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var texCache = {};
+  function getTex(id, x, y) {
+    var base = (y - SURF < 10) ? 1 : 2;
+    var v = (x * 7 + y * 13) % 4;
+    var key = id + '_' + base + '_' + v;
+    if (texCache[key]) return texCache[key];
+    var c = document.createElement('canvas');
+    c.width = c.height = T;
+    var g = c.getContext('2d');
+    var r = rng(id * 1000 + base * 100 + v * 7 + 1);
+    var bd = DEF[id].o ? DEF[base] : DEF[id];
+    g.fillStyle = bd.c; g.fillRect(0, 0, T, T);
+    var i, j;
+    for (i = 0; i < 16; i++) {
+      for (j = 0; j < 16; j++) {
+        var q = r();
+        if (q < 0.18) { g.fillStyle = bd.d; g.fillRect(i * 2, j * 2, 2, 2); }
+        else if (q < 0.3) { g.fillStyle = bd.l; g.fillRect(i * 2, j * 2, 2, 2); }
+      }
+    }
+    if (DEF[id].o) {
+      var n = 4 + Math.floor(r() * 3);
+      for (i = 0; i < n; i++) {
+        var bx = 3 + Math.floor(r() * 20), by = 3 + Math.floor(r() * 20);
+        g.fillStyle = 'rgba(0,0,0,0.35)';
+        g.fillRect(bx - 1, by + 1, 8, 6); g.fillRect(bx + 1, by - 1, 4, 10);
+        g.fillStyle = DEF[id].o;
+        g.fillRect(bx, by + 2, 6, 4); g.fillRect(bx + 2, by, 2, 8); g.fillRect(bx + 1, by + 1, 4, 6);
+        g.fillStyle = DEF[id].ol;
+        g.fillRect(bx + 1, by + 2, 2, 2);
+      }
+    }
+    if (id === 11) {
+      g.fillStyle = '#3b8a3a'; g.fillRect(0, 0, T, 8);
+      for (i = 0; i < 16; i++) { var len = 8 + Math.floor(r() * 5); g.fillRect(i * 2, 6, 2, len - 6); }
+      g.fillStyle = '#5fb94d'; g.fillRect(0, 0, T, 4);
+      g.fillStyle = '#86d466';
+      for (i = 0; i < 16; i += 2) g.fillRect(i * 2, 0, 2, 2);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.2)';
+    g.fillRect(0, T - 1, T, 1); g.fillRect(T - 1, 0, 1, T);
+    texCache[key] = c;
+    return c;
+  }
+
+  /* ---------- state ---------- */
+  var K = { l: false, r: false, u: false, d: false };
+  var p, cam = { y: 0 }, particles = [], texts = [], shopOpen = false, depth = 0, nearShop = false;
+  var warnAt = 0, clouds = [], timeNow = 0;
+  var i0;
+  for (i0 = 0; i0 < 5; i0++) clouds.push({ x: i0 * 150, y: 14 + (i0 % 3) * 26, v: 6 + i0 * 2, w: 56 + (i0 % 2) * 24 });
+
+  function resetPlayer() {
+    p = { x: 8.15, y: SURF - PH - 0.001, vx: 0, vy: 0, ground: true, face: 1, mine: null, swing: 0 };
+    cam.y = 0;
+  }
+  function newWorld() { gen(); resetPlayer(); particles = []; texts = []; }
+
+  /* ---------- ui helpers ---------- */
+  var toastTimer = 0;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 2200);
+  }
+  function updateHud() {
+    var c = bagCount(), cap = BAGS[S.bag].cap;
+    hMoney.textContent = '€ ' + fmt(S.money);
+    hBag.textContent = c + ' / ' + cap;
+    hBagC.classList.toggle('full', c >= cap);
+    hDepth.textContent = depth + ' m';
+    hBest.textContent = 'record ' + S.best + ' m';
+    hPick.textContent = PICKS[S.pick].n;
+  }
+
+  /* ---------- shop ---------- */
+  function renderShop() {
+    var total = 0, rows = '';
+    ORE_IDS.forEach(function (id) {
+      var n = S.inv[id] || 0;
+      if (n > 0) {
+        var val = n * DEF[id].v; total += val;
+        rows += '<li><i class="dot" style="background:' + DEF[id].o + '"></i><span>' + DEF[id].n + ' × ' + n + '</span><b>€ ' + fmt(val) + '</b></li>';
+      }
+    });
+    var np = PICKS[S.pick + 1], nb = BAGS[S.bag + 1], nl = LAMPS[S.lamp + 1];
+    function card(key, title, now, next, cost) {
+      if (!next) return '<div class="up"><h4>' + title + '</h4><p>' + now + '</p><p class="max">Hoogste niveau</p></div>';
+      return '<div class="up"><h4>' + title + '</h4><p>' + now + '</p><p class="next">Volgende: ' + next + '</p>' +
+        '<button type="button" data-act="' + key + '"' + (S.money < cost ? ' disabled' : '') + '>Koop · € ' + fmt(cost) + '</button></div>';
+    }
+    shopEl.innerHTML =
+      '<div class="shop-head"><h2>Mijnwinkel</h2><button type="button" data-act="close" class="primary">Terug de mijn in</button></div>' +
+      '<div class="cash">Geld: € ' + fmt(S.money) + '</div>' +
+      '<h3>VERKOPEN</h3>' +
+      (rows ? '<ul class="sell">' + rows + '</ul><button type="button" data-act="sell" class="primary">Verkoop alles · € ' + fmt(total) + '</button>' : '<p>Je rugzak is leeg. Graaf eerst wat erts op.</p>') +
+      '<h3>UPGRADES</h3><div class="ups">' +
+      card('pick', 'HOUWEEL', PICKS[S.pick].n + ' houweel', np ? np.n + ' houweel (kracht ×' + np.p + ')' : '', np ? np.cost : 0) +
+      card('bag', 'RUGZAK', BAGS[S.bag].cap + ' plekken', nb ? nb.cap + ' plekken' : '', nb ? nb.cost : 0) +
+      card('lamp', 'LAMP', LAMPS[S.lamp].n, nl ? nl.n : '', nl ? nl.cost : 0) +
+      '</div>';
+  }
+  function openShop() {
+    shopOpen = true; K.l = K.r = K.u = K.d = false; syncPad();
+    renderShop(); shopEl.hidden = false; shopEl.scrollTop = 0;
+    var b = shopEl.querySelector('button'); if (b) b.focus({ preventScroll: true });
+  }
+  function closeShop() { shopOpen = false; shopEl.hidden = true; actBtn.focus({ preventScroll: true }); actBtn.blur(); }
+  shopEl.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]');
+    if (!b || b.disabled) return;
+    var a = b.getAttribute('data-act');
+    if (a === 'close') { closeShop(); return; }
+    if (a === 'sell') {
+      var total = 0;
+      ORE_IDS.forEach(function (id) { total += (S.inv[id] || 0) * DEF[id].v; });
+      S.money += total; S.inv = {};
+      toast('Verkocht voor € ' + fmt(total));
+    } else if (a === 'pick' && PICKS[S.pick + 1] && S.money >= PICKS[S.pick + 1].cost) {
+      S.money -= PICKS[S.pick + 1].cost; S.pick++;
+    } else if (a === 'bag' && BAGS[S.bag + 1] && S.money >= BAGS[S.bag + 1].cost) {
+      S.money -= BAGS[S.bag + 1].cost; S.bag++;
+    } else if (a === 'lamp' && LAMPS[S.lamp + 1] && S.money >= LAMPS[S.lamp + 1].cost) {
+      S.money -= LAMPS[S.lamp + 1].cost; S.lamp++;
+    }
+    save(); updateHud();
+    var st = shopEl.scrollTop;
+    renderShop(); shopEl.scrollTop = st;
+    var again = shopEl.querySelector('[data-act="' + a + '"]');
+    if (again && !again.disabled) again.focus({ preventScroll: true });
+  });
+  function action() {
+    if (shopOpen) { closeShop(); return; }
+    if (nearShop) openShop();
+    else toast('Loop eerst naar het gebouw links.');
+  }
+
+  /* ---------- input ---------- */
+  var MAP = { ArrowLeft: 'l', a: 'l', A: 'l', ArrowRight: 'r', d: 'r', D: 'r', ArrowUp: 'u', w: 'u', W: 'u', ' ': 'u', ArrowDown: 'd', s: 'd', S: 'd' };
+  window.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape' && shopOpen) { closeShop(); return; }
+    if (e.key === 'e' || e.key === 'E') { if (!e.repeat) action(); return; }
+    if (shopOpen) return;
+    var k = MAP[e.key];
+    if (k) { K[k] = true; e.preventDefault(); syncPad(); }
+  });
+  window.addEventListener('keyup', function (e) {
+    var k = MAP[e.key];
+    if (k) { K[k] = false; syncPad(); }
+  });
+  window.addEventListener('blur', function () { K.l = K.r = K.u = K.d = false; syncPad(); });
+  var padBtns = document.querySelectorAll('.dpad button');
+  function syncPad() { padBtns.forEach(function (b) { b.classList.toggle('on', !!K[b.getAttribute('data-k')]); }); }
+  padBtns.forEach(function (b) {
+    var k = b.getAttribute('data-k');
+    b.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      try { b.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+      if (!shopOpen) { K[k] = true; syncPad(); }
+    });
+    var up = function () { K[k] = false; syncPad(); };
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+    b.addEventListener('lostpointercapture', up);
+    b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  });
+  actBtn.addEventListener('click', action);
+
+  /* ---------- physics ---------- */
+  function moveX(dx) {
+    p.x += dx;
+    var x0 = Math.floor(p.x), x1 = Math.floor(p.x + PW), y0 = Math.floor(p.y + 0.001), y1 = Math.floor(p.y + PH - 0.001);
+    for (var ty = y0; ty <= y1; ty++) {
+      for (var tx = x0; tx <= x1; tx++) {
+        if (solid(tx, ty)) {
+          if (dx > 0) p.x = tx - PW - 0.0005;
+          else if (dx < 0) p.x = tx + 1 + 0.0005;
+          p.vx = 0; return;
+        }
+      }
+    }
+  }
+  function moveY(dy) {
+    p.y += dy;
+    var x0 = Math.floor(p.x + 0.001), x1 = Math.floor(p.x + PW - 0.001), y0 = Math.floor(p.y), y1 = Math.floor(p.y + PH);
+    for (var ty = y0; ty <= y1; ty++) {
+      for (var tx = x0; tx <= x1; tx++) {
+        if (solid(tx, ty)) {
+          if (dy > 0) { p.y = ty - PH - 0.0005; p.ground = true; }
+          else if (dy < 0) p.y = ty + 1 + 0.0005;
+          p.vy = 0; return;
+        }
+      }
+    }
+  }
+  function pickTarget(dir) {
+    var cx = p.x + PW / 2, cy = p.y + PH / 2, tx, ty;
+    if (dir) {
+      tx = Math.floor(cx + dir * (PW / 2 + 0.1)); ty = Math.floor(cy);
+      if (inB(tx, ty) && tiles[ty][tx]) return { tx: tx, ty: ty, kind: 'h' };
+    }
+    if (K.d) {
+      tx = Math.floor(cx); ty = Math.floor(p.y + PH + 0.1);
+      if (inB(tx, ty) && tiles[ty][tx]) return { tx: tx, ty: ty, kind: 'd' };
+    }
+    if (K.u) {
+      tx = Math.floor(cx); ty = Math.floor(p.y - 0.1);
+      if (inB(tx, ty) && tiles[ty][tx]) return { tx: tx, ty: ty, kind: 'u' };
+    }
+    return null;
+  }
+  function burst(tx, ty, color) {
+    for (var i = 0; i < 9; i++) {
+      particles.push({ x: tx + 0.5, y: ty + 0.5, vx: (Math.random() - 0.5) * 7, vy: -Math.random() * 6 - 1, life: 0.5 + Math.random() * 0.4, c: color });
+    }
+  }
+  function breakBlock(tx, ty) {
+    var id = tiles[ty][tx], d = DEF[id];
+    tiles[ty][tx] = 0;
+    burst(tx, ty, d.o || d.c);
+    if (d.v > 0) {
+      if (bagCount() < BAGS[S.bag].cap) {
+        S.inv[id] = (S.inv[id] || 0) + 1;
+        texts.push({ x: tx + 0.5, y: ty, t: 0, s: '+' + d.n, c: d.ol });
+        save();
+      } else {
+        texts.push({ x: tx + 0.5, y: ty, t: 0, s: 'Vol!', c: '#ff7a6b' });
+        toast('Rugzak vol. Verkoop je erts bij de winkel.');
+      }
+    }
+    updateHud();
+  }
+
+  function step(dt) {
+    var dir = (K.r ? 1 : 0) - (K.l ? 1 : 0);
+    if (dir) p.face = dir;
+    p.vx = dir * SPEED;
+
+    var cx = p.x + PW / 2, tcx = Math.floor(cx);
+    var inClimb = [p.y + 0.05, p.y + PH * 0.5, p.y + PH + 0.04].some(function (py) { return climbable(tcx, Math.floor(py)); });
+    var aboveSolid = solid(tcx, Math.floor(p.y - 0.06));
+    var climbing = false;
+    if (K.u) {
+      if (inClimb && !aboveSolid) { p.vy = -CLIMB; climbing = true; }
+      else if (p.ground && !inClimb) { p.vy = -JUMP; p.ground = false; }
+    }
+    if (!climbing) p.vy = Math.min(p.vy + G * dt, MAXF);
+
+    // mining
+    var tg = pickTarget(dir);
+    if (tg && tiles[tg.ty][tg.tx] !== 10) {
+      var id = tiles[tg.ty][tg.tx], d = DEF[id];
+      if (!p.mine || p.mine.tx !== tg.tx || p.mine.ty !== tg.ty) p.mine = { tx: tg.tx, ty: tg.ty, t: 0, kind: tg.kind, blocked: false };
+      p.mine.kind = tg.kind;
+      if (d.t > S.pick) {
+        p.mine.blocked = true;
+        if (timeNow - warnAt > 2.5) { warnAt = timeNow; toast(d.n + ' is te hard. Je hebt een beter houweel nodig.'); }
+      } else {
+        p.mine.blocked = false;
+        p.mine.t += dt * PICKS[S.pick].p;
+        p.swing += dt;
+        if (p.mine.t >= d.h) { breakBlock(tg.tx, tg.ty); p.mine = null; }
+      }
+    } else {
+      p.mine = null;
+    }
+
+    p.ground = false;
+    moveX(p.vx * dt);
+    moveY(p.vy * dt);
+
+    // shop proximity
+    var ccx = p.x + PW / 2;
+    nearShop = ccx > 2.0 && ccx < 6.0 && p.y + PH <= SURF + 0.05;
+    actBtn.classList.toggle('ready', nearShop);
+
+    // depth
+    var dd = Math.max(0, Math.floor(p.y + PH - SURF + 0.05));
+    if (dd !== depth) {
+      depth = dd;
+      if (depth > S.best) { S.best = depth; save(); }
+      updateHud();
+    }
+
+    // camera
+    var target = clamp(p.y + PH / 2 - VH / 2, 0, H - VH);
+    cam.y += (target - cam.y) * Math.min(1, dt * 8);
+
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var q = particles[i];
+      q.vy += 30 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt;
+      if (q.life <= 0) particles.splice(i, 1);
+    }
+    for (var j = texts.length - 1; j >= 0; j--) {
+      texts[j].t += dt;
+      if (texts[j].t > 1.1) texts.splice(j, 1);
+    }
+  }
+
+  /* ---------- drawing ---------- */
+  var CRACKS = [[16, 3, 14, 12], [14, 12, 7, 16], [14, 12, 21, 18], [21, 18, 27, 21], [7, 16, 4, 27], [21, 18, 18, 29], [14, 12, 15, 2]];
+
+  function drawSky(gy, camPx) {
+    var g = ctx.createLinearGradient(0, gy - 150, 0, gy);
+    g.addColorStop(0, '#4f9fe0'); g.addColorStop(1, '#bfe4ff');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 640, Math.min(480, gy));
+    // sun
+    var sy = 44 - camPx;
+    ctx.fillStyle = '#fff3b0'; ctx.fillRect(540, sy, 40, 40);
+    ctx.fillStyle = '#ffe066'; ctx.fillRect(546, sy + 6, 28, 28);
+    // clouds
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    clouds.forEach(function (c) {
+      var x = ((c.x + timeNow * c.v) % 760) - 80, y = c.y - camPx;
+      ctx.fillRect(x, y + 8, c.w, 12); ctx.fillRect(x + 10, y, c.w - 24, 10); ctx.fillRect(x + 4, y + 20, c.w - 8, 4);
+    });
+    // tree
+    ctx.fillStyle = '#6b4526'; ctx.fillRect(432, gy - 56, 12, 56);
+    ctx.fillStyle = '#2f7d3a'; ctx.fillRect(404, gy - 104, 68, 36); ctx.fillRect(412, gy - 124, 52, 24); ctx.fillRect(396, gy - 84, 84, 24);
+    ctx.fillStyle = '#4caa4d'; ctx.fillRect(416, gy - 118, 20, 8); ctx.fillRect(408, gy - 98, 16, 8);
+    // rocks
+    ctx.fillStyle = '#7c818c'; ctx.fillRect(552, gy - 14, 28, 14); ctx.fillRect(558, gy - 20, 16, 8);
+    ctx.fillStyle = '#979ca8'; ctx.fillRect(560, gy - 18, 8, 4);
+    // shop
+    ctx.fillStyle = '#b98b5a'; ctx.fillRect(64, gy - 76, 128, 76);
+    ctx.fillStyle = '#9b7248';
+    for (var yy = gy - 70; yy < gy; yy += 10) ctx.fillRect(64, yy, 128, 2);
+    ctx.fillStyle = '#7d2f2f'; ctx.fillRect(54, gy - 104, 148, 28);
+    ctx.fillStyle = '#a63e3e'; ctx.fillRect(54, gy - 104, 148, 20);
+    ctx.fillStyle = '#7d2f2f';
+    for (var xx = 54; xx < 202; xx += 20) ctx.fillRect(xx, gy - 104, 10, 20);
+    ctx.fillStyle = '#2b1a10'; ctx.fillRect(112, gy - 46, 32, 46);
+    ctx.fillStyle = '#f4b72e'; ctx.fillRect(138, gy - 24, 3, 3);
+    ctx.fillStyle = '#cfe9ff'; ctx.fillRect(74, gy - 56, 26, 22); ctx.fillRect(156, gy - 56, 26, 22);
+    ctx.fillStyle = '#7d5a35'; ctx.fillRect(86, gy - 56, 2, 22); ctx.fillRect(74, gy - 46, 26, 2); ctx.fillRect(168, gy - 56, 2, 22); ctx.fillRect(156, gy - 46, 26, 2);
+    ctx.fillStyle = '#2b1a10'; ctx.fillRect(84, gy - 72, 88, 14);
+    ctx.fillStyle = '#f4b72e'; ctx.font = "8px 'Press Start 2P', monospace"; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+    ctx.fillText('WINKEL', 128, gy - 69);
+  }
+
+  function drawMiner() {
+    var sx = Math.round(p.x * T), sy = Math.round(p.y * T - Math.round(cam.y * T));
+    ctx.save();
+    ctx.translate(sx + 11, sy); ctx.scale(p.face, 1); ctx.translate(-11, 0);
+    var moving = Math.abs(p.vx) > 0.1 && p.ground, ph = moving ? Math.floor(timeNow * 10) % 2 : 0;
+    ctx.fillStyle = '#3a2a1c'; ctx.fillRect(6 - ph, 25, 5, 4); ctx.fillRect(12 + ph, 25, 5, 4);
+    ctx.fillStyle = '#2f55a8'; ctx.fillRect(6, 21, 5, 5); ctx.fillRect(12, 21, 5, 5);
+    ctx.fillStyle = '#3b6fd1'; ctx.fillRect(5, 12, 13, 10);
+    ctx.fillStyle = '#2a2a2a'; ctx.fillRect(5, 19, 13, 2);
+    ctx.fillStyle = '#f4b72e'; ctx.fillRect(10, 19, 3, 2);
+    ctx.fillStyle = '#e0873a'; ctx.fillRect(3, 13, 3, 7);
+    ctx.fillStyle = '#f1c08f'; ctx.fillRect(6, 5, 11, 8);
+    ctx.fillStyle = '#1b1b1b'; ctx.fillRect(13, 8, 2, 2);
+    ctx.fillStyle = '#d99a12'; ctx.fillRect(4, 5, 15, 2);
+    ctx.fillStyle = '#f4b72e'; ctx.fillRect(5, 1, 13, 5);
+    ctx.fillStyle = '#fffbe0'; ctx.fillRect(15, 2, 3, 3);
+    ctx.fillStyle = '#e0873a'; ctx.fillRect(15, 13, 5, 4);
+    ctx.fillStyle = '#f1c08f'; ctx.fillRect(19, 14, 2, 3);
+    var ang = -1.0;
+    if (p.mine && !p.mine.blocked) {
+      var base = p.mine.kind === 'd' ? 1.45 : (p.mine.kind === 'u' ? -1.45 : 0.2);
+      ang = base + Math.sin(p.swing * 18) * 0.55;
+    }
+    ctx.translate(19, 15); ctx.rotate(ang);
+    ctx.fillStyle = '#7a5230'; ctx.fillRect(-2, -1, 15, 3);
+    ctx.fillStyle = PICKS[S.pick].c; ctx.fillRect(10, -6, 4, 13); ctx.fillRect(12, -7, 3, 2); ctx.fillRect(12, 6, 3, 2);
+    ctx.restore();
+  }
+
+  function draw() {
+    var camPx = Math.round(cam.y * T);
+    ctx.fillStyle = '#2a1c12'; ctx.fillRect(0, 0, 640, 480);
+    var gy = SURF * T - camPx;
+    if (gy > 0) drawSky(gy, camPx);
+
+    var y0 = Math.max(0, Math.floor(camPx / T)), y1 = Math.min(H - 1, Math.ceil((camPx + 480) / T));
+    for (var y = y0; y <= y1; y++) {
+      for (var x = 0; x < W; x++) {
+        var id = tiles[y][x];
+        if (id) ctx.drawImage(getTex(id, x, y), x * T, y * T - camPx);
+      }
+    }
+
+    // mining target: cracks or warning
+    if (p.mine) {
+      var m = p.mine, mx = m.tx * T, my = m.ty * T - camPx;
+      if (m.blocked) {
+        ctx.fillStyle = 'rgba(255,90,70,0.3)'; ctx.fillRect(mx, my, T, T);
+      } else {
+        var f = clamp(m.t / DEF[tiles[m.ty][m.tx]].h, 0, 1), n = Math.floor(f * CRACKS.length);
+        ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 2; ctx.beginPath();
+        for (var k = 0; k < n; k++) { ctx.moveTo(mx + CRACKS[k][0], my + CRACKS[k][1]); ctx.lineTo(mx + CRACKS[k][2], my + CRACKS[k][3]); }
+        ctx.stroke();
+      }
+    }
+
+    drawMiner();
+
+    particles.forEach(function (q) {
+      ctx.globalAlpha = clamp(q.life * 2, 0, 1);
+      ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x * T), Math.round(q.y * T - camPx), 4, 4);
+    });
+    ctx.globalAlpha = 1;
+
+    // darkness
+    var dd = p.y - SURF, a = clamp((dd - 2) / 28, 0, 0.92);
+    if (a > 0.01) {
+      var pcx = (p.x + PW / 2) * T, pcy = p.y * T + PH * T / 2 - camPx;
+      var R = LAMPS[S.lamp].r * (1 + Math.sin(timeNow * 5) * 0.012);
+      dkc.globalCompositeOperation = 'source-over';
+      dkc.clearRect(0, 0, 640, 480);
+      dkc.fillStyle = 'rgba(4,3,8,' + a + ')'; dkc.fillRect(0, 0, 640, 480);
+      dkc.globalCompositeOperation = 'destination-out';
+      var gr = dkc.createRadialGradient(pcx, pcy, R * 0.25, pcx, pcy, R);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      dkc.fillStyle = gr; dkc.fillRect(0, 0, 640, 480);
+      ctx.drawImage(dk, 0, 0);
+    }
+
+    // floating texts and hints (above darkness)
+    ctx.font = "8px 'Press Start 2P', monospace"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    texts.forEach(function (t) {
+      ctx.globalAlpha = clamp(1.1 - t.t, 0, 1);
+      var tx = t.x * T, ty = t.y * T - camPx - t.t * 22;
+      ctx.fillStyle = '#000'; ctx.fillText(t.s, tx + 1, ty + 1);
+      ctx.fillStyle = t.c; ctx.fillText(t.s, tx, ty);
+    });
+    ctx.globalAlpha = 1;
+    if (nearShop && !shopOpen) {
+      var hx = Math.round((p.x + PW / 2) * T), hy = Math.round(p.y * T - camPx) - 14;
+      ctx.fillStyle = 'rgba(18,22,36,0.92)'; ctx.fillRect(hx - 46, hy - 9, 92, 18);
+      ctx.strokeStyle = '#f4b72e'; ctx.lineWidth = 2; ctx.strokeRect(hx - 46, hy - 9, 92, 18);
+      ctx.fillStyle = '#f4b72e'; ctx.fillText('E: WINKEL', hx, hy + 1);
+    }
+  }
+
+  /* ---------- legend ---------- */
+  (function () {
+    var rows = '<tr><td><i class="dot" style="background:#7c818c"></i>Steen</td><td class="v">-</td><td>' + PICKS[1].n + '</td></tr>';
+    ORE_IDS.forEach(function (id) {
+      var d = DEF[id];
+      rows += '<tr><td><i class="dot" style="background:' + d.o + '"></i>' + d.n + '</td><td class="v">€ ' + fmt(d.v) + '</td><td>' + PICKS[d.t].n + '</td></tr>';
+    });
+    $('legend').innerHTML = rows;
+  })();
+
+  /* ---------- reset ---------- */
+  var resetBtn = $('reset'), resetTimer = 0, resetArmed = false;
+  resetBtn.addEventListener('click', function () {
+    if (!resetArmed) {
+      resetArmed = true; resetBtn.textContent = 'Zeker weten? Klik nogmaals';
+      resetTimer = setTimeout(function () { resetArmed = false; resetBtn.textContent = 'Voortgang wissen'; }, 3500);
+      return;
+    }
+    clearTimeout(resetTimer); resetArmed = false; resetBtn.textContent = 'Voortgang wissen';
+    try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+    S = defaults(); depth = 0; newWorld(); updateHud(); toast('Opnieuw begonnen.');
+  });
+
+  /* ---------- loop ---------- */
+  newWorld();
+  updateHud();
+  var last = performance.now(), acc = 0;
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now; timeNow += dt;
+    if (!shopOpen) {
+      acc += dt;
+      while (acc >= 1 / 60) { step(1 / 60); acc -= 1 / 60; }
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

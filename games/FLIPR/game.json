@@ -1,0 +1,30 @@
+{
+    "title": "Flipperkoorts",
+    "code": "FLIPR",
+    "categories": [
+        "Arcade",
+        "Retro"
+    ],
+    "published": "2026-11-18",
+    "version": "1.1.0",
+    "description": "Een flipperkast vol kittens die met je bolletje wol willen spelen. Flipper met linker en rechter Shift en speel door tot je ballen op zijn.",
+    "author": "NAT",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": {
+        "order": "desc",
+        "label": "punten"
+    },
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-18",
+            "notes": "Grotere kast met meeschuivende camera, kittens, meer banen en doelen, en Kittenfeest-multibal."
+        }
+    ]
+}

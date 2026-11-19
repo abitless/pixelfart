@@ -1,0 +1,404 @@
+<!doctype html><html><head><meta charset=utf8>
+<script type="application/json" id="pixelfart">
+{
+ "title": "Pixelpatrouille",
+ "code": "PATRO",
+ "version": "1.1.0",
+ "description": "Je schip vuurt vanzelf. Ontwijk de roze kogels en pak capsules: P voor sterkere wapens, S voor een schild. Hoeveel golven haal jij?",
+ "categories": [
+  "Arcade",
+  "Retro"
+ ],
+ "age": "ALL",
+ "author": "",
+ "changelog": "Topscores: de eindscore gaat naar de topscorelijst op de site (Pixelfart SDK).",
+ "score": {
+  "order": "desc",
+  "label": "punten"
+ }
+}
+</script><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Pixelpatrouille</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: narrow upright arcade cabinet — HUD above a portrait pixel screen */
+:root {
+  --bg: #120e26;
+  --panel: #2a2150;
+  --ink: #efeaff;
+  --dim: #a69bd1;
+  --accent: #ff5fa2;
+  --cyan: #4fd8e8;
+  --display: "Pixelify Sans", "Courier New", monospace;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--mono); font-size: 15px;
+  display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  -webkit-user-select: none; user-select: none;
+}
+.cab { width: min(100%, calc((100vh - 130px) * 0.7273)); min-width: min(100%, 260px); display: flex; flex-direction: column; gap: 8px; }
+.hud { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.hud h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 22px; color: var(--accent); letter-spacing: .02em; }
+.stats { display: grid; grid-template-columns: repeat(4, auto); gap: 2px 14px; font-variant-numeric: tabular-nums; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+.stats span { color: var(--dim); display: block; font-size: 10px; }
+.stats b { font-weight: 500; }
+#lives { color: var(--accent); }
+.screen { position: relative; width: 100%; aspect-ratio: 128 / 176; max-width: 100%; border: 3px solid var(--panel); background: #000; }
+canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; cursor: grab; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 16px; pointer-events: none; }
+.big { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 9vw, 46px); line-height: 1; text-shadow: 3px 3px 0 var(--bg); }
+.small { font-size: clamp(13px, 3.4vw, 16px); background: rgba(18,14,38,.82); padding: 4px 10px; max-width: 24em; }
+.blink { animation: blink 1s steps(2) infinite; color: var(--cyan); }
+@keyframes blink { 50% { opacity: 0; } }
+.banner { position: absolute; top: 30%; left: 0; right: 0; text-align: center; font-family: var(--display); font-weight: 700; font-size: clamp(20px, 7vw, 34px); color: var(--cyan); text-shadow: 3px 3px 0 var(--bg); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .blink { animation: none; } }
+.hint { color: var(--dim); text-align: center; font-size: 12px; line-height: 1.5; }
+.hint kbd { font-family: var(--mono); color: var(--ink); border: 1px solid var(--panel); padding: 0 4px; }
+</style>
+
+<div class="cab">
+  <div class="hud">
+    <h1>Pixelpatrouille</h1>
+    <div class="stats">
+      <div><span>Golf</span><b id="wave">1</b></div>
+      <div><span>Score</span><b id="score">0</b></div>
+      <div><span>Levens</span><b id="lives">♥♥♥</b></div>
+      <div><span>Record</span><b id="best">0</b></div>
+    </div>
+  </div>
+  <div class="screen">
+    <canvas id="c" width="128" height="176" aria-label="Spelscherm"></canvas>
+    <div class="banner" id="banner" hidden>Golf 1</div>
+    <div class="overlay" id="ov">
+      <div class="big" id="ovBig">Pixel&shy;patrouille</div>
+      <div class="small" id="ovSmall">Je schip vuurt vanzelf. Ontwijk de roze kogels en pak de capsules: P voor sterkere wapens, S voor een schild.</div>
+      <div class="small blink" id="ovGo">Klik, tik of druk op spatie</div>
+    </div>
+  </div>
+  <div class="hint"><kbd>pijltjes</kbd>/<kbd>WASD</kbd> of slepen met muis/vinger om te bewegen · <kbd>P</kbd> pauze</div>
+</div>
+
+<script>
+(() => {
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const W = 128, H = 176;
+const $ = id => document.getElementById(id);
+
+function sprite(rows, pal) {
+  const c = document.createElement('canvas');
+  c.width = rows[0].length; c.height = rows.length;
+  const x = c.getContext('2d');
+  rows.forEach((row, j) => [...row].forEach((ch, i) => { if (pal[ch]) { x.fillStyle = pal[ch]; x.fillRect(i, j, 1, 1); } }));
+  return c;
+}
+const white = rows => sprite(rows.map(r => r.replace(/[^.]/g, 'w')), { w: '#ffffff' });
+const mirror = half => half.map(r => r + [...r].reverse().join(''));
+
+const shipRows = ["....w....","...cwc...","...cbc...","..ccbcc..",".ccbbbcc.","ccbcccbcc","cc.c.c.cc","c.......c"];
+const SHIP = sprite(shipRows, { c: '#4fd8e8', b: '#1e5a8c', w: '#ffffff' });
+const DEF = {
+  d: { rows: [[".gggggg.","gkggggkg","gggggggg","g.gggg.g","g.g..g.g",".g....g."], [".gggggg.","gkggggkg","gggggggg","g.gggg.g",".g.gg.g.","g......g"]], pal: { g: '#7ee06a', k: '#120e26' } },
+  v: { rows: [["r.....r","rr...rr","rrrkrrr",".rrrrr.","..rrr..","...r..."]], pal: { r: '#ff7a45', k: '#ffe08a' } },
+  s: { rows: [["...ppppp...","..pwwwwwp..","ppppppppppp","pmpmpmpmpmp",".ppppppppp.","..m.....m.."], ["...ppppp...","..pwwwwwp..","ppppppppppp","mpmpmpmpmpm",".ppppppppp.","..m.....m.."]], pal: { p: '#b06cff', m: '#ffd23f', w: '#d9c8ff' } },
+  b: { rows: [mirror(["........mmmm","......mmpppp","....mmpppppp","...mppppwwpp","..mpppppwkkp",".mppppppwkkp","mppppppppppp","mpmpmpmpmppp","mp..mpppppmp","m....mpppm..","......mpm...",".......m...."])], pal: { m: '#ff5fa2', p: '#6a2a8c', w: '#ffd23f', k: '#120e26' } },
+};
+for (const k in DEF) { DEF[k].img = DEF[k].rows.map(r => sprite(r, DEF[k].pal)); DEF[k].flash = white(DEF[k].rows[0]); }
+const capsule = (fill, edge) => sprite(["ooooooo","o.kkk.o","o.k.k.o","o.kkk.o","o.k...o","o.k...o","ooooooo"], { o: edge, '.': fill, k: '#ffffff' });
+const capS = (fill, edge) => sprite(["ooooooo","o.kkk.o","o.k...o","o.kkk.o","o...k.o","o.kkk.o","ooooooo"], { o: edge, '.': fill, k: '#ffffff' });
+const CAP = { P: capsule('#d99a1e', '#ffd23f'), S: capS('#1e8a9c', '#4fd8e8') };
+
+// dithered nebula, tiles vertically
+const neb = document.createElement('canvas'); neb.width = W; neb.height = H;
+(() => {
+  const x = neb.getContext('2d'), cols = ['#0b0820', '#150f30', '#21154a', '#33195c'];
+  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const k = Math.PI * 2 / H;
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    let v = Math.sin(j * k * 2 + Math.sin(i * .045) * 1.6) + Math.sin(j * k * 3 + i * .03 + 1.3) * .7 + Math.sin(i * .07 + j * k * 1) * .5;
+    v = (v + 2.2) / 4.4 * 3 + (bayer[(j % 4) * 4 + (i % 4)] / 16 - .5);
+    x.fillStyle = cols[Math.max(0, Math.min(3, Math.round(v - .4)))]; x.fillRect(i, j, 1, 1);
+  }
+})();
+const stars = [10, 24, 48].map((sp, l) => Array.from({ length: 22 - l * 5 }, () => ({ x: Math.random() * W, y: Math.random() * H, sp, c: ['#5c5290', '#a69bd1', '#ffffff'][l] })));
+
+// ---------- state ----------
+let best = 0;
+try { best = +localStorage.getItem('nevelpatrouille-best') || 0; } catch (e) {}
+$('best').textContent = best;
+
+let state = 'start', paused = false, t = 0, shake = 0;
+let ship, pb, eb, foes, parts, drops, queue, waveClock, wave, score, nextT, bannerT;
+
+function reset() {
+  ship = { x: 64, y: 150, lv: 1, shield: 0, inv: 0, cd: 0, lives: 3 };
+  pb = []; eb = []; foes = []; parts = []; drops = []; queue = [];
+  wave = 0; score = 0; nextT = 0;
+  nextWave(); hud();
+}
+function hud() {
+  $('wave').textContent = wave; $('score').textContent = score;
+  $('lives').textContent = '♥'.repeat(Math.max(0, ship.lives)) || '-';
+}
+function banner(txt) {
+  const b = $('banner'); b.textContent = txt; b.hidden = false;
+  clearTimeout(bannerT); bannerT = setTimeout(() => b.hidden = true, 1500);
+}
+function nextWave() {
+  wave++; waveClock = 0; queue = [];
+  if (wave % 5 === 0) { banner('Baas nadert!'); queue.push({ at: 1.6, fn: spawnBoss }); }
+  else {
+    banner('Golf ' + wave);
+    let tt = 1.2;
+    const groups = 3 + Math.floor(wave / 2);
+    for (let gi = 0; gi < groups; gi++) {
+      const types = ['d']; if (wave >= 2) types.push('v'); if (wave >= 3) types.push('s');
+      const type = types[Math.floor(Math.random() * types.length)];
+      const n = type === 's' ? 2 + Math.floor(Math.random() * 3) : 4 + Math.floor(Math.random() * 3);
+      const x0 = 18 + Math.random() * 92;
+      for (let i = 0; i < n; i++) queue.push({ at: tt + i * .35, fn: () => spawn(type, i, n, x0) });
+      tt += n * .35 + Math.max(.8, 2 - wave * .1);
+    }
+  }
+  hud();
+}
+function spawn(type, i, n, x0) {
+  const sp = wave;
+  if (type === 'd') foes.push({ type, x: x0, y: -6, x0, ph: i * .6, vy: 18 + sp * 1.5, hp: 1, w: 8, h: 6, pts: 10 });
+  if (type === 'v') foes.push({ type, x: 10 + Math.random() * 108, y: -6, st: 0, ty: 20 + Math.random() * 40, wait: .45, hp: 1, w: 7, h: 6, pts: 20 });
+  if (type === 's') foes.push({ type, x: n > 1 ? 18 + i * (92 / (n - 1)) : 64, y: -6, ty: 16 + (i % 2) * 14, hp: 4, w: 11, h: 6, cd: 1 + Math.random() * 1.5, life: 0, ph: i, pts: 50 });
+}
+function spawnBoss() {
+  const max = 60 + Math.floor(wave / 5) * 25;
+  foes.push({ type: 'b', x: 64, y: -14, hp: max, max, w: 24, h: 12, cd: 2, pat: 0, pts: 1000, life: 0 });
+}
+
+// ---------- helpers ----------
+function puff(x, y, n, cols, sp = 40, life = .45) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, v = Math.random() * sp; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: life * (.5 + Math.random()), col: cols[i % cols.length] }); }
+}
+function shoot(x, y, a, sp = 62) { eb.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp }); }
+const angTo = (x, y) => Math.atan2(ship.y - y, ship.x - x);
+
+function hurt() {
+  if (ship.inv > 0 || state !== 'play') return;
+  if (ship.shield) { ship.shield = 0; ship.inv = 1; puff(ship.x, ship.y, 14, ['#4fd8e8', '#ffffff'], 45); return; }
+  ship.lives--; ship.lv = Math.max(1, ship.lv - 1); ship.inv = 2.2; shake = 5;
+  puff(ship.x, ship.y, 26, ['#ffffff', '#4fd8e8', '#ff5fa2', '#ffd23f'], 60, .7);
+  eb.length = 0; hud();
+  if (ship.lives <= 0) {
+    state = 'over'; window.Pixelfart&&Pixelfart.score(score);
+    let msg = `Je haalde golf ${wave} met ${score} punten.`;
+    if (score > best) { best = score; msg = 'Nieuw record! ' + msg; try { localStorage.setItem('nevelpatrouille-best', best); } catch (e) {} }
+    $('best').textContent = best;
+    setTimeout(() => {
+      if (state !== 'over') return;
+      $('ovBig').textContent = 'Neergehaald'; $('ovSmall').textContent = msg;
+      $('ovGo').hidden = false; $('ovGo').textContent = 'Klik, tik of druk op spatie voor nog een vlucht';
+      $('ov').hidden = false;
+    }, 900);
+  }
+}
+function damage(f, d) {
+  f.hp -= d; f.flash = .06;
+  if (f.hp > 0) return;
+  score += f.pts; hud();
+  const big = f.type === 'b';
+  puff(f.x, f.y, big ? 70 : 16, ['#ffffff', '#ffd23f', '#ff5fa2', '#b06cff'], big ? 80 : 45, big ? 1 : .5);
+  shake = Math.max(shake, big ? 8 : 1.5);
+  if (big) { eb.length = 0; drops.push({ x: f.x - 6, y: f.y, k: 'P' }, { x: f.x + 6, y: f.y, k: 'S' }); }
+  else { const r = Math.random(); if (r < .07 && ship.lv < 3) drops.push({ x: f.x, y: f.y, k: 'P' }); else if (r < .11) drops.push({ x: f.x, y: f.y, k: 'S' }); }
+}
+
+// ---------- input ----------
+const keys = {};
+let drag = null;
+function start() { reset(); state = 'play'; paused = false; $('ov').hidden = true; }
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (e.code === 'Space' && state !== 'play') start();
+  if (e.code === 'KeyP' && state === 'play') {
+    paused = !paused; $('ovBig').textContent = 'Pauze'; $('ovSmall').textContent = 'Druk op P om verder te vliegen'; $('ovGo').hidden = true; $('ov').hidden = !paused;
+  }
+});
+addEventListener('keyup', e => keys[e.code] = false);
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; drag = null; });
+const toC = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (state !== 'play') { start(); }
+  cv.setPointerCapture(e.pointerId);
+  drag = { id: e.pointerId, ...toC(e) };
+});
+cv.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id || state !== 'play' || paused) return;
+  const p = toC(e);
+  ship.x += (p.x - drag.x) * 1.3; ship.y += (p.y - drag.y) * 1.3;
+  drag.x = p.x; drag.y = p.y;
+});
+const endDrag = e => { if (drag && e.pointerId === drag.id) drag = null; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+
+// ---------- update ----------
+function update(dt) {
+  t += dt;
+  shake = Math.max(0, shake - dt * 20);
+  for (const L of stars) for (const s of L) { s.y += s.sp * dt; if (s.y > H) { s.y -= H; s.x = Math.random() * W; } }
+  parts.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= .94; q.vy *= .94; q.life -= dt; });
+  parts = parts.filter(q => q.life > 0);
+  if (state !== 'play' || paused) return;
+
+  // ship
+  const ix = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+  const iy = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+  ship.x += ix * 85 * dt; ship.y += iy * 85 * dt;
+  ship.x = Math.max(5, Math.min(W - 5, ship.x)); ship.y = Math.max(20, Math.min(H - 6, ship.y));
+  ship.inv -= dt; ship.cd -= dt;
+  if (ship.cd <= 0) {
+    ship.cd = .15;
+    const x = ship.x, y = ship.y - 5;
+    if (ship.lv === 1) pb.push({ x, y, vx: 0 });
+    else { pb.push({ x: x - 3, y: y + 2, vx: 0 }, { x: x + 3, y: y + 2, vx: 0 }); }
+    if (ship.lv >= 3) pb.push({ x: x - 4, y: y + 3, vx: -45 }, { x: x + 4, y: y + 3, vx: 45 });
+  }
+
+  // wave queue
+  waveClock += dt;
+  while (queue.length && queue[0].at <= waveClock) queue.shift().fn();
+  queue.sort((a, b) => a.at - b.at);
+  if (!queue.length && !foes.length) { nextT += dt; if (nextT > 1.4) { nextT = 0; if (wave % 5 !== 0 || true) nextWave(); } }
+  else nextT = 0;
+
+  // foes
+  for (const f of foes) {
+    f.flash = (f.flash || 0) - dt;
+    if (f.type === 'd') {
+      f.y += f.vy * dt; f.x = f.x0 + Math.sin(t * 2 + f.ph) * 14;
+      if (wave >= 4 && Math.random() < dt * .08 && f.y < 110) shoot(f.x, f.y + 3, Math.PI / 2, 55);
+    } else if (f.type === 'v') {
+      if (f.st === 0) { f.y += 50 * dt; if (f.y >= f.ty) f.st = 1; }
+      else if (f.st === 1) { f.wait -= dt; if (f.wait <= 0) { const a = angTo(f.x, f.y), sp = 80 + wave * 3; f.vx = Math.cos(a) * sp; f.vy = Math.sin(a) * sp; f.st = 2; if (wave >= 4) shoot(f.x, f.y, a, 70); } }
+      else { f.x += f.vx * dt; f.y += f.vy * dt; }
+    } else if (f.type === 's') {
+      f.life += dt;
+      if (f.y < f.ty && f.life < 12) f.y += 30 * dt;
+      f.x += Math.cos(t * 1.2 + f.ph) * 14 * dt;
+      if (f.life > 12) f.y += 18 * dt;
+      f.cd -= dt;
+      if (f.cd <= 0 && f.y > 4) { const a = angTo(f.x, f.y); [-.25, 0, .25].forEach(o => shoot(f.x, f.y + 3, a + o)); f.cd = Math.max(1.2, 2.4 - wave * .06); }
+    } else if (f.type === 'b') {
+      f.life += dt;
+      if (f.y < 26) f.y += 18 * dt; else f.x = 64 + Math.sin(f.life * .7) * 36;
+      f.cd -= dt;
+      const rage = f.hp < f.max / 2;
+      if (f.cd <= 0 && f.y >= 26) {
+        const p = f.pat++ % 3;
+        if (p === 0) { const a = angTo(f.x, f.y); for (let k = -2; k <= 2; k++) shoot(f.x, f.y + 6, a + k * .22, 60); }
+        if (p === 1) { const n = rage ? 16 : 12, off = Math.random(); for (let k = 0; k < n; k++) shoot(f.x, f.y, off + k * 6.283 / n, 48); }
+        if (p === 2) { for (let k = 0; k < (rage ? 5 : 3); k++) setTimeout(() => { if (f.hp > 0 && state === 'play') shoot(f.x - 8, f.y + 5, angTo(f.x - 8, f.y), 85), shoot(f.x + 8, f.y + 5, angTo(f.x + 8, f.y), 85); }, k * 160); }
+        f.cd = rage ? 1.05 : 1.6;
+      }
+    }
+    // body collision
+    if (Math.abs(f.x - ship.x) < f.w / 2 + 2 && Math.abs(f.y - ship.y) < f.h / 2 + 2) { hurt(); if (f.type !== 'b') damage(f, 3); }
+  }
+
+  // player bullets
+  for (const b of pb) {
+    b.y -= 190 * dt; b.x += b.vx * dt;
+    for (const f of foes) if (f.hp > 0 && Math.abs(b.x - f.x) < f.w / 2 + 1 && Math.abs(b.y - f.y) < f.h / 2 + 2) {
+      b.y = -99; damage(f, 1); parts.push({ x: b.x, y: b.y, vx: 0, vy: 0, life: 0 }); puff(b.x, f.y + f.h / 2, 2, ['#ffffff', '#ffd23f'], 25, .2); break;
+    }
+  }
+  pb = pb.filter(b => b.y > -4 && b.x > -4 && b.x < W + 4);
+  foes = foes.filter(f => f.hp > 0 && f.y < H + 12 && f.x > -20 && f.x < W + 20);
+
+  // enemy bullets
+  for (const b of eb) {
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (Math.abs(b.x - ship.x) < 2.5 && Math.abs(b.y - ship.y) < 3) { b.y = 999; hurt(); }
+  }
+  eb = eb.filter(b => b.y > -6 && b.y < H + 6 && b.x > -6 && b.x < W + 6);
+
+  // drops
+  for (const d of drops) {
+    d.y += 26 * dt;
+    if (Math.abs(d.x - ship.x) < 6 && Math.abs(d.y - ship.y) < 7) {
+      d.y = 999;
+      if (d.k === 'P') { if (ship.lv < 3) ship.lv++; else { score += 100; hud(); } banner(ship.lv >= 3 ? 'Maximale vuurkracht' : 'Vuurkracht +1'); }
+      else { ship.shield = 1; banner('Schild actief'); }
+      puff(ship.x, ship.y, 12, d.k === 'P' ? ['#ffd23f', '#ffffff'] : ['#4fd8e8', '#ffffff'], 40);
+    }
+  }
+  drops = drops.filter(d => d.y < H + 8);
+}
+
+// ---------- draw ----------
+function draw() {
+  g.save();
+  if (shake > 0) g.translate(Math.round((Math.random() - .5) * shake), Math.round((Math.random() - .5) * shake));
+  const ny = Math.floor(t * 4) % H;
+  g.drawImage(neb, 0, ny); g.drawImage(neb, 0, ny - H);
+  for (const L of stars) for (const s of L) { g.fillStyle = s.c; g.fillRect(s.x | 0, s.y | 0, 1, L[0].sp > 40 ? 2 : 1); }
+
+  for (const d of drops) g.drawImage(CAP[d.k], Math.round(d.x - 3), Math.round(d.y - 3 + Math.sin(t * 6)));
+
+  for (const f of foes) {
+    const def = DEF[f.type];
+    const img = f.flash > 0 ? def.flash : def.img[Math.floor(t * 4) % def.img.length];
+    g.drawImage(img, Math.round(f.x - f.w / 2), Math.round(f.y - f.h / 2));
+  }
+
+  // ship
+  if (state === 'play' || state === 'start') {
+    if (!(ship.inv > 0 && Math.floor(t * 14) % 2)) {
+      const sx = Math.round(ship.x) - 4, sy = Math.round(ship.y) - 4;
+      g.fillStyle = Math.floor(t * 20) % 2 ? '#ffd23f' : '#ff7a45';
+      g.fillRect(sx + 3, sy + 8, 3, 1); g.fillRect(sx + 4, sy + 9, 1, 1 + (Math.floor(t * 20) % 2));
+      g.drawImage(SHIP, sx, sy);
+      if (ship.shield) {
+        g.fillStyle = Math.floor(t * 6) % 2 ? '#4fd8e8' : '#9ff0f8';
+        for (let a = 0; a < 24; a++) { const r = 7; g.fillRect(Math.round(ship.x + Math.cos(a / 24 * 6.283 + t) * r), Math.round(ship.y + Math.sin(a / 24 * 6.283 + t) * r), 1, 1); }
+      }
+    }
+  }
+
+  g.fillStyle = '#e9fbff';
+  for (const b of pb) g.fillRect(Math.round(b.x), Math.round(b.y), 1, 3);
+  for (const b of eb) {
+    g.fillStyle = '#ff5fa2'; g.fillRect(Math.round(b.x) - 1, Math.round(b.y) - 1, 3, 3);
+    g.fillStyle = '#ffd0e4'; g.fillRect(Math.round(b.x), Math.round(b.y), 1, 1);
+  }
+  for (const q of parts) { g.fillStyle = q.col; g.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
+
+  // boss health
+  const boss = foes.find(f => f.type === 'b');
+  if (boss) {
+    g.fillStyle = '#2a2150'; g.fillRect(14, 4, 100, 3);
+    g.fillStyle = boss.hp < boss.max / 2 ? '#ff5fa2' : '#ffd23f'; g.fillRect(14, 4, Math.round(100 * boss.hp / boss.max), 3);
+  }
+  // weapon level pips
+  if (state === 'play') for (let i = 0; i < 3; i++) { g.fillStyle = i < ship.lv ? '#ffd23f' : '#2a2150'; g.fillRect(3 + i * 4, H - 5, 3, 2); }
+  g.restore();
+}
+
+reset(); foes = []; queue = []; $('banner').hidden = true; clearTimeout(bannerT);
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(.033, (now - last) / 1000); last = now;
+  update(dt); draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

@@ -70,6 +70,28 @@ class PF_CLI {
 			update_post_meta( $id, '_pf_description', $meta['description'] ?? '' );
 			update_post_meta( $id, '_pf_author', $meta['author'] ?? '' );
 			update_post_meta( $id, '_pf_age', in_array( $meta['age'] ?? 'ALL', PF_Games::AGES, true ) ? $meta['age'] : 'ALL' );
+			// Topscores en versiegeschiedenis uit game.json (zoals export ze schrijft).
+			$order = (string) ( $meta['score']['order'] ?? '' );
+			update_post_meta( $id, '_pf_score_order', in_array( $order, [ 'desc', 'asc' ], true ) ? $order : '' );
+			if ( ! empty( $meta['score']['label'] ) ) {
+				update_post_meta( $id, '_pf_score_label', mb_substr( sanitize_text_field( $meta['score']['label'] ), 0, 20 ) );
+			}
+			if ( ! empty( $meta['score']['max'] ) ) {
+				update_post_meta( $id, '_pf_score_max', absint( $meta['score']['max'] ) );
+			}
+			if ( ! empty( $meta['changelog'] ) && is_array( $meta['changelog'] ) ) {
+				$log = [];
+				foreach ( $meta['changelog'] as $e ) {
+					if ( is_array( $e ) && ! empty( $e['version'] ) ) {
+						$log[] = [
+							'version' => sanitize_text_field( $e['version'] ),
+							'date'    => preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) ( $e['date'] ?? '' ) ) ? $e['date'] : $date,
+							'notes'   => sanitize_textarea_field( (string) ( $e['notes'] ?? '' ) ),
+						];
+					}
+				}
+				update_post_meta( $id, '_pf_changelog', $log );
+			}
 
 			$terms = [];
 			foreach ( (array) ( $meta['categories'] ?? [] ) as $cat ) {
@@ -96,6 +118,54 @@ class PF_CLI {
 			WP_CLI::log( sprintf( '%s %s  %s', $existing ? 'bijgewerkt' : 'nieuw     ', $code, $meta['title'] ) );
 		}
 		WP_CLI::success( 'Klaar.' );
+	}
+
+	/**
+	 * Schrijf alle games naar een map, als bron voor de repository (en voor `wp pixelfart import`).
+	 *
+	 * Per game een submap met game.json, game.html en thumb.png. De HTML is de bron zoals hij geüpload werd:
+	 * zonder het blok dat de site toevoegt (beveiliging en SDK) en met de oorspronkelijke Google Fonts-links
+	 * in plaats van de lokale kopieën. Bij het importeren zet de site dat er allemaal weer zelf in.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <dir>
+	 * : Doelmap, bijv. wp-content/games.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp pixelfart export wp-content/games
+	 */
+	public function export( $args ) {
+		$dir = trailingslashit( $args[0] );
+		wp_mkdir_p( $dir );
+		$ids = get_posts( [ 'post_type' => PF_Games::CPT, 'post_status' => [ 'publish', 'draft', 'pending', 'future', 'private' ], 'posts_per_page' => -1, 'fields' => 'ids', 'orderby' => 'title', 'order' => 'ASC' ] );
+		$n   = 0;
+		foreach ( $ids as $id ) {
+			$code = (string) PF_Games::meta( $id, 'code' );
+			$src  = PF_Games::dir( $code );
+			if ( 5 !== strlen( $code ) || ! is_readable( $src . 'game.html' ) ) {
+				WP_CLI::warning( get_the_title( $id ) . ': geen gamebestand, overgeslagen.' );
+				continue;
+			}
+			PF_Games::write_json( $id );
+			$out = $dir . $code . '/';
+			wp_mkdir_p( $out );
+			$html = (string) file_get_contents( $src . 'game.html' );
+			$html = preg_replace( '#\s*<!-- pixelfart -->.*?<!-- /pixelfart -->#s', '', $html );
+			$html = preg_replace_callback( '#\.\./_fonts/(gf-[0-9a-f]{12}\.css)#', fn( $m ) => PF_Fonts::source_url( $m[1] ) ?: $m[0], $html );
+			file_put_contents( $out . 'game.html', $html );
+			copy( $src . 'game.json', $out . 'game.json' );
+			if ( is_readable( $src . 'thumb.png' ) ) {
+				copy( $src . 'thumb.png', $out . 'thumb.png' );
+			}
+			if ( str_contains( $html, '../_fonts/' ) ) {
+				WP_CLI::warning( "$code: verwijst nog naar een lokale fontkopie zonder bron." );
+			}
+			WP_CLI::log( "$code  " . get_the_title( $id ) );
+			$n++;
+		}
+		WP_CLI::success( "$n games geschreven naar $dir" );
 	}
 
 	/**

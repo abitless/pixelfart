@@ -1,0 +1,774 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Ertsfront</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one pixel battlefield on top, a control panel per player below it (side by side, stacked on phones). */
+:root{
+  --bg:#12171b;
+  --panel:#1b232a;
+  --line:#2e3944;
+  --fg:#e9e4d6;
+  --muted:#8c99a4;
+  --blue:#4aa3ff;
+  --red:#ff5a4a;
+  --gold:#ffc83d;
+  --ok:#7bd88f;
+  --font-ui:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
+  --font-title:"Press Start 2P","Courier New",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:auto}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:16px;line-height:1.3;
+  padding-block:16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+main{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top h1{font-family:var(--font-title);font-size:16px;font-weight:400;margin:0;letter-spacing:.04em;color:var(--gold)}
+.top .tools{display:flex;gap:8px}
+button{font:inherit;color:inherit;cursor:pointer}
+.tool{background:var(--panel);border:2px solid var(--line);padding:6px 12px;min-height:36px}
+.tool:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+.stage{position:relative;width:100%;aspect-ratio:16/9;background:#000;border:3px solid var(--line);overflow:hidden}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;image-rendering:pixelated}
+
+.ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;overflow:auto;background:rgba(10,13,16,.62)}
+.ov[hidden]{display:none!important}
+.card{background:var(--panel);border:3px solid var(--line);padding:16px 20px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;max-width:100%}
+.card[hidden]{display:none!important}
+.card h2{font-family:var(--font-title);font-size:18px;font-weight:400;margin:0;color:var(--gold);letter-spacing:.04em}
+.card p{margin:0;color:var(--muted)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.seg button{background:var(--bg);border:2px solid var(--line);padding:6px 12px;min-width:92px}
+.seg button small{display:block;color:var(--muted);font-size:12px}
+.seg button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.seg button[aria-pressed="true"] small{color:var(--fg)}
+.go{background:var(--gold);color:#1a1405;border:0;padding:10px 28px;font-weight:600;font-size:18px}
+.go:hover{filter:brightness(1.1)}
+.ghost{background:transparent;border:2px solid var(--line);padding:8px 18px}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.panel{background:var(--panel);border:2px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel.p0{border-top:4px solid var(--blue)}
+.panel.p1{border-top:4px solid var(--red)}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.ph h2{margin:0;font-size:18px;font-weight:600}
+.panel.p0 h2{color:var(--blue)}
+.panel.p1 h2{color:var(--red)}
+.money{font-size:22px;color:var(--gold);font-variant-numeric:tabular-nums}
+.meta{display:flex;gap:16px;color:var(--muted);font-size:15px}
+.meta b{color:var(--fg);font-weight:400;font-variant-numeric:tabular-nums}
+.row{display:grid;gap:8px}
+.builds{grid-template-columns:repeat(3,1fr)}
+.stance{grid-template-columns:1fr 1fr}
+.act{background:var(--bg);border:2px solid var(--line);padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:64px;min-width:0}
+.act:hover:not(:disabled){border-color:var(--muted)}
+.act:active:not(:disabled),.act.pressed{transform:translateY(1px);border-color:var(--gold)}
+.act:disabled{opacity:.42;cursor:not-allowed}
+.act .nm{font-weight:600;text-align:center}
+.act .ct{color:var(--gold);font-variant-numeric:tabular-nums;font-size:14px}
+.st{flex-direction:row;justify-content:center;gap:8px;min-height:44px}
+.st[aria-pressed="true"]{border-color:var(--ok);color:var(--ok)}
+.panel.p1 .st[aria-pressed="true"]{border-color:var(--ok)}
+kbd{font-family:var(--font-ui);font-size:12px;border:1px solid var(--muted);border-bottom-width:3px;padding:0 6px;color:var(--muted);background:var(--panel)}
+.panel.ai kbd{display:none}
+.panel.ai .row{opacity:.8}
+.prod{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px;min-height:18px}
+.bar{flex:0 0 90px;height:8px;background:var(--bg);border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:var(--gold)}
+.ptxt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legend{color:var(--muted);font-size:14px;margin:0}
+@media (max-width:700px){
+  .panels{grid-template-columns:1fr}
+  kbd{display:none}
+}
+</style>
+
+<main>
+  <div class="top">
+    <h1>Ertsfront</h1>
+    <div class="tools">
+      <button class="tool" id="pauseBtn" type="button">Pauze</button>
+      <button class="tool" id="menuBtn" type="button">Menu</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <canvas id="cv" width="480" height="270" aria-label="Slagveld"></canvas>
+    <div class="ov" id="ov">
+      <div class="card" id="menu">
+        <h2>Ertsfront</h2>
+        <div class="seg" id="segMode" role="group" aria-label="Spelmodus">
+          <button type="button" data-v="1" aria-pressed="true">1 speler<small>tegen de computer</small></button>
+          <button type="button" data-v="2" aria-pressed="false">2 spelers<small>zelfde scherm</small></button>
+        </div>
+        <div class="seg" id="segDiff" role="group" aria-label="Moeilijkheid">
+          <button type="button" data-v="easy" aria-pressed="false">Makkelijk</button>
+          <button type="button" data-v="normal" aria-pressed="true">Normaal</button>
+          <button type="button" data-v="hard" aria-pressed="false">Moeilijk</button>
+        </div>
+        <button class="go" id="go" type="button">Start</button>
+        <p>Vernietig de vijandelijke basis.</p>
+      </div>
+      <div class="card" id="pauseBox" hidden>
+        <h2>Pauze</h2>
+        <div class="row-btns">
+          <button class="go" id="resume" type="button">Verder</button>
+        </div>
+        <p>Spatiebalk = pauze</p>
+      </div>
+      <div class="card" id="endBox" hidden>
+        <h2 id="endTitle">Gewonnen!</h2>
+        <p id="endSub"></p>
+        <div class="row-btns">
+          <button class="go" id="again" type="button">Opnieuw</button>
+          <button class="ghost" id="toMenu" type="button">Menu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panels" id="panels"></div>
+  <p class="legend">Ore trucks halen erts en leveren geld op. Aanvallen stuurt je hele leger naar de vijandelijke basis, verdedigen houdt het voor je eigen basis.</p>
+</main>
+
+<script>
+(function () {
+'use strict';
+var W = 480, H = 270;
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+/* ---------- data ---------- */
+var TEAM = [
+  { name: 'Blauw', c: '#4aa3ff', d: '#1f5fa8' },
+  { name: 'Rood',  c: '#ff5a4a', d: '#a8281c' }
+];
+var TYPES = {
+  soldier:   { cost: 50,  time: 3, hp: 40, speed: 30, range: 42,  aggro: 82,  dmg: 6,  cd: 0.7, r: 3 },
+  artillery: { cost: 150, time: 7, hp: 55, speed: 17, range: 122, aggro: 122, dmg: 28, cd: 2.8, r: 5, minRange: 28, splash: 16 },
+  truck:     { cost: 100, time: 5, hp: 60, speed: 26, cap: 40, r: 5 }
+};
+var NAMES = { soldier: 'Soldaat', artillery: 'Artillerie', truck: 'Ore truck' };
+var CAP = { combat: 40, truck: 6, queue: 6 };
+var DIFF = {
+  easy:   { int: 2.4, wave: 10, trucks: 2, step: 3 },
+  normal: { int: 1.5, wave: 8,  trucks: 3, step: 3 },
+  hard:   { int: 0.9, wave: 6,  trucks: 4, step: 2 }
+};
+var KEYS = [
+  { soldier: 'A', artillery: 'S', truck: 'D', attack: 'Q', defend: 'W' },
+  { soldier: 'J', artillery: 'K', truck: 'L', attack: 'I', defend: 'O' }
+];
+
+var G = null;
+var settings = { mode: 1, diff: 'normal' };
+
+/* ---------- helpers ---------- */
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function R(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+function pxLine(x0, y0, x1, y1, c, w) {
+  w = w || 1;
+  var n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
+  ctx.fillStyle = c;
+  for (var i = 0; i <= n; i++) { var t = i / n; ctx.fillRect(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), w, w); }
+}
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function isTruck(t) { return t === 'truck'; }
+
+/* ---------- ground (drawn once) ---------- */
+var ground = document.createElement('canvas');
+ground.width = W; ground.height = H;
+var FIELD_POS = [{ x: 92, y: 208 }, { x: 388, y: 62 }, { x: 240, y: 135 }];
+var BASE_X = [44, 436];
+function drawTree(g, x, y) {
+  g.fillStyle = '#4a3622'; g.fillRect(x, y + 6, 2, 3);
+  g.fillStyle = '#2b5230'; g.fillRect(x - 3, y + 3, 8, 3); g.fillRect(x - 2, y, 6, 3); g.fillRect(x - 1, y - 3, 4, 3);
+  g.fillStyle = '#3b6e3e'; g.fillRect(x - 1, y + 3, 3, 1); g.fillRect(x, y, 2, 1);
+}
+function buildGround() {
+  var g = ground.getContext('2d'), rnd = mulberry(11), x, y, i;
+  var greens = ['#56693a', '#5c7040', '#4f6236'];
+  for (y = 0; y < H; y += 4) for (x = 0; x < W; x += 4) { g.fillStyle = greens[(rnd() * 3) | 0]; g.fillRect(x, y, 4, 4); }
+  for (x = 0; x < W; x += 4) {
+    var top = 108 + Math.sin(x / 37) * 7;
+    for (y = Math.round(top / 4) * 4; y < top + 54; y += 4) { g.fillStyle = rnd() < 0.5 ? '#a08a5c' : '#98835a'; g.fillRect(x, y, 4, 4); }
+  }
+  g.fillStyle = '#3f5129';
+  for (i = 0; i < 160; i++) { g.fillRect((rnd() * W) | 0, (rnd() * H) | 0, 2, 1); }
+  g.fillStyle = '#b89f6c';
+  for (i = 0; i < 60; i++) { g.fillRect((rnd() * W) | 0, 112 + ((rnd() * 46) | 0), 2, 1); }
+  for (i = 0; i < 2; i++) {
+    var bx = BASE_X[i];
+    g.fillStyle = '#5d6166'; g.fillRect(bx - 24, 111, 48, 48);
+    g.fillStyle = '#7a7e84'; g.fillRect(bx - 22, 113, 44, 44);
+  }
+  for (i = 0; i < 90; i++) {
+    x = (rnd() * W) | 0; y = (rnd() * H) | 0;
+    if (Math.abs(y - 135) < 64) continue;
+    var near = false;
+    for (var k = 0; k < FIELD_POS.length; k++) if (Math.hypot(x - FIELD_POS[k].x, y - FIELD_POS[k].y) < 36) near = true;
+    if (near) continue;
+    drawTree(g, x, y);
+  }
+}
+buildGround();
+
+/* ---------- game setup ---------- */
+function mkSide(i, ai) {
+  return {
+    i: i, ai: ai, money: 300, stance: 'defend', queue: [], prog: 0,
+    base: { isBase: true, x: BASE_X[i], y: 135, hp: 1000, max: 1000, cd: 0, ang: i ? Math.PI : 0, flash: 0 }
+  };
+}
+function newGame(mode, diff) {
+  var demo = mode === 0;
+  var d = DIFF[demo ? 'normal' : diff];
+  var rnd = mulberry(5);
+  G = {
+    mode: mode, diff: diff, demo: demo, t: 0, over: false, overT: 0, shown: false, winner: -1, paused: false, uid: 0,
+    sides: [mkSide(0, demo), mkSide(1, mode !== 2)],
+    units: [], shells: [], tracers: [], fx: [],
+    fields: FIELD_POS.map(function (p, idx) {
+      var max = idx === 2 ? 7000 : 4000, cr = [];
+      for (var k = 0; k < 18; k++) {
+        var a = rnd() * 6.283, rr = Math.sqrt(rnd());
+        cr.push({ dx: Math.round(Math.cos(a) * rr * 17), dy: Math.round(Math.sin(a) * rr * 10), s: 3 + ((rnd() * 3) | 0) });
+      }
+      return { x: p.x, y: p.y, amt: max, max: max, cr: cr };
+    })
+  };
+  for (var i = 0; i < 2; i++) {
+    if (G.sides[i].ai) G.sides[i].ai = { t: 1 + i * 0.4, d: d, wave: d.wave };
+    spawn(i, 'truck');
+  }
+  buildPanelsState();
+  hud();
+}
+function spawn(i, type) {
+  var b = G.sides[i].base, dir = i ? -1 : 1, T = TYPES[type];
+  G.units.push({
+    id: ++G.uid, team: i, type: type, x: b.x + dir * 27, y: b.y + (Math.random() - 0.5) * 22,
+    hp: T.hp, max: T.hp, cd: Math.random() * 0.5, face: dir, ang: dir > 0 ? 0 : Math.PI,
+    state: 'idle', load: 0, timer: 0, slot: 0, moving: false, anim: 0, flash: 0, field: null, r: T.r
+  });
+}
+function countOf(i, truck) {
+  var n = 0, k;
+  for (k = 0; k < G.units.length; k++) { var u = G.units[k]; if (u.team === i && isTruck(u.type) === truck) n++; }
+  var q = G.sides[i].queue;
+  for (k = 0; k < q.length; k++) if (isTruck(q[k]) === truck) n++;
+  return n;
+}
+function atCap(i, type) {
+  return isTruck(type) ? countOf(i, true) >= CAP.truck : countOf(i, false) >= CAP.combat;
+}
+function enqueue(i, type) {
+  var s = G.sides[i], T = TYPES[type];
+  if (G.over || s.money < T.cost || s.queue.length >= CAP.queue || atCap(i, type)) return false;
+  s.money -= T.cost; s.queue.push(type);
+  return true;
+}
+
+/* ---------- effects ---------- */
+function puff(x, y, n, cols, spd, life, size) {
+  for (var i = 0; i < n; i++) {
+    var a = Math.random() * 6.283, v = (0.3 + Math.random()) * spd;
+    G.fx.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - spd * 0.3, l: life * (0.6 + Math.random() * 0.6), m: life, c: cols[(Math.random() * cols.length) | 0], s: size || 2, g: 40 });
+  }
+}
+function boom(x, y, big) {
+  puff(x, y, big ? 26 : 12, ['#ffb347', '#ff7a2f', '#ffe27a', '#555'], big ? 70 : 45, big ? 0.9 : 0.5, 2);
+}
+
+/* ---------- combat ---------- */
+function hurt(t, dmg) { t.hp -= dmg; t.flash = 0.1; }
+function fire(u, tgt, d) {
+  var T = TYPES[u.type];
+  if (u.type === 'soldier') {
+    hurt(tgt, T.dmg);
+    G.tracers.push({ x0: u.x + u.face * 3, y0: u.y - 3, x1: tgt.x + (Math.random() - 0.5) * 6, y1: tgt.y - 2 + (Math.random() - 0.5) * 4, l: 0.07 });
+  } else {
+    G.shells.push({ x0: u.x, y0: u.y - 3, x1: tgt.x, y1: tgt.y, p: 0, dur: Math.max(0.35, d / 110), team: u.team });
+    puff(u.x + Math.cos(u.ang) * 8, u.y - 3 + Math.sin(u.ang) * 8, 4, ['#ddd', '#999'], 20, 0.35, 2);
+  }
+}
+function explode(s) {
+  var T = TYPES.artillery, foe = 1 - s.team, k;
+  boom(s.x1, s.y1, false);
+  for (k = 0; k < G.units.length; k++) {
+    var u = G.units[k];
+    if (u.team !== foe) continue;
+    var d = Math.hypot(u.x - s.x1, u.y - s.y1);
+    if (d < T.splash) hurt(u, T.dmg * (1 - 0.5 * d / T.splash));
+  }
+  var b = G.sides[foe].base;
+  if (Math.hypot(b.x - s.x1, b.y - s.y1) < T.splash + 19) hurt(b, T.dmg);
+}
+function nearestFoe(u, T) {
+  var best = null, bd = 1e9, k, e, d;
+  for (k = 0; k < G.units.length; k++) {
+    e = G.units[k];
+    if (e.team === u.team) continue;
+    d = Math.hypot(e.x - u.x, e.y - u.y);
+    if (T.minRange && d < T.minRange) continue;
+    if (d < bd) { bd = d; best = e; }
+  }
+  var b = G.sides[1 - u.team].base;
+  d = Math.hypot(b.x - u.x, b.y - u.y) - 19;
+  if (d < bd && !(T.minRange && d < T.minRange)) { bd = d; best = b; }
+  return { t: best, d: bd };
+}
+function moveToward(u, x, y, speed, dt, stop) {
+  var dx = x - u.x, dy = y - u.y, d = Math.hypot(dx, dy);
+  if (d <= stop) return d;
+  var step = Math.min(speed * dt, d - stop);
+  u.x += dx / d * step; u.y += dy / d * step;
+  if (Math.abs(dx) > 0.5) u.face = dx > 0 ? 1 : -1;
+  u.moving = true; u.anim += dt * 8;
+  return d - step;
+}
+function slotPos(u) {
+  var dir = u.team ? -1 : 1, col, row;
+  if (u.type === 'soldier') {
+    col = (u.slot / 8) | 0; row = u.slot % 8;
+    return { x: (u.team ? W - 100 : 100) - dir * col * 8, y: 135 + (row - 3.5) * 15 };
+  }
+  col = (u.slot / 8) | 0; row = u.slot % 8;
+  return { x: (u.team ? W - 80 : 80) - dir * col * 10, y: 135 + (row - 3.5) * 15 };
+}
+function computeSlots() {
+  var cnt = [[0, 0], [0, 0]];
+  for (var k = 0; k < G.units.length; k++) {
+    var u = G.units[k];
+    if (isTruck(u.type)) continue;
+    u.slot = cnt[u.team][u.type === 'soldier' ? 0 : 1]++;
+  }
+}
+function combatUpdate(u, dt) {
+  var T = TYPES[u.type], s = G.sides[u.team], foe = G.sides[1 - u.team];
+  u.cd -= dt; u.moving = false;
+  var f = nearestFoe(u, T), tgt = f.t, td = f.d;
+  if (tgt && td <= T.range) {
+    u.face = tgt.x >= u.x ? 1 : -1;
+    u.ang = Math.atan2(tgt.y - u.y, tgt.x - u.x);
+    if (u.cd <= 0) { u.cd = T.cd; fire(u, tgt, td); }
+    return;
+  }
+  if (tgt && td <= T.aggro && u.type === 'soldier') {
+    moveToward(u, tgt.x, tgt.y, T.speed, dt, T.range - 8 + (tgt.isBase ? 19 : 0));
+    return;
+  }
+  if (s.stance === 'attack') {
+    moveToward(u, foe.base.x, foe.base.y, T.speed, dt, T.range * 0.8 + 19);
+  } else {
+    var p = slotPos(u);
+    moveToward(u, p.x, p.y, T.speed, dt, 1.5);
+  }
+  if (u.type === 'artillery' && u.moving) u.ang = u.face > 0 ? 0 : Math.PI;
+}
+function truckUpdate(u, dt) {
+  var s = G.sides[u.team], b = s.base, dir = u.team ? -1 : 1, T = TYPES.truck, f, k;
+  u.moving = false;
+  if (u.state === 'idle') {
+    var best = null, bd = 1e9;
+    for (k = 0; k < G.fields.length; k++) {
+      f = G.fields[k];
+      if (f.amt <= 0) continue;
+      var d = Math.hypot(f.x - b.x, f.y - b.y);
+      if (d < bd) { bd = d; best = f; }
+    }
+    if (!best) { moveToward(u, b.x + dir * 30, b.y + ((u.id % 5) - 2) * 7, T.speed, dt, 3); return; }
+    u.field = best; u.state = 'toField';
+  }
+  if (u.state === 'toField') {
+    f = u.field;
+    if (f.amt <= 0) { u.state = u.load ? 'toBase' : 'idle'; return; }
+    var left = moveToward(u, f.x + ((u.id % 5) - 2) * 4, f.y + ((u.id % 3) - 1) * 3, T.speed, dt, 2);
+    if (left <= 2.5) { u.state = 'load'; u.timer = 1.6; }
+  } else if (u.state === 'load') {
+    u.timer -= dt;
+    if (u.timer <= 0) {
+      f = u.field;
+      var take = Math.min(T.cap, f.amt); f.amt -= take; u.load = take;
+      u.state = 'toBase';
+    }
+  } else if (u.state === 'toBase') {
+    var l2 = moveToward(u, b.x + dir * 28, b.y + ((u.id % 3) - 1) * 6, T.speed, dt, 3);
+    if (l2 <= 3.5) { u.state = 'unload'; u.timer = 0.8; }
+  } else if (u.state === 'unload') {
+    u.timer -= dt;
+    if (u.timer <= 0) {
+      s.money += u.load; u.load = 0;
+      puff(u.x, u.y - 4, 5, ['#ffc83d', '#fff0a0'], 25, 0.6, 2);
+      u.state = 'idle';
+    }
+  }
+}
+function turretUpdate(i, dt) {
+  var b = G.sides[i].base;
+  b.cd -= dt; if (b.flash > 0) b.flash -= dt;
+  if (b.hp <= 0) return;
+  var best = null, bd = 78, k;
+  for (k = 0; k < G.units.length; k++) {
+    var e = G.units[k];
+    if (e.team === i) continue;
+    var d = Math.hypot(e.x - b.x, e.y - b.y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  if (best) {
+    b.ang = Math.atan2(best.y - b.y, best.x - b.x);
+    if (b.cd <= 0) {
+      b.cd = 0.7; hurt(best, 7);
+      G.tracers.push({ x0: b.x + Math.cos(b.ang) * 9, y0: b.y - 2 + Math.sin(b.ang) * 9, x1: best.x, y1: best.y - 2, l: 0.08 });
+    }
+  }
+  if (b.hp < b.max * 0.5 && Math.random() < dt * 7) {
+    G.fx.push({ x: b.x + (Math.random() - 0.5) * 24, y: b.y - 10, vx: (Math.random() - 0.5) * 6, vy: -16, l: 1, m: 1, c: '#444', s: 3, g: -2 });
+  }
+}
+
+/* ---------- computer opponent ---------- */
+function runAI(i, dt) {
+  var s = G.sides[i], a = s.ai;
+  a.t -= dt;
+  if (a.t > 0) return;
+  a.t = a.d.int * (0.8 + Math.random() * 0.4);
+  var tr = 0, so = 0, ar = 0, k, u;
+  for (k = 0; k < G.units.length; k++) {
+    u = G.units[k];
+    if (u.team !== i) continue;
+    if (isTruck(u.type)) tr++; else if (u.type === 'soldier') so++; else ar++;
+  }
+  var army = so + ar;
+  for (k = 0; k < s.queue.length; k++) {
+    var q = s.queue[k];
+    if (isTruck(q)) tr++; else if (q === 'soldier') so++; else ar++;
+  }
+  if (tr < a.d.trucks) { enqueue(i, 'truck'); }
+  else if (s.queue.length < 2) {
+    var wantArt = ar * 3 < so;
+    if (wantArt) { if (s.money >= 150) enqueue(i, 'artillery'); }
+    else if (s.money >= 50) enqueue(i, 'soldier');
+  }
+  if (tr < a.d.trucks + 1 && army >= 6 && s.money > 300) enqueue(i, 'truck');
+  if (s.stance === 'defend') {
+    if (army >= a.wave) { s.stance = 'attack'; a.wave += a.d.step; }
+  } else if (army <= 2) {
+    s.stance = 'defend';
+  }
+}
+
+/* ---------- main update ---------- */
+function step(dt) {
+  if (!G || G.paused) return;
+  var i, k, u;
+  G.t += dt;
+  if (!G.over) {
+    for (i = 0; i < 2; i++) {
+      var s = G.sides[i];
+      if (s.queue.length) {
+        s.prog += dt;
+        if (s.prog >= TYPES[s.queue[0]].time) { spawn(i, s.queue.shift()); s.prog = 0; }
+      } else s.prog = 0;
+      if (s.ai) runAI(i, dt);
+    }
+    computeSlots();
+    for (k = 0; k < G.units.length; k++) {
+      u = G.units[k];
+      if (u.flash > 0) u.flash -= dt;
+      if (isTruck(u.type)) truckUpdate(u, dt); else combatUpdate(u, dt);
+    }
+    // keep units apart and out of the bases
+    var n = G.units.length, a, b, dx, dy, d, md, push;
+    for (i = 0; i < n; i++) {
+      a = G.units[i];
+      for (k = i + 1; k < n; k++) {
+        b = G.units[k];
+        dx = b.x - a.x; dy = b.y - a.y;
+        md = a.r + b.r;
+        if (Math.abs(dx) > md || Math.abs(dy) > md) continue;
+        d = Math.hypot(dx, dy);
+        if (d < md) {
+          if (d < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d = Math.hypot(dx, dy) || 1; }
+          push = (md - d) * 0.5 * Math.min(1, dt * 12);
+          a.x -= dx / d * push; a.y -= dy / d * push;
+          b.x += dx / d * push; b.y += dy / d * push;
+        }
+      }
+      for (k = 0; k < 2; k++) {
+        var bs = G.sides[k].base;
+        dx = a.x - bs.x; dy = a.y - bs.y; d = Math.hypot(dx, dy);
+        if (d < 21 && d > 0.01) { a.x = bs.x + dx / d * 21; a.y = bs.y + dy / d * 21; }
+      }
+      a.x = Math.max(4, Math.min(W - 4, a.x)); a.y = Math.max(6, Math.min(H - 4, a.y));
+    }
+    turretUpdate(0, dt); turretUpdate(1, dt);
+    for (k = G.shells.length - 1; k >= 0; k--) {
+      var sh = G.shells[k];
+      sh.p += dt / sh.dur;
+      if (sh.p >= 1) { explode(sh); G.shells.splice(k, 1); }
+    }
+    for (k = G.units.length - 1; k >= 0; k--) {
+      u = G.units[k];
+      if (u.hp <= 0) { boom(u.x, u.y - 2, false); puff(u.x, u.y - 2, 5, [TEAM[u.team].c, TEAM[u.team].d], 40, 0.6, 2); G.units.splice(k, 1); }
+    }
+    for (i = 0; i < 2; i++) {
+      if (G.sides[i].base.hp <= 0) {
+        G.over = true; G.winner = 1 - i;
+        var bb = G.sides[i].base;
+        for (k = 0; k < 6; k++) boom(bb.x + (Math.random() - 0.5) * 30, bb.y + (Math.random() - 0.5) * 30, true);
+      }
+    }
+  } else {
+    G.overT += dt;
+    if (!G.demo && G.overT > 1.6 && !G.shown) showEnd();
+    if (G.demo && G.overT > 4) { newGame(0, 'normal'); return; }
+  }
+  for (k = G.tracers.length - 1; k >= 0; k--) { G.tracers[k].l -= dt; if (G.tracers[k].l <= 0) G.tracers.splice(k, 1); }
+  for (k = G.fx.length - 1; k >= 0; k--) {
+    var p = G.fx[k];
+    p.l -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt;
+    if (p.l <= 0) G.fx.splice(k, 1);
+  }
+}
+
+/* ---------- drawing ---------- */
+function drawField(f) {
+  var dy, half, k, c;
+  for (dy = -12; dy <= 12; dy += 2) {
+    half = Math.round(Math.sqrt(1 - (dy / 13) * (dy / 13)) * 24);
+    R(f.x - half, f.y + dy, half * 2, 2, '#4a3d2b');
+  }
+  for (dy = -8; dy <= 8; dy += 2) {
+    half = Math.round(Math.sqrt(1 - (dy / 9) * (dy / 9)) * 19);
+    R(f.x - half, f.y + dy, half * 2, 2, '#3b3022');
+  }
+  var n = Math.ceil(f.amt / f.max * f.cr.length);
+  if (f.amt <= 0) n = 0;
+  for (k = 0; k < n; k++) {
+    c = f.cr[k];
+    var x = f.x + c.dx, y = f.y + c.dy;
+    R(x, y - c.s, 2, c.s, '#ffc83d'); R(x - 1, y - c.s + 1, 4, c.s - 1, '#e9a42a');
+    R(x, y - c.s, 1, 1, '#fff3b0'); R(x + 1, y - 1, 2, 1, '#a8701a');
+  }
+  var frac = f.amt / f.max;
+  R(f.x - 12, f.y + 15, 24, 2, '#111'); R(f.x - 12, f.y + 15, Math.round(24 * frac), 2, '#ffc83d');
+}
+function drawBase(i) {
+  var s = G.sides[i], b = s.base, T = TEAM[i], x = b.x, y = b.y, dir = i ? -1 : 1;
+  if (b.hp <= 0) {
+    R(x - 17, y - 14, 34, 30, '#3a3a3a'); R(x - 11, y - 9, 13, 8, '#2a2a2a'); R(x + 2, y + 1, 11, 9, '#555'); R(x - 14, y + 6, 8, 6, '#252525');
+    return;
+  }
+  R(x - 17, y - 12, 34, 29, '#8e939b'); R(x - 17, y + 11, 34, 6, '#6d727a');
+  R(x - 17, y - 17, 34, 8, T.c); R(x - 17, y - 10, 34, 2, T.d);
+  R(x - dir * 10 - 2, y - 4, 4, 3, '#2b3440'); R(x - dir * 10 - 2, y + 3, 4, 3, '#2b3440');
+  R(dir > 0 ? x + 14 : x - 18, y - 2, 4, 10, '#262a30');
+  R(x - 4, y - 7, 8, 8, '#3a3f46'); R(x - 3, y - 6, 6, 6, '#575e69');
+  pxLine(x, y - 3, x + Math.cos(b.ang) * 9, y - 3 + Math.sin(b.ang) * 9, '#1b1e23', 2);
+  R(x - 16, y - 28, 1, 11, '#ddd'); R(x - 15, y - 28, 7, 4, T.c); R(x - 15, y - 25, 7, 1, T.d);
+  if (b.flash > 0) { ctx.globalAlpha = 0.3; R(x - 17, y - 17, 34, 34, '#fff'); ctx.globalAlpha = 1; }
+}
+function drawUnit(u) {
+  var T = TEAM[u.team], x = Math.round(u.x), y = Math.round(u.y), f = u.face;
+  ctx.globalAlpha = 0.3; R(x - 3, y + 1, 7, 2, '#000'); ctx.globalAlpha = 1;
+  if (u.type === 'soldier') {
+    var step = u.moving ? ((u.anim | 0) % 2) : 0;
+    R(x - 1, y, 1, 1, '#1d1d1d'); R(x + 1, y + (step ? -1 : 0), 1, 1, '#1d1d1d');
+    R(x - 1, y - 4, 3, 4, T.c); R(x - 1, y - 6, 3, 2, '#f0cfa0'); R(x - 1, y - 7, 3, 1, T.d);
+    R(f > 0 ? x + 1 : x - 4, y - 3, 3, 1, '#222');
+  } else if (u.type === 'artillery') {
+    R(x - 5, y - 2, 10, 4, '#4b4f45'); R(x - 4, y - 3, 8, 2, T.d); R(x - 1, y - 2, 2, 1, T.c);
+    R(x - 5, y + 1, 3, 2, '#1d1d1d'); R(x + 2, y + 1, 3, 2, '#1d1d1d');
+    pxLine(x, y - 3, x + Math.cos(u.ang) * 8, y - 3 + Math.sin(u.ang) * 8, '#1b1e23', 2);
+  } else {
+    R(x - 5, y - 3, 10, 5, '#c2c7cf');
+    R(f > 0 ? x + 2 : x - 5, y - 4, 3, 6, T.c);
+    if (u.load > 0) R(f > 0 ? x - 4 : x - 1, y - 3, 5, 2, '#ffc83d');
+    R(x - 4, y + 1, 3, 2, '#1d1d1d'); R(x + 1, y + 1, 3, 2, '#1d1d1d');
+  }
+  if (u.flash > 0) { ctx.globalAlpha = 0.5; R(x - 4, y - 7, 8, 9, '#fff'); ctx.globalAlpha = 1; }
+  if (u.hp < u.max) {
+    R(x - 4, y - 10, 8, 1, '#3a0d0a'); R(x - 4, y - 10, Math.max(1, Math.round(8 * u.hp / u.max)), 1, '#7bd88f');
+  }
+}
+function draw() {
+  if (!G) return;
+  ctx.globalAlpha = 1;
+  ctx.drawImage(ground, 0, 0);
+  var k, i;
+  for (k = 0; k < G.fields.length; k++) drawField(G.fields[k]);
+  drawBase(0); drawBase(1);
+  var list = G.units.slice().sort(function (a, b) { return a.y - b.y; });
+  for (k = 0; k < list.length; k++) drawUnit(list[k]);
+  for (k = 0; k < G.shells.length; k++) {
+    var sh = G.shells[k], x = sh.x0 + (sh.x1 - sh.x0) * sh.p, y = sh.y0 + (sh.y1 - sh.y0) * sh.p, z = Math.sin(Math.PI * sh.p) * 30;
+    ctx.globalAlpha = 0.3; R(x - 1, y, 3, 1, '#000'); ctx.globalAlpha = 1;
+    R(x - 1, y - z - 1, 3, 3, '#1b1e23'); R(x, y - z - 1, 1, 1, '#ffd27a');
+  }
+  for (k = 0; k < G.tracers.length; k++) { var t = G.tracers[k]; pxLine(t.x0, t.y0, t.x1, t.y1, '#ffe27a', 1); }
+  for (k = 0; k < G.fx.length; k++) {
+    var p = G.fx[k];
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.l / p.m));
+    R(p.x, p.y, p.s, p.s, p.c);
+  }
+  ctx.globalAlpha = 1;
+  for (i = 0; i < 2; i++) {
+    var b = G.sides[i].base;
+    if (b.hp <= 0) continue;
+    R(b.x - 19, b.y - 36, 38, 5, '#0d0f12');
+    R(b.x - 18, b.y - 35, Math.max(0, Math.round(36 * b.hp / b.max)), 3, TEAM[i].c);
+  }
+}
+
+/* ---------- panels / HUD ---------- */
+var P = [];
+var panelsEl = document.getElementById('panels');
+function buildPanels() {
+  for (var i = 0; i < 2; i++) {
+    var el = document.createElement('section');
+    el.className = 'panel p' + i;
+    el.innerHTML =
+      '<div class="ph"><h2 class="who"></h2><span class="money">$0</span></div>' +
+      '<div class="meta"><span>Leger <b class="army">0/40</b></span><span>Trucks <b class="trk">0/6</b></span></div>' +
+      '<div class="row builds">' +
+        ['soldier', 'artillery', 'truck'].map(function (t) {
+          return '<button type="button" class="act" data-side="' + i + '" data-act="' + t + '"><span class="nm">' + NAMES[t] + '</span><span class="ct">$' + TYPES[t].cost + '</span><kbd>' + KEYS[i][t] + '</kbd></button>';
+        }).join('') +
+      '</div>' +
+      '<div class="row stance">' +
+        '<button type="button" class="act st" data-side="' + i + '" data-act="attack" aria-pressed="false"><span class="nm">Aanvallen</span><kbd>' + KEYS[i].attack + '</kbd></button>' +
+        '<button type="button" class="act st" data-side="' + i + '" data-act="defend" aria-pressed="true"><span class="nm">Verdedigen</span><kbd>' + KEYS[i].defend + '</kbd></button>' +
+      '</div>' +
+      '<div class="prod"><div class="bar"><i></i></div><span class="ptxt">Niets in productie</span></div>';
+    panelsEl.appendChild(el);
+    P[i] = {
+      el: el, who: el.querySelector('.who'), money: el.querySelector('.money'), army: el.querySelector('.army'), trk: el.querySelector('.trk'),
+      bar: el.querySelector('.bar i'), ptxt: el.querySelector('.ptxt'),
+      btn: { soldier: el.querySelector('[data-act=soldier]'), artillery: el.querySelector('[data-act=artillery]'), truck: el.querySelector('[data-act=truck]'), attack: el.querySelector('[data-act=attack]'), defend: el.querySelector('[data-act=defend]') }
+    };
+  }
+}
+buildPanels();
+function buildPanelsState() {
+  var names;
+  if (G.demo) names = ['Computer (blauw)', 'Computer (rood)'];
+  else if (G.mode === 1) names = ['Jij (blauw)', 'Computer (rood)'];
+  else names = ['Speler 1 (blauw)', 'Speler 2 (rood)'];
+  for (var i = 0; i < 2; i++) {
+    P[i].who.textContent = names[i];
+    P[i].el.classList.toggle('ai', !!G.sides[i].ai);
+  }
+}
+function hud() {
+  if (!G) return;
+  for (var i = 0; i < 2; i++) {
+    var s = G.sides[i], p = P[i], ai = !!s.ai, c = 0, tr = 0, k;
+    for (k = 0; k < G.units.length; k++) { var u = G.units[k]; if (u.team === i) { if (isTruck(u.type)) tr++; else c++; } }
+    p.money.textContent = ai ? '—' : '$' + Math.floor(s.money);
+    p.army.textContent = c + '/' + CAP.combat;
+    p.trk.textContent = tr + '/' + CAP.truck;
+    ['soldier', 'artillery', 'truck'].forEach(function (t) {
+      p.btn[t].disabled = ai || G.over || s.money < TYPES[t].cost || s.queue.length >= CAP.queue || atCap(i, t);
+    });
+    p.btn.attack.disabled = ai || G.over; p.btn.defend.disabled = ai || G.over;
+    p.btn.attack.setAttribute('aria-pressed', s.stance === 'attack');
+    p.btn.defend.setAttribute('aria-pressed', s.stance === 'defend');
+    if (s.queue.length) {
+      p.bar.style.width = Math.min(100, s.prog / TYPES[s.queue[0]].time * 100) + '%';
+      p.ptxt.textContent = 'Bouwt ' + NAMES[s.queue[0]] + (s.queue.length > 1 ? ' · +' + (s.queue.length - 1) + ' in wachtrij' : '');
+    } else {
+      p.bar.style.width = '0%';
+      p.ptxt.textContent = 'Niets in productie';
+    }
+  }
+}
+function act(i, a) {
+  if (!G || G.paused || G.over || G.sides[i].ai) return;
+  if (a === 'attack' || a === 'defend') G.sides[i].stance = a; else enqueue(i, a);
+  hud();
+}
+panelsEl.addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-act]');
+  if (b && !b.disabled) act(+b.dataset.side, b.dataset.act);
+});
+var KEYMAP = {};
+KEYS.forEach(function (m, i) { Object.keys(m).forEach(function (a) { KEYMAP[m[a].toLowerCase()] = [i, a]; }); });
+window.addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePause(); return; }
+  var m = KEYMAP[e.key.toLowerCase()];
+  if (!m || e.repeat) return;
+  act(m[0], m[1]);
+  var btn = P[m[0]].btn[m[1]];
+  btn.classList.add('pressed'); setTimeout(function () { btn.classList.remove('pressed'); }, 120);
+});
+
+/* ---------- overlay / menu ---------- */
+var ov = document.getElementById('ov');
+var boxes = { menu: document.getElementById('menu'), pause: document.getElementById('pauseBox'), end: document.getElementById('endBox') };
+function setOverlay(name) {
+  ov.hidden = !name;
+  Object.keys(boxes).forEach(function (k) { boxes[k].hidden = k !== name; });
+}
+function togglePause() {
+  if (!G || G.demo || G.over) return;
+  G.paused = !G.paused;
+  setOverlay(G.paused ? 'pause' : null);
+}
+function showEnd() {
+  G.shown = true;
+  var t = document.getElementById('endTitle'), sub = document.getElementById('endSub');
+  if (G.mode === 1) {
+    t.textContent = G.winner === 0 ? 'Gewonnen!' : 'Verloren';
+    sub.textContent = G.winner === 0 ? 'De rode basis is vernietigd.' : 'Je basis is vernietigd.';
+  } else {
+    t.textContent = 'Speler ' + (G.winner + 1) + ' wint!';
+    sub.textContent = 'De ' + TEAM[1 - G.winner].name.toLowerCase() + 'e basis is vernietigd.';
+  }
+  setOverlay('end');
+}
+function startGame() { newGame(settings.mode, settings.diff); setOverlay(null); }
+function toMenu() { newGame(0, 'normal'); setOverlay('menu'); }
+function seg(id, key, conv) {
+  var el = document.getElementById(id);
+  el.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    settings[key] = conv(b.dataset.v);
+    Array.prototype.forEach.call(el.children, function (c) { c.setAttribute('aria-pressed', c === b); });
+    if (key === 'mode') document.getElementById('segDiff').style.display = settings.mode === 1 ? '' : 'none';
+  });
+}
+seg('segMode', 'mode', Number);
+seg('segDiff', 'diff', String);
+document.getElementById('go').addEventListener('click', startGame);
+document.getElementById('again').addEventListener('click', startGame);
+document.getElementById('toMenu').addEventListener('click', toMenu);
+document.getElementById('resume').addEventListener('click', togglePause);
+document.getElementById('pauseBtn').addEventListener('click', togglePause);
+document.getElementById('menuBtn').addEventListener('click', toMenu);
+
+/* ---------- loop ---------- */
+newGame(0, 'normal');
+setOverlay('menu');
+var last = performance.now(), hudT = 0;
+function frame(now) {
+  var dt = Math.min(0.05, (now - last) / 1000); last = now;
+  step(dt); draw();
+  hudT += dt; if (hudT > 0.1) { hudT = 0; hud(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.ertsfront = { step: step, get G() { return G; }, newGame: newGame, hud: hud, act: act };
+})();
+</script>
+
+</body></html>

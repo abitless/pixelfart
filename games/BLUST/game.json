@@ -1,0 +1,27 @@
+{
+    "title": "Blusteam",
+    "code": "BLUST",
+    "categories": [
+        "Actie",
+        "Avontuur"
+    ],
+    "published": "2026-11-15",
+    "version": "1.0.0",
+    "description": "Er is brand! Rij met je brandweerwagen naar het gebouw, red de slachtoffers en blus de vlammen. Verdien geld voor een sterkere wagen, want elke brand is groter.",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": null,
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "2026-11-15",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

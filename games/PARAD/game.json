@@ -1,0 +1,35 @@
+{
+    "title": "Paradrop",
+    "code": "PARAD",
+    "categories": [
+        "Actie",
+        "Avontuur"
+    ],
+    "published": "2026-11-02",
+    "version": "1.1.0",
+    "description": "Vlieg boven vijandelijke bases, drop je para's en spring daarna zelf. Neem de basis in en laat je ophalen door de helikopter.",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": {
+        "order": "desc",
+        "label": "punten"
+    },
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-17",
+            "notes": "Topscores: de eindscore gaat naar de topscorelijst op de site (Pixelfart SDK)."
+        },
+        {
+            "version": "1.0.0",
+            "date": "2026-11-02",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

@@ -1,0 +1,27 @@
+{
+    "title": "Ertsfront",
+    "code": "ERTSF",
+    "categories": [
+        "2 spelers",
+        "Strategie"
+    ],
+    "published": "2026-11-15",
+    "version": "1.0.0",
+    "description": "Laat trucks erts halen, bouw een leger en vernietig de vijandelijke basis. Speel tegen de computer of met z'n tweeën op hetzelfde scherm.",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": null,
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "2026-11-15",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

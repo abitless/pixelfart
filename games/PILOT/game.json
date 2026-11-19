@@ -1,0 +1,27 @@
+{
+    "title": "Pixelpiloot",
+    "code": "PILOT",
+    "categories": [
+        "Arcade",
+        "Snel"
+    ],
+    "published": "2026-10-25",
+    "version": "1.0.0",
+    "description": "Kies je toestel en vlieg door vijandelijk gebied. Blaas bases, geschutstorens en luchtafweer op voor extra punten.",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": null,
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "2026-10-25",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

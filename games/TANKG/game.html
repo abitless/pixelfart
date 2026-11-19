@@ -1,0 +1,599 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Tankgarage</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: één kolom-app. Garage = tank links, onderdelen rechts. Slagveld = HUD, pixelcanvas, touchknoppen. */
+:root{
+  --bg:#14170e; --panel:#1f2415; --panel2:#2a3119; --line:#3d4829;
+  --fg:#ebe8cf; --dim:#9ea787; --accent:#f0b429; --good:#8fbf4d; --bad:#e0573d;
+  --font-display:"Press Start 2P", ui-monospace, "Courier New", monospace;
+  --font-body:"VT323", ui-monospace, "Courier New", monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{
+  margin:0; color:var(--fg); font-family:var(--font-body); font-size:22px; line-height:1.15;
+  padding-block:18px 40px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:16px}
+h1,h2,h3{font-family:var(--font-display); font-weight:400; margin:0; text-wrap:balance}
+h1{font-size:18px; letter-spacing:1px}
+h3{font-size:12px; line-height:1.4}
+p{margin:0}
+header{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap}
+.brand{display:flex; flex-direction:column; gap:6px}
+.brand small{color:var(--dim); font-size:20px}
+.head-r{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.money{font-family:var(--font-display); font-size:14px; color:var(--accent); background:var(--panel); border:3px solid var(--line); padding:10px 12px; font-variant-numeric:tabular-nums; white-space:nowrap}
+
+button{font-family:var(--font-display); font-size:11px; letter-spacing:.5px; color:var(--bg); background:var(--accent); border:3px solid #fff3; border-color:#ffd978 #a67a10 #a67a10 #ffd978; padding:12px 14px; cursor:pointer; box-shadow:0 4px 0 #6d4f08; text-transform:uppercase}
+button:hover:not(:disabled){filter:brightness(1.1)}
+button:active:not(:disabled){transform:translateY(3px); box-shadow:0 1px 0 #6d4f08}
+button:disabled{background:var(--panel2); color:var(--dim); border-color:var(--line); box-shadow:none; cursor:not-allowed}
+button:focus-visible{outline:3px solid var(--fg); outline-offset:2px}
+button.ghost{background:transparent; color:var(--fg); border-color:var(--line); box-shadow:none; padding:9px 11px}
+button.ghost:active{transform:none}
+button.big{font-size:14px; padding:16px 20px; width:100%}
+
+.garage{display:grid; grid-template-columns:minmax(0,270px) minmax(0,1fr); gap:16px; align-items:start}
+.bay{background:var(--panel); border:3px solid var(--line); padding:14px; display:flex; flex-direction:column; gap:14px; align-items:center}
+.pad{width:100%; background:repeating-linear-gradient(90deg,#2d3520 0 12px,#323c24 12px 24px); border:3px solid var(--line); display:flex; justify-content:center; padding:10px 0}
+#pv{width:192px; height:192px; image-rendering:pixelated; max-width:100%}
+.stats{width:100%; margin:0; display:grid; grid-template-columns:1fr auto; gap:4px 12px; font-size:24px}
+.stats dt{color:var(--dim)}
+.stats dd{margin:0; text-align:right; font-variant-numeric:tabular-nums}
+.parts{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px}
+.part{background:var(--panel); border:3px solid var(--line); padding:14px; display:flex; flex-direction:column; gap:10px; min-width:0}
+.ph{display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+.lvl{font-family:var(--font-display); font-size:9px; color:var(--dim); white-space:nowrap}
+.part p{color:var(--dim); font-size:21px}
+.pips{display:flex; gap:4px}
+.pips i{flex:1; height:10px; background:var(--panel2); border:2px solid var(--line)}
+.pips i.on{background:var(--good); border-color:#b8e07a}
+.stat{font-size:22px; font-variant-numeric:tabular-nums}
+.stat b{color:var(--good); font-weight:400}
+.part .buy{margin-top:auto}
+.foot{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; color:var(--dim)}
+
+.hud{display:grid; grid-template-columns:minmax(140px,1.4fr) repeat(3,auto) auto; gap:10px 16px; align-items:center; background:var(--panel); border:3px solid var(--line); padding:10px 12px}
+.hp{display:flex; flex-direction:column; gap:4px; min-width:0}
+.hp span{font-size:20px; color:var(--dim)}
+.bar{height:14px; background:var(--panel2); border:2px solid var(--line)}
+#hpfill{height:100%; width:100%; background:var(--good)}
+.hud .k{font-family:var(--font-display); font-size:10px; color:var(--dim); display:flex; flex-direction:column; gap:5px; white-space:nowrap}
+.hud .k b{font-weight:400; font-size:13px; color:var(--fg); font-variant-numeric:tabular-nums}
+.stage{position:relative; border:3px solid var(--line); background:#000; line-height:0}
+#cv{width:100%; aspect-ratio:8/5; image-rendering:pixelated; image-rendering:crisp-edges; display:block; touch-action:none}
+.over{position:absolute; inset:0; background:#0c0e08e8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px; text-align:center; line-height:1.15}
+.over h2{font-size:18px; color:var(--bad)}
+.over p{font-size:24px}
+.over button{width:auto}
+.touch{display:none; justify-content:space-between; align-items:center; gap:12px; user-select:none; -webkit-user-select:none; touch-action:none}
+@media (pointer:coarse){.touch{display:flex}}
+.sec{font-family:var(--font-display); font-size:10px; color:var(--dim); margin:0 0 10px; letter-spacing:1px}
+#cv{cursor:crosshair}
+.rot{display:flex; flex-direction:column; gap:8px}
+.rot button{width:52px; height:52px; padding:0; font-size:20px; touch-action:none}
+.dpad{display:grid; grid-template-columns:repeat(3,56px); grid-template-rows:repeat(3,56px); gap:4px}
+.dpad button,.fire{padding:0; font-size:20px; touch-action:none}
+.dpad button:nth-child(1){grid-column:2}
+.dpad button:nth-child(2){grid-column:1; grid-row:2}
+.dpad button:nth-child(3){grid-column:3; grid-row:2}
+.dpad button:nth-child(4){grid-column:2; grid-row:3}
+.fire{width:92px; height:92px; border-radius:50%; background:var(--bad); color:#fff; border-color:#ff9a84 #8c2a18 #8c2a18 #ff9a84; box-shadow:0 5px 0 #5c1a0e; font-size:12px}
+.help{color:var(--dim)}
+
+@media (max-width:720px){
+  .garage{grid-template-columns:minmax(0,1fr)}
+  .hud{grid-template-columns:1fr 1fr 1fr}
+  .hp{grid-column:1/-1}
+  #gobtn{grid-column:1/-1}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<main class="wrap">
+  <header>
+    <div class="brand">
+      <h1>TANKGARAGE</h1>
+      <small>Bouw je tank om, ga het veld op, verdien nieuwe onderdelen.</small>
+    </div>
+    <div class="head-r">
+      <button class="ghost" id="snd" type="button">Geluid: aan</button>
+      <div class="money">&euro; <span id="money">0</span></div>
+    </div>
+  </header>
+
+  <section id="garage" class="garage" aria-label="Garage">
+    <div class="bay">
+      <div class="pad"><canvas id="pv" width="96" height="96"></canvas></div>
+      <dl class="stats" id="stats"></dl>
+      <button class="big" id="go" type="button">Naar het slagveld</button>
+    </div>
+    <div>
+      <h2 class="sec">CHASSIS</h2>
+      <div class="parts" id="chassis" style="margin-bottom:18px"></div>
+      <h2 class="sec">ONDERDELEN</h2>
+      <div class="parts" id="parts"></div>
+      <div class="foot" style="margin-top:14px">
+        <span id="best"></span>
+        <button class="ghost" id="reset" type="button">Alles wissen</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="battle" aria-label="Slagveld" hidden>
+    <div class="hud">
+      <div class="hp"><span id="hptxt">HP</span><div class="bar"><div id="hpfill"></div></div></div>
+      <div class="k">GOLF<b id="hwave">1</b></div>
+      <div class="k">VIJANDEN<b id="hleft">0</b></div>
+      <div class="k">VERDIEND<b id="hrun">&euro;0</b></div>
+      <button class="ghost" id="gobtn" type="button">Garage</button>
+    </div>
+    <div class="stage" style="margin-top:12px">
+      <canvas id="cv" width="320" height="200"></canvas>
+      <div class="over" id="over" hidden>
+        <h2>TANK VERNIETIGD</h2>
+        <p id="oversum"></p>
+        <button id="back" type="button">Terug naar de garage</button>
+      </div>
+    </div>
+    <div class="touch" style="margin-top:12px">
+      <div class="dpad">
+        <button type="button" data-d="0" aria-label="Omhoog">&#9650;</button>
+        <button type="button" data-d="3" aria-label="Links">&#9664;</button>
+        <button type="button" data-d="1" aria-label="Rechts">&#9654;</button>
+        <button type="button" data-d="2" aria-label="Omlaag">&#9660;</button>
+      </div>
+      <div class="rot">
+        <button type="button" data-r="-1" aria-label="Loop linksom">&#10226;</button>
+        <button type="button" data-r="1" aria-label="Loop rechtsom">&#10227;</button>
+      </div>
+      <button class="fire" id="fire" type="button">VUUR</button>
+    </div>
+    <p class="help" style="margin-top:10px">Pijltjes of WASD om te rijden. Richt de loop met de muis (of Q en E), schiet met spatie of klik. Op een telefoon tik of sleep je op het veld om te richten en te schieten. Elke vijand levert geld op, ook als je tank sneuvelt.</p>
+  </section>
+</main>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const W=320,H=200,T=10;
+const DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
+const MAXLV=5;
+
+/* ---------- onderdelen ---------- */
+const PARTS=[
+  {id:'gun',   name:'Kanon',   desc:'Zwaardere granaten. Meer schade per treffer.', base:40, show:s=>s.dmg+' schade'},
+  {id:'load',  name:'Herlader',desc:'Sneller laden. Meer schoten per seconde.',      base:40, show:s=>(1/s.cd).toFixed(1)+' schoten/s'},
+  {id:'armor', name:'Pantser', desc:'Dikkere platen. Je tank kan meer hebben.',      base:50, show:s=>s.hp+' HP'},
+  {id:'engine',name:'Motor',   desc:'Meer paardenkracht. Je rijdt sneller.',         base:30, show:s=>s.spd+' snelheid'}
+];
+const CHASSIS={
+  std:{name:'Standaard',desc:'Wendbaar en snel. Past overal tussendoor.',k:1,r:6,hp:1,dmg:1,cd:1,spd:1,price:0},
+  mammoth:{name:'Mammoet',desc:'Gepantserd gevaarte met dubbele loop. Traag, maar slaat hard.',k:1.5,r:9,hp:1.8,dmg:1.4,cd:1.25,spd:.75,price:450,twin:true}
+};
+const chassisId=()=>(save.chassis==='mammoth'&&save.owned.mammoth)?'mammoth':'std';
+const chassisOf=()=>CHASSIS[chassisId()];
+const stats=lv=>{const c=chassisOf();return{dmg:Math.round((14+6*lv.gun)*c.dmg),cd:+((0.7-0.1*lv.load)*c.cd).toFixed(2),hp:Math.round((60+25*lv.armor)*c.hp),spd:Math.round((46+9*lv.engine)*c.spd)};};
+const cost=(p,l)=>Math.round(p.base*Math.pow(1.7,l)/5)*5;
+
+/* ---------- opslag ---------- */
+const KEY='tankgarage-v1';
+const fresh=()=>({money:60,lv:{gun:0,load:0,armor:0,engine:0},best:0,chassis:'std',owned:{mammoth:false}});
+let save=fresh();
+try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.lv) save={...save,...s,lv:{...save.lv,...s.lv},owned:{...save.owned,...(s.owned||{})}};}catch(e){}
+const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(save));}catch(e){}};
+
+/* ---------- geluid ---------- */
+let AC=null,snd=true;
+function beep(f,d,type='square',v=.04,slide=0){
+  if(!snd||!AC)return;
+  try{
+    const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;
+    o.type=type;o.frequency.setValueAtTime(f,t);
+    if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),t+d);
+    g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
+    o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+d);
+  }catch(e){}
+}
+function wakeAudio(){ try{AC=AC||new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume();}catch(e){} }
+
+/* ---------- tank tekenen (pixel voor pixel, gedraaid in stappen van 90 graden) ---------- */
+const PAL={
+  player:{body:'#7fa84a',dark:'#3f5524',track:'#262b19',turret:'#a9d06b',trim:'#e8d98a'},
+  scout: {body:'#d98b3a',dark:'#7a4a14',track:'#2b2214',turret:'#f2b566',trim:'#ffd9a0'},
+  tank:  {body:'#c8402f',dark:'#6e1e14',track:'#2b1612',turret:'#ec6e58',trim:'#ffb0a2'},
+  heavy: {body:'#69708a',dark:'#31354a',track:'#1b1d28',turret:'#a3abc9',trim:'#e0e4f5'},
+  mammoth:{body:'#8f7a3b',dark:'#241c06',track:'#241e0c',turret:'#c9ae5c',trim:'#ffe08a'}
+};
+function drawTank(c,x,y,dir,pal,lv,flash,ang,k,twin){
+  x=Math.round(x);y=Math.round(y);
+  const s=v=>Math.sign(v)*Math.round(Math.abs(v)*k);
+  const R=(col,a,b,w,h)=>{
+    const x0=s(a),y0=s(b),x1=s(a+w),y1=s(b+h),ww=x1-x0,hh=y1-y0;
+    c.fillStyle=col;
+    if(dir===0)c.fillRect(x+x0,y+y0,ww,hh);
+    else if(dir===1)c.fillRect(x-y1,y+x0,hh,ww);
+    else if(dir===2)c.fillRect(x-x1,y-y1,ww,hh);
+    else c.fillRect(x+y0,y-x1,hh,ww);
+  };
+  const body=flash?'#ffffff':pal.body, turret=flash?'#ffffff':pal.turret;
+  R(pal.track,-7,-7,3,14);R(pal.track,4,-7,3,14);
+  for(let i=-6;i<7;i+=3){R(pal.dark,-7,i,3,1);R(pal.dark,4,i,3,1);}
+  if(lv.engine>=1)R(pal.dark,-3,6,1,2);
+  if(lv.engine>=2)R(pal.dark,2,6,1,2);
+  R(body,-4,-6,8,12);
+  if(lv.engine>=3)R(pal.dark,-3,3,6,2);
+  if(lv.load>=1)R(pal.dark,3,-1,2,3);
+  if(lv.load>=3)R(pal.dark,-5,-1,2,3);
+  if(lv.load>=5)R(pal.trim,-4,2,8,1);
+  if(lv.armor>=1)R(pal.trim,-4,-6,8,1);
+  if(lv.armor>=2){R(pal.dark,-5,-4,1,8);R(pal.dark,4,-4,1,8);}
+  if(lv.armor>=4)R(pal.trim,-4,5,8,1);
+  if(lv.armor>=5){R(pal.trim,-5,-4,1,2);R(pal.trim,4,-4,1,2);R(pal.trim,-5,2,1,2);R(pal.trim,4,2,1,2);}
+  // loop: pixellijn onder de koepel, draait vrij onafhankelijk van de romp
+  const len=(5+lv.gun+3)*k, ca=Math.cos(ang), sa=Math.sin(ang);
+  const th=k>1?3:2, hh=th>>1, mz=th+2, mh=mz>>1;
+  const barrel=off=>{
+    const ox=-sa*off*k, oy=ca*off*k;
+    c.fillStyle=pal.dark;
+    for(let i=2;i<len;i++)c.fillRect(Math.round(x+ox+ca*i)-hh,Math.round(y+oy+sa*i)-hh,th,th);
+    const mx=Math.round(x+ox+ca*len), my=Math.round(y+oy+sa*len);
+    if(lv.gun>=3)c.fillRect(mx-mh,my-mh,mz,mz);
+    if(lv.gun>=5){c.fillStyle=pal.trim;c.fillRect(mx-hh,my-hh,th,th);}
+  };
+  if(twin){barrel(-2.5);barrel(2.5);}else barrel(0);
+  R(turret,-3,-3,6,6);
+  if(lv.armor>=3)R(turret,-4,-2,8,4);
+  R(pal.dark,-1,-1,2,2);
+  if(lv.engine>=5)R(pal.trim,-1,8,2,1);
+}
+
+/* ---------- garage ---------- */
+const pv=$('pv'),pc=pv.getContext('2d');
+let padAng=null;
+function drawPreview(){
+  const c=chassisOf(),sc=c.k>1?2:3,id=chassisId();
+  pc.setTransform(1,0,0,1,0,0);pc.clearRect(0,0,96,96);
+  pc.scale(sc,sc);
+  const ang=padAng!==null?padAng:-Math.PI/2+Math.sin(Date.now()/700)*.9;
+  drawTank(pc,48/sc,(c.k>1?58:57)/sc,0,PAL[id==='mammoth'?'mammoth':'player'],save.lv,false,ang,c.k,!!c.twin);
+}
+pv.addEventListener('pointermove',e=>{const r=pv.getBoundingClientRect();padAng=Math.atan2(e.clientY-(r.top+r.height*.59),e.clientX-(r.left+r.width/2));});
+pv.addEventListener('pointerleave',()=>{padAng=null;});
+setInterval(()=>{if(mode==='garage')drawPreview();},50);
+function renderGarage(){
+  $('money').textContent=save.money;
+  const s=stats(save.lv);
+  $('stats').innerHTML=
+    `<dt>HP</dt><dd>${s.hp}</dd><dt>Schade</dt><dd>${s.dmg}</dd><dt>Vuur</dt><dd>${(1/s.cd).toFixed(1)}/s</dd><dt>Snelheid</dt><dd>${s.spd}</dd>`;
+  $('parts').innerHTML=PARTS.map(p=>{
+    const l=save.lv[p.id],max=l>=MAXLV,c=cost(p,l);
+    const now=p.show(s);
+    const nxt=max?null:p.show(stats({...save.lv,[p.id]:l+1}));
+    return `<article class="part">
+      <div class="ph"><h3>${p.name}</h3><span class="lvl">NIV ${l}/${MAXLV}</span></div>
+      <p>${p.desc}</p>
+      <div class="pips">${Array.from({length:MAXLV},(_,i)=>`<i class="${i<l?'on':''}"></i>`).join('')}</div>
+      <div class="stat">${now}${max?'':` &rarr; <b>${nxt}</b>`}</div>
+      <button class="buy" type="button" data-id="${p.id}" ${max||save.money<c?'disabled':''}>${max?'Maximaal':'Koop &euro;'+c}</button>
+    </article>`;
+  }).join('');
+  $('chassis').innerHTML=['std','mammoth'].map(id=>{
+    const c=CHASSIS[id],owned=id==='std'||save.owned[id],cur=chassisId()===id;
+    const btn=cur?'<button class="buy" type="button" disabled>Gekozen</button>'
+      :owned?`<button class="buy" type="button" data-ch="${id}">Kies</button>`
+      :`<button class="buy" type="button" data-ch="${id}" ${save.money<c.price?'disabled':''}>Koop &euro;${c.price}</button>`;
+    return `<article class="part"><div class="ph"><h3>${c.name}</h3></div><p>${c.desc}</p>
+      <div class="stat">HP &times;${c.hp} &middot; Schade &times;${c.dmg}<br>Snelheid &times;${c.spd} &middot; Vuur &times;${+(1/c.cd).toFixed(2)}</div>${btn}</article>`;
+  }).join('');
+  $('best').textContent=save.best?`Beste golf: ${save.best}`:'Nog geen golf gehaald';
+  drawPreview();
+}
+$('parts').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-id]'); if(!b||b.disabled)return;
+  const p=PARTS.find(x=>x.id===b.dataset.id),l=save.lv[p.id],c=cost(p,l);
+  if(l>=MAXLV||save.money<c)return;
+  save.money-=c;save.lv[p.id]=l+1;persist();wakeAudio();
+  beep(520,.08,'square',.05);setTimeout(()=>beep(780,.12,'square',.05),70);
+  renderGarage();
+});
+$('chassis').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-ch]');if(!b||b.disabled)return;
+  const id=b.dataset.ch,c=CHASSIS[id];wakeAudio();
+  if(id!=='std'&&!save.owned[id]){if(save.money<c.price)return;save.money-=c.price;save.owned[id]=true;}
+  save.chassis=id;persist();
+  beep(260,.1,'sawtooth',.05);setTimeout(()=>beep(520,.15,'square',.05),90);
+  renderGarage();
+});
+let resetArm=0;
+$('reset').addEventListener('click',()=>{
+  const b=$('reset');
+  if(!resetArm){resetArm=1;b.textContent='Zeker weten? Klik nog eens';setTimeout(()=>{resetArm=0;b.textContent='Alles wissen';},3000);return;}
+  save=fresh();persist();resetArm=0;b.textContent='Alles wissen';renderGarage();
+});
+$('snd').addEventListener('click',()=>{snd=!snd;$('snd').textContent='Geluid: '+(snd?'aan':'uit');wakeAudio();});
+
+/* ---------- slagveld ---------- */
+const cv=$('cv'),cx=cv.getContext('2d');
+let mode='garage',G=null,raf=0,last=0;
+const held=[];let firing=false,aim=null,rotK=0,rotT=0;
+
+const ground=document.createElement('canvas');ground.width=W;ground.height=H;
+(()=>{
+  const g=ground.getContext('2d');
+  for(let y=0;y<H/T;y++)for(let x=0;x<W/T;x++){g.fillStyle=(x+y)%2?'#4c5832':'#505c35';g.fillRect(x*T,y*T,T,T);}
+  for(let i=0;i<420;i++){g.fillStyle=Math.random()<.5?'#3f4a28':'#5d6c3a';g.fillRect(Math.floor(Math.random()*W),Math.floor(Math.random()*H),1,1);}
+})();
+
+const ENEMY={
+  scout:{hp:20,spd:44,cd:1.7,dmg:8, rew:8, pal:PAL.scout,lv:{gun:0,load:0,armor:0,engine:2}},
+  tank: {hp:40,spd:30,cd:1.9,dmg:12,rew:15,pal:PAL.tank, lv:{gun:1,load:0,armor:1,engine:0}},
+  heavy:{hp:95,spd:20,cd:2.3,dmg:20,rew:35,pal:PAL.heavy,lv:{gun:4,load:1,armor:4,engine:0}}
+};
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+
+function makeWalls(){
+  const walls=[];let tries=0;
+  while(walls.length<9&&tries++<300){
+    const horiz=Math.random()<.5;
+    const w=T*(horiz?rnd(2,4):1),h=T*(horiz?1:rnd(2,3));
+    const x=T*rnd(2,W/T-2-w/T),y=T*rnd(4,H/T-5-h/T);
+    if(x+w>W-T*2||y+h>H-T*5)continue;
+    if(x<W/2+30&&x+w>W/2-30&&y+h>H-60)continue;
+    if(walls.some(o=>x<o.x+o.w+22&&x+w>o.x-22&&y<o.y+o.h+22&&y+h>o.y-22))continue;
+    walls.push({x,y,w,h});
+  }
+  return walls;
+}
+function newBattle(){
+  const st=stats(save.lv);
+  G={st,wave:0,run:0,kills:0,
+     p:{x:W/2,y:H-22,dir:0,hp:st.hp,cd:0,flash:0,ang:-Math.PI/2,r:chassisOf().r,k:chassisOf().k,twin:!!chassisOf().twin,side:1},
+     enemies:[],bullets:[],fx:[],pop:[],walls:makeWalls(),
+     queue:[],spawnT:0,between:0,banner:{t:0,text:''},shake:0,over:false};
+  held.length=0;firing=false;aim=null;rotK=0;rotT=0;
+  startWave();
+}
+function pickType(w){
+  const heavyP=w<3?0:Math.min(.35,.06*(w-2)), scoutP=Math.max(.1,.4-.03*w), r=Math.random();
+  return r<heavyP?'heavy':r<heavyP+scoutP?'scout':'tank';
+}
+function startWave(){
+  G.wave++;
+  const n=Math.min(14,3+G.wave);
+  G.queue=Array.from({length:n},()=>pickType(G.wave));
+  G.spawnT=1;
+  G.banner={t:1.8,text:'GOLF '+G.wave};
+  beep(300,.2,'triangle',.05,200);
+}
+function rectHit(x,y,r,o){return x+r>o.x&&x-r<o.x+o.w&&y+r>o.y&&y-r<o.y+o.h;}
+function blocked(x,y,self){
+  const r=(self&&self.r)||6;
+  if(x<r||x>W-r||y<r||y>H-r)return true;
+  for(const o of G.walls)if(rectHit(x,y,r,o))return true;
+  const p=G.p;
+  if(self!==p&&Math.abs(p.x-x)<r+p.r&&Math.abs(p.y-y)<r+p.r)return true;
+  for(const e of G.enemies)if(e!==self&&Math.abs(e.x-x)<r+6&&Math.abs(e.y-y)<r+6)return true;
+  return false;
+}
+function move(t,dir,spd,dt){
+  const nx=t.x+DIRS[dir][0]*spd*dt, ny=t.y+DIRS[dir][1]*spd*dt;
+  if(!blocked(nx,ny,t)){t.x=nx;t.y=ny;return true;}
+  return false;
+}
+function spawnEnemy(){
+  const type=G.queue.shift(),d=ENEMY[type],k=1+.08*(G.wave-1);
+  let x=0,y=0,ok=false;
+  for(let i=0;i<20&&!ok;i++){x=rnd(14,W-14);y=12;ok=!blocked(x,y,null);}
+  if(!ok)return G.queue.unshift(type);
+  G.enemies.push({type,x,y,dir:2,ang:Math.PI/2,hp:Math.round(d.hp*k),max:Math.round(d.hp*k),t:0,cd:d.cd*(.5+Math.random()*.5),flash:0,rew:Math.round(d.rew*(1+.1*(G.wave-1)))});
+  boom(x,y,6,['#ffffff','#f0b429']);
+}
+function shoot(t,ang,dmg,spd,own,off=0){
+  const L=own==='p'?(5+save.lv.gun+3)*(t.k||1):13;
+  G.bullets.push({x:t.x+Math.cos(ang)*L-Math.sin(ang)*off,y:t.y+Math.sin(ang)*L+Math.cos(ang)*off,
+    vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg,own});
+}
+function boom(x,y,n,cols){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*6.283,s=20+Math.random()*60;
+    G.fx.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.3+Math.random()*.4,c:cols[rnd(0,cols.length-1)]});
+  }
+}
+function hitEnemy(e,dmg){
+  e.hp-=dmg;e.flash=.08;
+  if(e.hp>0){beep(200,.06,'square',.03);return;}
+  G.enemies.splice(G.enemies.indexOf(e),1);
+  boom(e.x,e.y,26,['#f0b429','#e0573d','#ffffff','#7a7a6a']);
+  G.shake=.18;G.kills++;G.run+=e.rew;save.money+=e.rew;persist();
+  G.pop.push({x:e.x,y:e.y-8,t:1,text:'+'+e.rew});
+  beep(140,.25,'sawtooth',.06,-90);setTimeout(()=>beep(880,.1,'square',.04),120);
+}
+function hitPlayer(dmg){
+  const p=G.p;p.hp-=dmg;p.flash=.1;G.shake=.2;
+  boom(p.x,p.y,8,['#e0573d','#ffffff']);beep(110,.18,'sawtooth',.06,-40);
+  if(p.hp<=0){
+    p.hp=0;boom(p.x,p.y,40,['#f0b429','#e0573d','#ffffff']);
+    endRun(true);
+  }
+}
+function endRun(dead){
+  save.best=Math.max(save.best,dead?G.wave:G.wave-1);persist();
+  if(dead){
+    G.over=true;mode='over';
+    $('oversum').innerHTML=`Je haalde golf ${G.wave} en schoot ${G.kills} tank${G.kills===1?'':'s'} af.<br>Verdiend: &euro;${G.run}. Het geld is van jou.`;
+    $('over').hidden=false;beep(90,.6,'sawtooth',.07,-50);
+    draw();
+  }
+}
+function update(dt){
+  const p=G.p;
+  if(G.banner.t>0)G.banner.t-=dt;
+  if(G.shake>0)G.shake-=dt;
+  p.flash=Math.max(0,p.flash-dt);p.cd-=dt;
+  if(held.length){p.dir=held[held.length-1];move(p,p.dir,G.st.spd,dt);}
+  const tr=rotK||rotT;
+  if(tr){p.ang+=tr*3.2*dt;aim=null;}
+  else if(aim)p.ang=Math.atan2(aim.y-p.y,aim.x-p.x);
+  if(firing&&p.cd<=0){shoot(p,p.ang,G.st.dmg,170,'p',p.twin?(p.side*=-1)*3.75:0);p.cd=G.st.cd;beep(p.twin?260:380,.08,'square',.03,-200);}
+  // golfbeheer
+  if(G.between>0){G.between-=dt;if(G.between<=0)startWave();}
+  else{
+    G.spawnT-=dt;
+    if(G.queue.length&&G.enemies.length<4+Math.floor(G.wave/3)&&G.spawnT<=0){spawnEnemy();G.spawnT=1.1;}
+    if(!G.queue.length&&!G.enemies.length){
+      const bonus=20+10*G.wave;G.run+=bonus;save.money+=bonus;persist();
+      save.best=Math.max(save.best,G.wave);
+      G.between=2.6;G.banner={t:2.4,text:'GOLF GEHAALD +€'+bonus};
+      beep(520,.1,'square',.05);setTimeout(()=>beep(660,.1,'square',.05),110);setTimeout(()=>beep(880,.2,'square',.05),220);
+    }
+  }
+  // vijanden
+  for(const e of G.enemies){
+    const d=ENEMY[e.type];
+    e.flash=Math.max(0,e.flash-dt);e.t-=dt;
+    if(e.t<=0){
+      const dx=p.x-e.x,dy=p.y-e.y,horiz=Math.abs(dx)>Math.abs(dy),r=Math.random();
+      e.dir=r<.55?(horiz?(dx>0?1:3):(dy>0?2:0)):r<.85?(horiz?(dy>0?2:0):(dx>0?1:3)):rnd(0,3);
+      e.t=.5+Math.random()*.7;
+    }
+    if(!move(e,e.dir,d.spd,dt))e.t=0;
+    e.cd-=dt;
+    let da=Math.atan2(p.y-e.y,p.x-e.x)-e.ang;
+    da=Math.atan2(Math.sin(da),Math.cos(da));
+    e.ang+=Math.max(-2*dt,Math.min(2*dt,da));
+    if(e.cd<=0&&Math.abs(da)<.25&&Math.hypot(p.x-e.x,p.y-e.y)<170){
+      shoot(e,e.ang+(Math.random()-.5)*.25,d.dmg,105,'e');
+      e.cd=d.cd*(1+Math.random()*.4);beep(240,.06,'square',.02,-100);
+    }
+  }
+  // kogels
+  for(let i=G.bullets.length-1;i>=0;i--){
+    const b=G.bullets[i];
+    b.x+=b.vx*dt;b.y+=b.vy*dt;
+    let dead=b.x<0||b.x>W||b.y<0||b.y>H;
+    if(!dead)for(const o of G.walls)if(b.x>o.x&&b.x<o.x+o.w&&b.y>o.y&&b.y<o.y+o.h){dead=true;boom(b.x,b.y,4,['#b59a63','#ffffff']);break;}
+    if(!dead&&b.own==='p'){
+      for(const e of G.enemies)if(Math.abs(b.x-e.x)<7&&Math.abs(b.y-e.y)<7){hitEnemy(e,b.dmg);dead=true;break;}
+    }else if(!dead&&b.own==='e'&&Math.abs(b.x-p.x)<p.r+1&&Math.abs(b.y-p.y)<p.r+1){hitPlayer(b.dmg);dead=true;}
+    if(dead)G.bullets.splice(i,1);
+    if(G.over)return;
+  }
+  for(let i=G.fx.length-1;i>=0;i--){const f=G.fx[i];f.x+=f.vx*dt;f.y+=f.vy*dt;f.life-=dt;if(f.life<=0)G.fx.splice(i,1);}
+  for(let i=G.pop.length-1;i>=0;i--){const q=G.pop[i];q.y-=14*dt;q.t-=dt;if(q.t<=0)G.pop.splice(i,1);}
+}
+function text(s,x,y,col,size=8){
+  cx.font=`${size}px "Press Start 2P", monospace`;cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillStyle='#000';cx.fillText(s,Math.round(x)+1,Math.round(y)+1);
+  cx.fillStyle=col;cx.fillText(s,Math.round(x),Math.round(y));
+}
+function draw(){
+  cx.setTransform(1,0,0,1,0,0);
+  cx.drawImage(ground,0,0);
+  if(G.shake>0)cx.translate(rnd(-1,1),rnd(-1,1));
+  for(const o of G.walls){
+    cx.fillStyle='#4a3e27';cx.fillRect(o.x,o.y,o.w,o.h);
+    cx.fillStyle='#7d6a43';cx.fillRect(o.x+1,o.y+1,o.w-2,o.h-2);
+    cx.fillStyle='#98835a';cx.fillRect(o.x+1,o.y+1,o.w-2,2);
+    cx.fillStyle='#5e4f31';
+    for(let x=o.x;x<o.x+o.w;x+=T)for(let y=o.y;y<o.y+o.h;y+=T){cx.fillRect(x+4,y+4,2,2);}
+  }
+  for(const e of G.enemies){
+    const d=ENEMY[e.type];
+    drawTank(cx,e.x,e.y,e.dir,d.pal,d.lv,e.flash>0,e.ang,1,false);
+    if(e.hp<e.max){cx.fillStyle='#000';cx.fillRect(Math.round(e.x)-7,Math.round(e.y)-12,14,3);cx.fillStyle='#e0573d';cx.fillRect(Math.round(e.x)-6,Math.round(e.y)-11,Math.max(1,Math.round(12*e.hp/e.max)),1);}
+  }
+  if(G.p.hp>0)drawTank(cx,G.p.x,G.p.y,G.p.dir,PAL[G.p.k>1?'mammoth':'player'],save.lv,G.p.flash>0,G.p.ang,G.p.k,G.p.twin);
+  for(const b of G.bullets){
+    cx.fillStyle=b.own==='p'?'#fff3a0':'#ff6a4d';cx.fillRect(Math.round(b.x)-1,Math.round(b.y)-1,3,3);
+    cx.fillStyle=b.own==='p'?'#f0b429':'#a02a18';cx.fillRect(Math.round(b.x),Math.round(b.y),1,1);
+  }
+  for(const f of G.fx){cx.fillStyle=f.c;cx.fillRect(Math.round(f.x),Math.round(f.y),2,2);}
+  for(const q of G.pop)text(q.text,q.x,q.y,'#f0b429',8);
+  if(aim&&mode==='battle'){cx.fillStyle='#ebe8cfcc';cx.fillRect(Math.round(aim.x)-3,Math.round(aim.y),7,1);cx.fillRect(Math.round(aim.x),Math.round(aim.y)-3,1,7);}
+  cx.setTransform(1,0,0,1,0,0);
+  if(G.banner.t>0)text(G.banner.text,W/2,H/2-30,'#ebe8cf',10);
+  // HUD
+  const hp=Math.max(0,G.p.hp),pct=hp/G.st.hp;
+  $('hpfill').style.width=(pct*100)+'%';
+  $('hpfill').style.background=pct>.5?'#8fbf4d':pct>.25?'#f0b429':'#e0573d';
+  $('hptxt').textContent=`HP ${Math.ceil(hp)} / ${G.st.hp}`;
+  $('hwave').textContent=G.wave;
+  $('hleft').textContent=G.queue.length+G.enemies.length;
+  $('hrun').textContent='€'+G.run;
+  $('money').textContent=save.money;
+}
+function frame(t){
+  if(mode!=='battle')return;
+  const dt=Math.min(.05,(t-last)/1000||0);last=t;
+  update(dt);
+  if(mode==='battle'){draw();raf=requestAnimationFrame(frame);}
+}
+function show(which){
+  $('garage').hidden=which!=='garage';
+  $('battle').hidden=which==='garage';
+}
+function toBattle(){
+  wakeAudio();cancelAnimationFrame(raf);
+  newBattle();mode='battle';$('over').hidden=true;show('battle');
+  last=performance.now();raf=requestAnimationFrame(frame);
+}
+function toGarage(){
+  cancelAnimationFrame(raf);
+  if(G&&mode==='battle')save.best=Math.max(save.best,G.wave-1);
+  persist();mode='garage';held.length=0;firing=false;
+  show('garage');renderGarage();
+}
+$('go').addEventListener('click',toBattle);
+$('gobtn').addEventListener('click',toGarage);
+$('back').addEventListener('click',toGarage);
+
+/* ---------- besturing ---------- */
+const KEYS={ArrowUp:0,w:0,W:0,ArrowRight:1,d:1,D:1,ArrowDown:2,s:2,S:2,ArrowLeft:3,a:3,A:3};
+const press=d=>{const i=held.indexOf(d);if(i>-1)held.splice(i,1);held.push(d);};
+const release=d=>{const i=held.indexOf(d);if(i>-1)held.splice(i,1);};
+addEventListener('keydown',e=>{
+  if(mode!=='battle')return;
+  if(e.key in KEYS){e.preventDefault();if(!e.repeat)press(KEYS[e.key]);}
+  else if(e.key===' '){e.preventDefault();firing=true;}
+  else if(e.key==='q'||e.key==='Q')rotK=-1;
+  else if(e.key==='e'||e.key==='E')rotK=1;
+});
+addEventListener('keyup',e=>{
+  if(e.key in KEYS)release(KEYS[e.key]);
+  else if(e.key===' ')firing=false;
+  else if((e.key==='q'||e.key==='Q')&&rotK===-1)rotK=0;
+  else if((e.key==='e'||e.key==='E')&&rotK===1)rotK=0;
+});
+addEventListener('blur',()=>{held.length=0;firing=false;rotK=0;});
+const aimAt=e=>{const r=cv.getBoundingClientRect();aim={x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};};
+cv.addEventListener('pointermove',e=>{if(mode==='battle')aimAt(e);});
+cv.addEventListener('pointerdown',e=>{if(mode==='battle'){aimAt(e);firing=true;}});
+addEventListener('pointerup',()=>{firing=false;});
+addEventListener('pointercancel',()=>{firing=false;});
+document.querySelectorAll('.dpad button').forEach(b=>{
+  const d=+b.dataset.d;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();press(d);});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>release(d)));
+});
+document.querySelectorAll('.rot button').forEach(b=>{
+  const r=+b.dataset.r;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();rotT=r;});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>{rotT=0;}));
+});
+const fb=$('fire');
+fb.addEventListener('pointerdown',e=>{e.preventDefault();firing=true;});
+['pointerup','pointerleave','pointercancel'].forEach(ev=>fb.addEventListener(ev,()=>{firing=false;}));
+document.addEventListener('contextmenu',e=>{if(e.target.closest('.touch'))e.preventDefault();});
+
+renderGarage();
+})();
+</script>
+
+</body></html>

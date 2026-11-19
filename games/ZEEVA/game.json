@@ -1,0 +1,35 @@
+{
+    "title": "Operatie Zeevalk",
+    "code": "ZEEVA",
+    "categories": [
+        "Arcade",
+        "Actie"
+    ],
+    "published": "2026-10-31",
+    "version": "1.1.0",
+    "description": "Je fregat patrouilleert bij zonsondergang. Schiet vliegtuigen uit de lucht en gooi dieptebommen op onderzeeërs.",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": {
+        "order": "desc",
+        "label": "punten"
+    },
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-17",
+            "notes": "Topscores: de eindscore gaat naar de topscorelijst op de site (Pixelfart SDK)."
+        },
+        {
+            "version": "1.0.0",
+            "date": "2026-10-31",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

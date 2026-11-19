@@ -1,0 +1,675 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Schaken 2.0</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* Layout: oorlogstafel. Bord links, arsenaal en gevechtslog rechts; op telefoon onder elkaar. */
+:root{
+  --bg:#e6e9dc; --panel:#f3f5ec; --fg:#1c2216; --muted:#5b644e; --line:#c3c9b2;
+  --sq-l:#cfd4ad; --sq-d:#8a9663;
+  --accent:#c8501a; --brass:#9a7a1f; --danger:#d23b2a;
+  --last:rgba(214,170,40,.5); --hint:rgba(28,34,22,.4);
+  --pw:#fbf9ee; --pw-line:#1b2014; --pb:#2a3120; --pb-line:#eef1dc;
+  --btn-bg:#1c2216; --btn-fg:#f3f5ec;
+  --font-display:'Black Ops One', Impact, 'Arial Black', sans-serif;
+  --font-body:'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:'Share Tech Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12150d; --panel:#1b1f14; --fg:#e7ebd7; --muted:#9aa388; --line:#323925;
+    --sq-l:#8a9468; --sq-d:#4b5733;
+    --accent:#ff7a3d; --brass:#d6b04a; --danger:#ff5a47;
+    --last:rgba(230,190,60,.42); --hint:rgba(255,255,230,.5);
+    --btn-bg:#e7ebd7; --btn-fg:#12150d;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12150d; --panel:#1b1f14; --fg:#e7ebd7; --muted:#9aa388; --line:#323925;
+  --sq-l:#8a9468; --sq-d:#4b5733;
+  --accent:#ff7a3d; --brass:#d6b04a; --danger:#ff5a47;
+  --last:rgba(230,190,60,.42); --hint:rgba(255,255,230,.5);
+  --btn-bg:#e7ebd7; --btn-fg:#12150d;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font:16px/1.45 var(--font-body);
+  padding-block:22px 36px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap{max-width:1060px; margin:0 auto}
+h1{font:400 clamp(2.4rem,8vw,3.8rem)/1 var(--font-display); letter-spacing:.02em; margin:0; text-wrap:balance}
+h1 span{color:var(--accent)}
+.tag{margin:.5rem 0 0; color:var(--muted); max-width:52ch}
+
+.layout{display:grid; gap:22px; margin-top:22px; grid-template-columns:minmax(0,1fr)}
+@media (min-width:880px){ .layout{grid-template-columns:minmax(0,1fr) 340px; align-items:start} }
+.stage{min-width:0; width:100%; max-width:690px; margin:0 auto}
+.side{display:grid; gap:14px; min-width:0}
+
+.statusbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; min-height:2.4rem}
+.chip{display:inline-flex; align-items:center; gap:9px; padding:6px 14px; border:1px solid var(--line); background:var(--panel); border-radius:999px; font-weight:600}
+.dot{width:13px; height:13px; border-radius:50%; border:2px solid var(--pw-line)}
+.dot.w{background:var(--pw)}
+.dot.b{background:var(--pb); border-color:var(--pb-line)}
+.alert{color:var(--danger); font-weight:700; text-transform:uppercase; letter-spacing:.1em}
+
+.boardbox{position:relative; margin:3px}
+.board{
+  position:relative; display:grid; grid-template-columns:repeat(8,1fr); grid-auto-rows:1fr;
+  aspect-ratio:1/1; width:100%; container-type:inline-size;
+  box-shadow:0 0 0 3px var(--fg); border-radius:2px; overflow:hidden; user-select:none; -webkit-user-select:none;
+}
+.sq{
+  position:relative; appearance:none; border:0; margin:0; padding:0; display:block; width:100%; height:100%;
+  min-width:0; min-height:0; font:inherit; color:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.sq.l{background-color:var(--sq-l)}
+.sq.d{background-color:var(--sq-d)}
+.sq.last{background-image:linear-gradient(var(--last),var(--last))}
+.sq.chk{background-image:radial-gradient(circle, var(--danger) 0, rgba(210,59,42,0) 72%)}
+.sq.sel{box-shadow:inset 0 0 0 .8cqw var(--accent)}
+.sq.hint::before{content:""; position:absolute; left:50%; top:50%; width:3.8cqw; height:3.8cqw; margin:-1.9cqw 0 0 -1.9cqw; border-radius:50%; background:var(--hint)}
+.sq.hint.cap::before{width:10.8cqw; height:10.8cqw; margin:-5.4cqw 0 0 -5.4cqw; background:transparent; border:.9cqw solid var(--accent)}
+.sq.hint.rep::before{border-color:var(--brass)}
+.sq:focus-visible{outline:.7cqw solid var(--brass); outline-offset:-.7cqw; z-index:2}
+.coord{position:absolute; font:400 1.9cqw/1 var(--font-mono); opacity:.75; pointer-events:none}
+.coord.rk{left:.7cqw; top:.6cqw}
+.coord.fl{left:.7cqw; bottom:.6cqw}
+
+.piece{position:absolute; inset:0; display:grid; place-items:center; pointer-events:none}
+.piece.w, .tm-w{--tf:var(--pw); --tl:var(--pw-line)}
+.piece.b, .tm-b{--tf:var(--pb); --tl:var(--pb-line)}
+.ico{width:78%; height:78%; fill:var(--tf); stroke:var(--tl); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; overflow:visible}
+.piece.sab .ico{opacity:.5}
+.spark{position:absolute; right:.8cqw; top:.8cqw; width:5.6cqw; line-height:0}
+.spark svg{width:100%; height:auto; display:block}
+.piece.pop .ico{animation:pop .28s ease-out}
+@keyframes pop{from{transform:scale(1.3)} to{transform:scale(1)}}
+.piece.dying{animation:die .3s ease-in forwards}
+@keyframes die{to{opacity:0; transform:scale(.55) rotate(14deg)}}
+
+.fx{position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:5}
+.f{position:absolute; left:0; top:0; pointer-events:none; will-change:transform,opacity}
+.bullet{background:linear-gradient(90deg,#fff3a8,#ffb92e); border-radius:99px; box-shadow:0 0 6px 2px rgba(255,180,40,.8); transform-origin:50% 50%}
+.flash{border-radius:50%; background:radial-gradient(circle,#fffbd0 0,#ffc23a 45%,rgba(255,150,30,0) 72%)}
+.ring{border:3px solid var(--accent); border-radius:50%}
+.rocket{background:linear-gradient(90deg,#ff9a2e 0 22%,#56633d 22% 78%,#c8501a 78%); border-radius:3px 99px 99px 3px; transform-origin:50% 50%}
+.puff{background:radial-gradient(circle,rgba(230,230,220,.9),rgba(160,160,150,0) 70%); border-radius:50%}
+.boom{background:radial-gradient(circle,#fff6c4 0,#ffb13a 28%,#e2531a 55%,rgba(226,83,26,0) 70%); border-radius:50%}
+.slash{background:#fff; box-shadow:0 0 8px 2px rgba(255,60,40,.85); border-radius:99px; transform-origin:50% 50%}
+.word{font-family:var(--font-display); color:#fff; white-space:nowrap; text-shadow:0 2px 0 #000,0 0 10px var(--accent),0 0 3px #000}
+
+.over{position:absolute; inset:0; display:grid; place-items:center; background:rgba(10,12,6,.62); z-index:8; padding:16px}
+.ocard{background:var(--panel); color:var(--fg); border:2px solid var(--fg); border-radius:10px; padding:20px 22px; text-align:center; max-width:300px}
+.ocard h3{font:400 1.9rem/1.05 var(--font-display); margin:0 0 8px; color:var(--accent)}
+.ocard p{margin:0 0 14px}
+
+.trays{display:grid; gap:6px; margin-top:12px}
+.tray{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:2rem; color:var(--muted); font-size:.88rem}
+.tray b{color:var(--fg); font-weight:600; min-width:9.5rem}
+.ti{width:1.8rem; height:1.8rem; fill:var(--tf); stroke:var(--tl); stroke-width:2; stroke-linejoin:round}
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px}
+h2{margin:0 0 10px; font:600 .78rem/1 var(--font-body); letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+.seg{display:grid; grid-template-columns:1fr 1fr; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.seg button{appearance:none; border:0; background:transparent; color:var(--fg); font:600 .92rem var(--font-body); padding:9px 6px; cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--btn-bg); color:var(--btn-fg)}
+.row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px}
+select{font:500 .95rem var(--font-body); color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:7px 10px}
+.btn{appearance:none; border:0; cursor:pointer; background:var(--accent); color:#fff; font:600 1rem var(--font-body); padding:10px 16px; border-radius:8px; width:100%; margin-top:12px}
+.ocard .btn{margin-top:0}
+.btn:hover{filter:brightness(1.07)}
+.btn:focus-visible, .seg button:focus-visible, select:focus-visible{outline:3px solid var(--brass); outline-offset:2px}
+
+.arm{display:grid; grid-template-columns:36px 1fr; align-items:start; gap:10px; padding:8px 0; border-top:1px solid var(--line)}
+.arm:first-of-type{border-top:0}
+.lg{width:34px; height:34px; fill:var(--pw); stroke:var(--pw-line); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; overflow:visible}
+.arm .nm{font-weight:600; line-height:1.2}
+.arm .wp{color:var(--muted); font-size:.88rem; line-height:1.35}
+.note{margin:10px 0 0; font-size:.86rem; color:var(--muted)}
+
+.log{list-style:none; margin:0; padding:0; max-height:240px; overflow:auto; font:400 .86rem/1.35 var(--font-mono)}
+.log li{padding:7px 0; border-top:1px solid var(--line)}
+.log li:first-child{border-top:0; color:var(--fg)}
+.log li .mv{color:var(--muted); white-space:nowrap}
+.log li.check{color:var(--danger); font-weight:600}
+.log .empty{color:var(--muted); border:0}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Schaken <span>2.0</span></h1>
+    <p class="tag">Een oorlog op het schaakbord. Vernietig het vijandelijke konvooi om te winnen.</p>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="Slagveld">
+      <div class="statusbar">
+        <span class="chip" id="turnChip"><span class="dot w" id="turnDot"></span><span id="turnText">Wit is aan zet</span></span>
+        <span class="alert" id="alertText" hidden>Konvooi onder vuur!</span>
+      </div>
+      <div class="boardbox">
+        <div class="board" id="board" role="group" aria-label="Slagveld, 8 bij 8"></div>
+        <div class="fx" id="fx" aria-hidden="true"></div>
+        <div class="over" id="over" hidden>
+          <div class="ocard">
+            <h3 id="oTitle">Gewonnen</h3>
+            <p id="oText"></p>
+            <button type="button" class="btn" id="againBtn">Nog een potje</button>
+          </div>
+        </div>
+      </div>
+      <div class="trays">
+        <div class="tray"><b>Wit vernietigde</b><span id="trayW"></span></div>
+        <div class="tray"><b>Zwart vernietigde</b><span id="trayB"></span></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="panel">
+        <h2>Spel</h2>
+        <div class="seg" role="group" aria-label="Spelmodus">
+          <button type="button" id="mCpu" aria-pressed="true">Tegen computer</button>
+          <button type="button" id="mTwo" aria-pressed="false">Twee spelers</button>
+        </div>
+        <div class="row" id="lvlRow">
+          <label for="level">Niveau</label>
+          <select id="level">
+            <option value="1">Makkelijk</option>
+            <option value="2" selected>Normaal</option>
+            <option value="3">Moeilijk</option>
+          </select>
+        </div>
+        <button type="button" class="btn" id="newBtn">Nieuw spel</button>
+      </div>
+
+      <div class="panel">
+        <h2>Eenheden</h2>
+        <div id="legend"></div>
+        <p class="note">Je speelt wit en begint. Per beurt doe je een actie met een eenheid. Tik een eenheid aan, dan zie je de mogelijkheden: stip is lopen of vliegen, ring is een aanval of actie. Verlies je je konvooi, dan verlies je het spel.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Gevechtslog</h2>
+        <ul class="log" id="log" aria-live="polite"></ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ENGINE-START */
+var VAL={p:100,r:240,b:320,n:450,q:700,k:20000};
+var D8=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+var DG=[[1,1],[1,-1],[-1,1],[-1,-1]];
+
+function other(c){ return c==='w'?'b':'w'; }
+function inb(r,c){ return r>=0&&r<8&&c>=0&&c<8; }
+function isSab(p){ return p.length>2; }
+function startBoard(){
+  var b=new Array(64).fill(null), back=['r','n','b','q','k','b','n','r'];
+  for(var c=0;c<8;c++){ b[c]='b'+back[c]; b[8+c]='bp'; b[48+c]='wp'; b[56+c]='w'+back[c]; }
+  return b;
+}
+function gen(b,col){
+  var out=[], opp=other(col), i, k, d, e, r, c, rr, cc, q, p, t, dr, dc;
+  for(i=0;i<64;i++){
+    p=b[i]; if(!p||p[0]!==col) continue;
+    r=i>>3; c=i&7; t=p[1];
+    if(t==='k'){
+      for(k=0;k<8;k++){
+        rr=r+D8[k][0]; cc=c+D8[k][1]; if(!inb(rr,cc)) continue;
+        q=b[rr*8+cc];
+        if(!q) out.push({f:i,t:rr*8+cc,k:'move'});
+        else if(q===col+'r!') out.push({f:i,t:rr*8+cc,k:'rep'});
+      }
+    } else if(t==='p'){
+      for(k=0;k<8;k++){
+        dr=D8[k][0]; dc=D8[k][1];
+        rr=r+dr; cc=c+dc;
+        if(inb(rr,cc)&&!b[rr*8+cc]) out.push({f:i,t:rr*8+cc,k:'move'});
+        for(d=1;d<=2;d++){
+          rr=r+dr*d; cc=c+dc*d; if(!inb(rr,cc)) break;
+          q=b[rr*8+cc];
+          if(q){ if(q[0]===opp) out.push({f:i,t:rr*8+cc,k:'shoot'}); break; }
+        }
+      }
+    } else if(t==='r'){
+      if(isSab(p)) continue;
+      for(rr=r-2;rr<=r+2;rr++){ for(cc=c-2;cc<=c+2;cc++){
+        if(!inb(rr,cc)||(rr===r&&cc===c)) continue;
+        q=b[rr*8+cc];
+        if(q&&q[0]===opp) out.push({f:i,t:rr*8+cc,k:'shoot'});
+      } }
+    } else if(t==='q'){
+      for(k=0;k<8;k++){
+        dr=D8[k][0]; dc=D8[k][1];
+        for(d=1;d<=3;d++){
+          rr=r+dr*d; cc=c+dc*d; if(!inb(rr,cc)) break;
+          q=b[rr*8+cc];
+          if(!q){ out.push({f:i,t:rr*8+cc,k:'move'}); continue; }
+          if(q[0]===opp&&(q[1]==='r'||q[1]==='p'||q[1]==='q')) out.push({f:i,t:rr*8+cc,k:'shoot'});
+          break;
+        }
+      }
+    } else if(t==='b'){
+      for(k=0;k<4;k++){
+        dr=DG[k][0]; dc=DG[k][1];
+        for(d=1;d<8;d++){
+          rr=r+dr*d; cc=c+dc*d; if(!inb(rr,cc)) break;
+          q=b[rr*8+cc];
+          if(!q){ out.push({f:i,t:rr*8+cc,k:'move'}); continue; }
+          if(q[0]===opp){
+            if(q[1]==='p'||q[1]==='q') out.push({f:i,t:rr*8+cc,k:'kill'});
+            else if(q[1]==='r'&&!isSab(q)&&d<=2) out.push({f:i,t:rr*8+cc,k:'sab'});
+          }
+          break;
+        }
+      }
+    } else if(t==='n'){
+      for(k=0;k<8;k++){
+        dr=D8[k][0]; dc=D8[k][1];
+        for(d=1;d<=4;d++){
+          rr=r+dr*d; cc=c+dc*d; if(!inb(rr,cc)) break;
+          q=b[rr*8+cc];
+          if(!q){ out.push({f:i,t:rr*8+cc,k:'move'}); }
+          else if(q[0]===opp){
+            var hits=[];
+            for(e=d;e<d+3;e++){
+              var r2=r+dr*e, c2=c+dc*e; if(!inb(r2,c2)) break;
+              hits.push(r2*8+c2);
+            }
+            out.push({f:i,t:rr*8+cc,k:'bomb',hits:hits});
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+function bombLand(b,m){
+  var me=b[m.f][0];
+  for(var i=m.hits.length-1;i>=0;i--){
+    var p=b[m.hits[i]];
+    if(!p||(p[0]!==me&&p[1]!=='k')) return m.hits[i];
+  }
+  return -1;
+}
+function victims(b,m){
+  var me=b[m.f][0];
+  if(m.k==='shoot'||m.k==='kill') return [m.t];
+  if(m.k==='bomb') return m.hits.filter(function(h){ return b[h]&&b[h][0]!==me&&b[h][1]!=='k'; });
+  return [];
+}
+function apply(b,m){
+  var nb=b.slice(), me=nb[m.f][0], i;
+  if(m.k==='move'||m.k==='kill'){ nb[m.t]=nb[m.f]; nb[m.f]=null; }
+  else if(m.k==='shoot'){ nb[m.t]=null; }
+  else if(m.k==='sab'){ nb[m.t]=nb[m.t][0]+'r!'; }
+  else if(m.k==='rep'){ nb[m.t]=nb[m.t][0]+'r'; }
+  else if(m.k==='bomb'){
+    for(i=0;i<m.hits.length;i++){ var h=m.hits[i]; if(nb[h]&&nb[h][0]!==me&&nb[h][1]!=='k') nb[h]=null; }
+    var L=bombLand(b,m);
+    if(L>=0){ nb[L]=nb[m.f]; nb[m.f]=null; }
+  }
+  return nb;
+}
+function inCheck(b,col){
+  var ks=b.indexOf(col+'k'); if(ks<0) return false;
+  var ms=gen(b,other(col));
+  for(var i=0;i<ms.length;i++){ if(victims(b,ms[i]).indexOf(ks)>=0) return true; }
+  return false;
+}
+function onlyKings(b){ for(var i=0;i<64;i++){ if(b[i]&&b[i][1]!=='k') return false; } return true; }
+function evalW(b){
+  var wk=b.indexOf('wk'), bk=b.indexOf('bk'), s=0;
+  for(var i=0;i<64;i++){
+    var p=b[i]; if(!p) continue;
+    var r=i>>3, c=i&7, t=p[1], col=p[0], v=VAL[t];
+    if(t==='r'&&isSab(p)) v=VAL.r*0.35;
+    var ek=col==='w'?bk:wk;
+    if(ek>=0&&(t==='p'||t==='q'||t==='n'||t==='b')){
+      var dist=Math.max(Math.abs(r-(ek>>3)),Math.abs(c-(ek&7)));
+      v+=(7-dist)*5;
+    }
+    if(t==='p') v+=(col==='w'?6-r:r-1)*4;
+    s+=col==='w'?v:-v;
+  }
+  return s;
+}
+function nega(b,col,d,a,bt,ply){
+  if(b.indexOf(col+'k')<0) return -99000+ply;
+  if(d===0){ var e=evalW(b); return col==='w'?e:-e; }
+  var ms=gen(b,col);
+  if(!ms.length) return 0;
+  var opp=other(col), i;
+  for(i=0;i<ms.length;i++){
+    var vs=victims(b,ms[i]), o=0;
+    for(var j=0;j<vs.length;j++) o+=VAL[b[vs[j]][1]];
+    ms[i].o=o;
+  }
+  ms.sort(function(x,y){ return y.o-x.o; });
+  for(i=0;i<ms.length;i++){
+    var s=-nega(apply(b,ms[i]),opp,d-1,-bt,-a,ply+1);
+    if(s>=bt) return bt;
+    if(s>a) a=s;
+  }
+  return a;
+}
+function pickMove(b,col,level){
+  var ms=gen(b,col); if(!ms.length) return null;
+  var opp=other(col), noise=level===1?90:(level===2?18:6), best=null, bs=-Infinity;
+  for(var i=0;i<ms.length;i++){
+    var s=-nega(apply(b,ms[i]),opp,level-1,-1e9,1e9,1)+Math.random()*noise;
+    if(s>bs){ bs=s; best=ms[i]; }
+  }
+  return best;
+}
+/* ENGINE-END */
+
+var NAMES={k:'konvooi',q:'mammoet',r:'turret',b:'spion',n:'bommenwerper',p:'tank'};
+var DET={k:'het',q:'de',r:'de',b:'de',n:'de',p:'de'};
+var ADJ={w:'witte',b:'zwarte'};
+var INFO={
+  k:'Rijdt 1 vak. Repareert een gesaboteerde turret die naast hem staat. Raak je hem kwijt, dan verlies je.',
+  q:'Mammoettank. Rijdt tot 3 vakken. Sloopt turrets en schiet tanks en mammoeten tot 3 vakken ver.',
+  r:'Staat vast. Schiet op alles wat binnen 2 vakken komt. Gesaboteerd is hij uitgeschakeld.',
+  n:'Vliegt in rechte en schuine lijnen over alles heen, tot 4 vakken. Bombardeert 3 vakken op een rij en landt aan het eind van die rij. Een konvooi is bomvrij.',
+  b:'Glijdt schuin. Saboteert turrets tot 2 vakken ver en schakelt tanks uit door erop te springen.',
+  p:'Tank. Zet 1 stap in elke richting of schiet tot 2 vakken ver.'
+};
+var ICO={
+  r:'<path d="M7 34 L10 23 H30 L33 34 Z"/><path d="M11.5 23 A8.5 8.5 0 0 1 28.5 23 Z"/><rect x="20" y="12.5" width="16" height="5" rx="1.5" transform="rotate(-14 20 15)"/>',
+  p:'<rect x="4" y="24" width="32" height="9" rx="4.5"/><rect x="10" y="16" width="17" height="8" rx="2"/><rect x="26" y="18.5" width="11" height="3.2" rx="1"/>',
+  q:'<rect x="2.5" y="23" width="35" height="11" rx="5"/><rect x="8" y="13.5" width="21" height="9.5" rx="2"/><rect x="28" y="15" width="10" height="2.8" rx="1"/><rect x="28" y="19" width="10" height="2.8" rx="1"/><circle cx="18.5" cy="18.2" r="2"/>',
+  n:'<path d="M20 3 L24 15 L37 23 V27.5 L24 23.5 L23 32 L28 35 V37.5 L20 35.5 L12 37.5 V35 L17 32 L16 23.5 L3 27.5 V23 L16 15 Z"/>',
+  b:'<circle cx="20" cy="14" r="6.5"/><rect x="10" y="9" width="20" height="3.2" rx="1.6"/><path d="M8 36 Q8 22 20 22 Q32 22 32 36 Z"/>',
+  k:'<rect x="3" y="12" width="21" height="15" rx="2"/><path d="M24 17 H31 L37 23 V27 H24 Z"/><circle cx="11" cy="29.5" r="4.2"/><circle cx="30" cy="29.5" r="4.2"/>'
+};
+var SPARK='<span class="spark"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 1 L4 11 H9 L8 19 L16 8 H11 Z" fill="#ffd23a" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg></span>';
+function svg(t,cls){ return '<svg class="'+cls+'" viewBox="0 0 40 40" aria-hidden="true">'+ICO[t]+'</svg>'; }
+function cap1(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function $(s){ return document.querySelector(s); }
+var boardEl=$('#board'), fxEl=$('#fx');
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+
+var sqs=[], FILES='abcdefgh';
+function sqName(i){ return FILES[i&7]+(8-(i>>3)); }
+(function buildBoard(){
+  for(var i=0;i<64;i++){
+    var r=i>>3, c=i&7, el=document.createElement('button');
+    el.type='button'; el.className='sq '+(((r+c)%2)?'d':'l'); el.dataset.i=i;
+    if(c===0){ var a=document.createElement('span'); a.className='coord rk'; a.textContent=8-r; el.appendChild(a); }
+    if(r===7){ var f=document.createElement('span'); f.className='coord fl'; f.textContent=FILES[c]; el.appendChild(f); }
+    boardEl.appendChild(el); sqs.push(el);
+  }
+})();
+
+(function buildLegend(){
+  var h='';
+  ['k','q','r','n','b','p'].forEach(function(t){
+    h+='<div class="arm">'+svg(t,'lg')+'<div><div class="nm">'+cap1(NAMES[t])+'</div><div class="wp">'+INFO[t]+'</div></div></div>';
+  });
+  $('#legend').innerHTML=h;
+})();
+
+var S=null, gidCounter=0;
+function fresh(mode,level){
+  var b=startBoard();
+  return {board:b,turn:'w',sel:null,moves:[],legalAll:gen(b,'w'),last:null,pop:-1,over:null,busy:false,
+    mode:mode,level:level,capW:[],capB:[],log:[],gid:++gidCounter};
+}
+S=fresh('cpu',2);
+
+function humanTurn(){ return !S.over && !S.busy && (S.mode==='two' || S.turn==='w'); }
+
+boardEl.addEventListener('click',function(e){
+  var t=e.target.closest('.sq'); if(!t) return;
+  onSq(+t.dataset.i);
+});
+function onSq(i){
+  if(!humanTurn()) return;
+  if(S.sel!==null){
+    for(var k=0;k<S.moves.length;k++){ if(S.moves[k].t===i){ doMove(S.moves[k]); return; } }
+  }
+  var p=S.board[i];
+  if(p&&p[0]===S.turn){ S.sel=i; S.moves=S.legalAll.filter(function(x){ return x.f===i; }); }
+  else { S.sel=null; S.moves=[]; }
+  render();
+}
+
+function render(){
+  var chkSq=-1;
+  if(!S.over){ if(inCheck(S.board,S.turn)) chkSq=S.board.indexOf(S.turn+'k'); }
+  var hint={}; S.moves.forEach(function(m){ hint[m.t]=m; });
+  for(var i=0;i<64;i++){
+    var el=sqs[i], p=S.board[i], r=i>>3, c=i&7;
+    var cls='sq '+(((r+c)%2)?'d':'l');
+    if(S.last&&(S.last.f===i||S.last.t===i)) cls+=' last';
+    if(S.sel===i) cls+=' sel';
+    if(i===chkSq) cls+=' chk';
+    if(hint[i]) cls+=' hint'+(hint[i].k!=='move'?' cap':'')+(hint[i].k==='rep'?' rep':'');
+    el.className=cls;
+    var old=el.querySelector('.piece'); if(old) old.remove();
+    var label=sqName(i);
+    if(p){
+      var d=document.createElement('div');
+      d.className='piece '+p[0]+(isSab(p)?' sab':'')+(S.pop===i?' pop':'');
+      d.innerHTML=svg(p[1],'ico')+(isSab(p)?SPARK:'');
+      el.appendChild(d);
+      label+=', '+ADJ[p[0]]+' '+NAMES[p[1]]+(isSab(p)?' (gesaboteerd)':'');
+    } else label+=', leeg';
+    el.setAttribute('aria-label',label);
+  }
+  S.pop=-1;
+  renderStatus(); renderTrays(); renderLog(); renderOver();
+}
+function renderStatus(){
+  var chip=$('#turnText'), dot=$('#turnDot'), al=$('#alertText');
+  var col=S.turn;
+  dot.className='dot '+col;
+  if(S.over){ chip.textContent='Spel afgelopen'; al.hidden=true; return; }
+  if(S.mode==='cpu'&&col==='b') chip.textContent='Computer plant zijn aanval…';
+  else if(S.mode==='cpu') chip.textContent='Jij bent aan zet (wit)';
+  else chip.textContent=(col==='w'?'Wit':'Zwart')+' is aan zet';
+  al.hidden=!inCheck(S.board,col);
+}
+function trayHtml(list,col){
+  list=list.slice().sort(function(a,b){ return VAL[b]-VAL[a]; });
+  if(!list.length) return '<span>nog niets</span>';
+  return list.map(function(t){ return '<svg class="ti tm-'+col+'" viewBox="0 0 40 40" aria-label="'+NAMES[t]+'">'+ICO[t]+'</svg>'; }).join('');
+}
+function renderTrays(){
+  $('#trayW').innerHTML=trayHtml(S.capW,'b');
+  $('#trayB').innerHTML=trayHtml(S.capB,'w');
+}
+function renderLog(){
+  var ul=$('#log');
+  if(!S.log.length){ ul.innerHTML='<li class="empty">Nog geen gevechten. Zet je eenheden in positie.</li>'; return; }
+  ul.innerHTML=S.log.map(function(x){ return '<li'+(x.check?' class="check"':'')+'>'+x.html+'</li>'; }).join('');
+}
+function renderOver(){
+  var o=$('#over');
+  if(!S.over){ o.hidden=true; return; }
+  var t=S.over, title, text;
+  if(t.type==='mate'){
+    title='Konvooi vernietigd';
+    if(S.mode==='cpu') text=t.winner==='w'?'Jij wint. Het vijandelijke konvooi is weg.':'De computer wint deze ronde.';
+    else text=(t.winner==='w'?'Wit':'Zwart')+' wint.';
+  } else if(t.type==='stalemate'){ title='Vastgelopen'; text='De speler aan zet heeft geen acties meer. Gelijkspel.'; }
+  else { title='Remise'; text='Er zijn alleen nog konvooien over. Gelijkspel.'; }
+  $('#oTitle').textContent=title; $('#oText').textContent=text; o.hidden=false;
+}
+
+/* ---------- effecten ---------- */
+function geo(i){ var s=boardEl.clientWidth/8; return {s:s,x:(i&7)*s+s/2,y:(i>>3)*s+s/2}; }
+function mk(cls,css){
+  var d=document.createElement('div'); d.className='f '+cls;
+  if(css) Object.keys(css).forEach(function(k){ d.style[k]=css[k]; });
+  fxEl.appendChild(d); return d;
+}
+function run(el,kf,opt){
+  var a=el.animate(kf,Object.assign({fill:'forwards'},opt));
+  var done=function(){ el.remove(); };
+  a.finished.then(done,done);
+  return a.finished.catch(function(){});
+}
+function tr(x,y,extra){ return 'translate('+x+'px,'+y+'px)'+(extra?' '+extra:''); }
+function ang(a,b){ return Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI; }
+
+async function bullet(a,b,delay){
+  if(delay) await sleep(delay);
+  var len=Math.hypot(b.x-a.x,b.y-a.y), an=ang(a,b), w=a.s*.22, h=a.s*.07;
+  var el=mk('bullet',{width:w+'px',height:h+'px',left:(-w/2)+'px',top:(-h/2)+'px'});
+  var dur=Math.max(120,len/a.s*55);
+  await run(el,[{transform:tr(a.x,a.y,'rotate('+an+'deg)')},{transform:tr(b.x,b.y,'rotate('+an+'deg)')}],{duration:dur,easing:'linear'});
+}
+function muzzle(a){
+  var sz=a.s*.34, el=mk('flash',{width:sz+'px',height:sz+'px',left:(-sz/2)+'px',top:(-sz/2)+'px'});
+  run(el,[{transform:tr(a.x,a.y,'scale(.4)'),opacity:1},{transform:tr(a.x,a.y,'scale(1.4)'),opacity:0}],{duration:150});
+}
+function hit(b,word){
+  var sz=b.s*.8, ring=mk('ring',{width:sz+'px',height:sz+'px',left:(-sz/2)+'px',top:(-sz/2)+'px'});
+  run(ring,[{transform:tr(b.x,b.y,'scale(.2)'),opacity:1},{transform:tr(b.x,b.y,'scale(1.5)'),opacity:0}],{duration:420});
+  var w=mk('word',{fontSize:(b.s*.42)+'px'}); w.textContent=word;
+  var half=word.length*b.s*.11, x=Math.max(half,Math.min(boardEl.clientWidth-half,b.x));
+  run(w,[{transform:tr(x,b.y,'translate(-50%,-50%)'),opacity:1},{transform:tr(x,b.y-b.s*.9,'translate(-50%,-50%)'),opacity:0}],{duration:850,easing:'ease-out'});
+}
+async function rocket(a,b){
+  var len=Math.hypot(b.x-a.x,b.y-a.y), an=ang(a,b), w=a.s*.5, h=a.s*.16;
+  var dur=350+len/a.s*55;
+  var el=mk('rocket',{width:w+'px',height:h+'px',left:(-w/2)+'px',top:(-h/2)+'px'});
+  var n=Math.floor(dur/55);
+  for(var k=1;k<n;k++){ (function(k){ setTimeout(function(){
+    var f=k/n, px=a.x+(b.x-a.x)*f, py=a.y+(b.y-a.y)*f, sz=a.s*.3;
+    var p=mk('puff',{width:sz+'px',height:sz+'px',left:(-sz/2)+'px',top:(-sz/2)+'px'});
+    run(p,[{transform:tr(px,py,'scale(.4)'),opacity:.9},{transform:tr(px,py,'scale(1.4)'),opacity:0}],{duration:420});
+  },dur*k/n); })(k); }
+  await run(el,[{transform:tr(a.x,a.y,'rotate('+an+'deg)')},{transform:tr(b.x,b.y,'rotate('+an+'deg)')}],{duration:dur,easing:'linear'});
+}
+function explosion(b,mult){
+  var sz=b.s*2.2*mult, el=mk('boom',{width:sz+'px',height:sz+'px',left:(-sz/2)+'px',top:(-sz/2)+'px'});
+  run(el,[{transform:tr(b.x,b.y,'scale(.1)'),opacity:1},{transform:tr(b.x,b.y,'scale(1)'),opacity:0}],{duration:540,easing:'ease-out'});
+}
+function zap(b){
+  var sz=b.s*1.2, el=mk('flash',{width:sz+'px',height:sz+'px',left:(-sz/2)+'px',top:(-sz/2)+'px'});
+  run(el,[{transform:tr(b.x,b.y,'scale(.3)'),opacity:1},{transform:tr(b.x,b.y,'scale(1.2)'),opacity:.9,offset:.4},{transform:tr(b.x,b.y,'scale(1.4)'),opacity:0}],{duration:520});
+}
+function shake(){
+  boardEl.animate([{transform:'translate(0,0)'},{transform:'translate(-6px,3px)'},{transform:'translate(5px,-4px)'},{transform:'translate(-3px,2px)'},{transform:'translate(0,0)'}],{duration:320});
+}
+async function slash(b){
+  var w=b.s*1.05, mkOne=function(deg,delay){
+    return sleep(delay).then(function(){
+      var el=mk('slash',{width:w+'px',height:'4px',left:(-w/2)+'px',top:'-2px'});
+      return run(el,[{transform:tr(b.x,b.y,'rotate('+deg+'deg) scaleX(0)'),opacity:1},{transform:tr(b.x,b.y,'rotate('+deg+'deg) scaleX(1)'),opacity:1,offset:.35},{transform:tr(b.x,b.y,'rotate('+deg+'deg) scaleX(1)'),opacity:0}],{duration:300});
+    });
+  };
+  await Promise.all([mkOne(-38,0),mkOne(38,120)]);
+}
+async function playAct(m){
+  var t=S.board[m.f][1], a=geo(m.f), b=geo(m.t);
+  var word={p:'BAM!',r:'RATATATA!',q:'KABOEM!',n:'BOEM!',b:(m.k==='sab'?'SABOTAGE!':'STEEK!'),k:'GEREPAREERD!'}[t];
+  if(reduce){ hit(b,word); await sleep(200); return; }
+  if(t==='p'){ muzzle(a); await bullet(a,b,0); }
+  else if(t==='r'){ await Promise.all([0,100,200].map(function(d){ setTimeout(function(){ muzzle(a); },d); return bullet(a,b,d); })); }
+  else if(t==='q'){ muzzle(a); await rocket(a,b); explosion(b,1.1); shake(); await sleep(200); }
+  else if(t==='n'){
+    await Promise.all(m.hits.map(function(h,ix){ return sleep(ix*170).then(function(){ explosion(geo(h),1); }); }));
+    shake(); await sleep(300);
+  }
+  else if(t==='b'&&m.k==='kill'){ await slash(b); }
+  else { zap(b); await sleep(450); }
+  hit(b,word);
+}
+
+/* ---------- spelverloop ---------- */
+function pushLog(html,check){ S.log.unshift({html:html,check:!!check}); if(S.log.length>40) S.log.pop(); }
+function actText(m,mover,vt){
+  var a=mover[1];
+  function who(p){ return DET[p[1]]+' '+ADJ[p[0]]+' '+NAMES[p[1]]; }
+  var A=cap1(who(mover)), arrow='×', body;
+  if(m.k==='move') return null;
+  if(m.k==='shoot'){
+    var v=vt[0];
+    if(a==='p') body='schiet '+who(v)+' neer';
+    else if(a==='r') body='schiet '+who(v)+' aan flarden';
+    else body=v[1]==='r'?'sloopt '+who(v):'schiet '+who(v)+' aan flarden met het kanon';
+  } else if(m.k==='kill') body='schakelt '+who(vt[0])+' uit';
+  else if(m.k==='bomb'){ body='bombardeert '+vt.map(who).join(' en '); arrow='↓'; }
+  else if(m.k==='sab'){ body='saboteert '+who(S.board[m.t])+'. Die is nu uitgeschakeld'; arrow='⚙'; }
+  else { body='repareert '+who(S.board[m.t]); arrow='+'; }
+  return A+' '+body+'. <span class="mv">'+sqName(m.f)+arrow+sqName(m.t)+'</span>';
+}
+
+async function doMove(m){
+  var gid=S.gid, mover=S.board[m.f], vs=victims(S.board,m), vt=vs.map(function(i){ return S.board[i]; });
+  var land=m.k==='bomb'?bombLand(S.board,m):-1;
+  S.busy=true; S.sel=null; S.moves=[]; render();
+  if(m.k!=='move'){
+    await playAct(m);
+    if(gid!==S.gid) return;
+    vs.forEach(function(i){ var pc=sqs[i].querySelector('.piece'); if(pc) pc.classList.add('dying'); });
+    if(vs.length) await sleep(reduce?0:240);
+    if(gid!==S.gid) return;
+  }
+  S.board=apply(S.board,m);
+  vt.forEach(function(p){ (mover[0]==='w'?S.capW:S.capB).push(p[1]); });
+  var txt=actText(m,mover,vt); if(txt) pushLog(txt);
+  S.last={f:m.f,t:land>=0?land:m.t};
+  S.pop=(m.k==='move'||m.k==='kill')?m.t:(land>=0?land:-1);
+  S.turn=other(S.turn);
+  S.legalAll=gen(S.board,S.turn);
+  if(S.board.indexOf(S.turn+'k')<0){
+    S.over={type:'mate',winner:other(S.turn)};
+    pushLog('Konvooi vernietigd! '+(S.over.winner==='w'?'Wit':'Zwart')+' wint.',true);
+  } else if(onlyKings(S.board)) S.over={type:'draw'};
+  else if(!S.legalAll.length) S.over={type:'stalemate'};
+  else if(inCheck(S.board,S.turn)) pushLog('Het konvooi van '+(S.turn==='w'?'wit':'zwart')+' ligt onder vuur!',true);
+  S.busy=false; render();
+  maybeAI();
+}
+function maybeAI(){
+  if(S.over||S.mode!=='cpu'||S.turn!=='b') return;
+  var gid=S.gid; S.busy=true; renderStatus();
+  setTimeout(function(){
+    if(gid!==S.gid) return;
+    var m=pickMove(S.board,'b',S.level);
+    if(m) doMove(m); else S.busy=false;
+  },350);
+}
+function newGame(){
+  var mode=S.mode, level=S.level;
+  fxEl.innerHTML='';
+  S=fresh(mode,level); render();
+}
+
+$('#newBtn').addEventListener('click',newGame);
+$('#againBtn').addEventListener('click',newGame);
+function setMode(m){
+  $('#mCpu').setAttribute('aria-pressed',m==='cpu'?'true':'false');
+  $('#mTwo').setAttribute('aria-pressed',m==='two'?'true':'false');
+  $('#lvlRow').hidden=(m!=='cpu');
+  S.mode=m; newGame();
+}
+$('#mCpu').addEventListener('click',function(){ setMode('cpu'); });
+$('#mTwo').addEventListener('click',function(){ setMode('two'); });
+$('#level').addEventListener('change',function(e){ S.level=+e.target.value; });
+
+render();
+})();
+</script>
+
+</body></html>

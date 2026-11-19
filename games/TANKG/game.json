@@ -1,0 +1,27 @@
+{
+    "title": "Tankgarage",
+    "code": "TANKG",
+    "categories": [
+        "Actie",
+        "Strategie"
+    ],
+    "published": "2026-11-01",
+    "version": "1.0.0",
+    "description": "Bouw je tank om in de garage, ga het slagveld op en verdien nieuwe onderdelen. Hoeveel golven overleef jij?",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": null,
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "2026-11-01",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

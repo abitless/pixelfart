@@ -1,0 +1,208 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Klusheld</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: één pixelscherm in het midden, aanraakknoppen eronder op telefoon */
+:root{--bg:#14161f;--panel:#1f2330;--fg:#f3ead2;--accent:#ffcc1d;--muted:#8c93a8}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Press Start 2P",monospace;
+ padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+ padding-block:12px;display:flex;flex-direction:column;align-items:center;gap:10px;box-sizing:border-box}
+h1{font-size:14px;margin:0;color:var(--accent);letter-spacing:1px}
+#wrap{width:100%;max-width:960px;min-width:0}
+canvas{width:100%;height:auto;aspect-ratio:320/192;image-rendering:pixelated;background:#000;display:block;border:3px solid var(--panel)}
+.help{font-size:8px;line-height:1.8;color:var(--muted);text-align:center;max-width:640px}
+#pad{display:none;width:100%;max-width:960px;justify-content:space-between;gap:12px;user-select:none;-webkit-user-select:none;touch-action:none}
+#pad div{display:flex;gap:10px}
+#pad button{font:inherit;font-size:14px;width:64px;height:64px;background:var(--panel);color:var(--fg);border:3px solid var(--muted);touch-action:none}
+#pad button:active,#pad button.on{background:var(--accent);color:#000}
+@media (pointer:coarse){#pad{display:flex}.help{display:none}}
+</style>
+<h1>KLUSHELD</h1>
+<div id="wrap"><canvas id="c" width="320" height="192"></canvas></div>
+<div class="help">PIJLTJES / A D = lopen · SPATIE / W = springen · X / Z = meppen · C / V = hamer gooien · Enter = start</div>
+<div id="pad">
+ <div><button data-k="left">◀</button><button data-k="right">▶</button></div>
+ <div><button data-k="throw">🪃</button><button data-k="hit">🔨</button><button data-k="jump">▲</button></div>
+</div>
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
+const W=320,H=192,T=16;
+// ---- sprites (pixel-strings) ----
+const PAL={'.':null,k:'#1a1a1a',y:'#ffcc1d',Y:'#e0a800',b:'#2f6fe0',B:'#1d4aa0',s:'#f0b48a',w:'#ffffff',r:'#d63a2a',g:'#8a8a8a',G:'#5a5a5a',n:'#7a4a22',N:'#4e2c10',p:'#e88aa0',e:'#e8c0a0',o:'#e07a1c',l:'#3fbf4f'};
+function spr(rows){const h=rows.length,w=rows[0].length,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+ rows.forEach((r,j)=>[...r].forEach((ch,i)=>{const col=PAL[ch];if(col){x.fillStyle=col;x.fillRect(i,j,1,1)}}));return c}
+function flip(c){const f=document.createElement('canvas');f.width=c.width;f.height=c.height;const x=f.getContext('2d');x.translate(c.width,0);x.scale(-1,1);x.drawImage(c,0,0);return f}
+const P1=spr(['....yyyy....','...yyyyyy...','...yYYYYy...','...kkkkkk...','...ssksks...','...ssssss...','....ssrr....','..bbbbbbbb..','.sbbyBByBbs.','.sbbbBBbbbs.','..bbbbbbbb..','..bbbbbbbb..','..bbb..bbb..','..bbb..bbb..','..nnn..nnn..','.nnnn..nnnn.']);
+const P2=spr(['....yyyy....','...yyyyyy...','...yYYYYy...','...kkkkkk...','...ssksks...','...ssssss...','....ssrr....','..bbbbbbbb..','.sbbyBByBbs.','.sbbbBBbbbs.','..bbbbbbbb..','..bbbbbbbb..','...bbbbbb...','...bbbbbb...','...nnnnnn...','...nnnnnn...']);
+const PL=[P1,P2],PR=[flip(P1),flip(P2)];
+const RAT1=spr(['..........','..pp......','.gggg..g..','gggggggg..','gkgggggggg','gggggggg..','.g.g.g.g..']);
+const RAT2=spr(['..........','..pp......','.gggg..g..','gggggggg..','gkgggggggg','.gggggggg.','..g..g.g..']);
+const RATS=[RAT1,RAT2],RATSF=[flip(RAT1),flip(RAT2)];
+const HAM=spr(['.GGGG.','.GggG.','.GggG.','..nn..','..nn..','..nn..','..nn..','..nn..']);
+const BOLT=spr(['.yy.','yYYy','yYYy','.yy.']);
+const VAN=spr(['..wwwwwwwwwwwwwwwwwwww..','.wwwwwwwwwwwwwwwwwwwwww.','wwwwwwwwwwwwwwwwwwwwwwww','wwbbbbbbbbbwwwwwbbbbbwww','wwbbbbbbbbbwwwwwbbbbbwww','wwwwwwwwwwwwwwwwwbbbbbww','wwwrrrrrrrrrrrrrwwwwwwww','wwwwwwwwwwwwwwwwwwwwwwwo','kkkkwwwwwwwwwwwwwkkkwwww','.kggkwwwwwwwwwwwkggkwwww','.kggk...........kggk....']);
+const CUST=spr(['..nnnn..','.nnnnnn.','.nsksks.','.nssssn.','..ssss..','.pppppp.','spppppps','.pppppp.','.pp..pp.','.kk..kk.']);
+const HOUSE=spr(['.......rr.........','......rrrr........','.....rrrrrr.......','....rrrrrrrr......','...rrrrrrrrrr.....','..rrrrrrrrrrrr....','.eeeeeeeeeeeeee...','.eewweeeeeewwee...','.eewweeeeeewwee...','.eeeeeeeNNeeee....','.eeeeeeeNNeeee....','.eeeeeeeNNeeee....']);
+// ---- levels ----
+// tile codes: 0 lucht, 1 straat/steen, 2 riool-baksteen, 3 platform, 4 water(dodelijk)
+function mk(cols){return {cols,t:Array.from({length:12},()=>Array(cols).fill(0)),rats:[],coins:[]}}
+function fillG(L,a,b,v){for(let x=a;x<b;x++){L.t[10][x]=v;L.t[11][x]=v}}
+function plat(L,x,y,n,v=3){for(let i=0;i<n;i++)L.t[y][x+i]=v}
+function block(L,x,y,w,h,v=2){for(let j=0;j<h;j++)for(let i=0;i<w;i++)L.t[y-j][x+i]=v}
+// straat: korte intro met put
+const STREET=(()=>{const L=mk(40);fillG(L,0,40,1);for(let x=22;x<25;x++){L.t[10][x]=5;L.t[11][x]=5}return L})();
+// riool
+const SEWER=(()=>{const L=mk(130);fillG(L,0,130,2);
+ const gaps=[[14,16],[30,33],[48,50],[63,66],[82,84],[99,102]];
+ gaps.forEach(([a,b])=>{for(let x=a;x<b;x++){L.t[10][x]=4;L.t[11][x]=4}});
+ block(L,22,9,2,1);block(L,24,8,2,2);block(L,40,9,2,1);block(L,76,9,3,1);block(L,90,9,2,1);block(L,92,8,2,2);block(L,112,9,2,1);
+ plat(L,13,8,5);plat(L,29,7,6);plat(L,47,8,5);plat(L,62,7,3);plat(L,66,6,3);plat(L,81,8,5);plat(L,98,7,6);plat(L,56,7,3);plat(L,104,6,3);
+ L.rats=[[20,9],[37,9],[54,9],[72,9],[88,9],[108,9],[116,9]];
+ L.coins=[[15,6],[31,5],[32,5],[33,5],[49,6],[64,5],[67,4],[83,6],[100,5],[101,5],[102,5],[26,6],[78,7],[110,8]];
+ return L})();
+// ---- input ----
+const K={left:0,right:0,jump:0,hit:0,throw:0};let jumpEdge=0,hitEdge=0,throwEdge=0,startEdge=0;
+const MAP={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'jump',w:'jump',W:'jump',' ':'jump',x:'hit',X:'hit',z:'hit',Z:'hit',c:'throw',C:'throw',v:'throw',V:'throw',Shift:'throw'};
+addEventListener('keydown',e=>{const k=MAP[e.key];if(k){e.preventDefault();if(!K[k]){if(k==='jump')jumpEdge=1;if(k==='hit')hitEdge=1;if(k==='throw')throwEdge=1}K[k]=1}if(e.key==='Enter')startEdge=1;initAudio()});
+addEventListener('keyup',e=>{const k=MAP[e.key];if(k)K[k]=0});
+document.querySelectorAll('#pad button').forEach(b=>{const k=b.dataset.k;
+ const on=e=>{e.preventDefault();if(!K[k]){if(k==='jump')jumpEdge=1;if(k==='hit')hitEdge=1;if(k==='throw')throwEdge=1}K[k]=1;b.classList.add('on');initAudio()};
+ const off=e=>{e.preventDefault();K[k]=0;b.classList.remove('on')};
+ b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointerleave',off);b.addEventListener('pointercancel',off)});
+cv.addEventListener('pointerdown',()=>{startEdge=1;initAudio()});
+// ---- audio ----
+let AC=null;function initAudio(){try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+function beep(f,d=.08,type='square',v=.05){try{if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
+// ---- state ----
+let hams=[];let scene='title',L=STREET,cam=0,frame=0,P,rats=[],coins=[],lives=3,bolts=0,msg='',msgT=0,fade=0,safe={x:20,y:100},shake=0;
+function say(t,n=180){msg=t;msgT=n}
+function newPlayer(x,y){return {x,y,vx:0,vy:0,w:10,h:15,face:1,ground:false,hit:0,cd:0,inv:0,walk:0}}
+function load(name){scene=name;L=name==='street'?STREET:SEWER;
+ rats=L.rats.map(([c,r])=>({x:c*T+3,y:r*T+9,w:10,h:7,dir:-1,dead:0,a:0}));
+ hams=[];coins=L.coins.map(([c,r])=>({x:c*T+4,y:r*T+4,got:0}));cam=0}
+function startGame(){lives=5;bolts=0;load('street');P=newPlayer(24,128);safe={x:24,y:128};frame=0;say('RING RING! Klant: "Mijn riool is verstopt! Kom snel!"',260)}
+const tile=(c,r)=>(c<0||c>=L.cols)?(r>=0&&r<12&&scene!=='x'?2:0):(r<0?0:r>11?0:L.t[r][c]);
+const solid=t=>t===1||t===2||t===3;
+function hitsSolid(x,y,w,h,pb){for(let r=Math.floor(y/T);r<=Math.floor((y+h-.01)/T);r++)for(let c=Math.floor(x/T);c<=Math.floor((x+w-.01)/T);c++){const t=tile(c,r);if(t===3){if(pb!==undefined&&pb<=r*T+1)return true}else if(solid(t))return true}return false}
+function hurt(dir){if(P.inv>0)return;lives--;P.inv=150;P.vy=-3;P.vx=dir*2.2;shake=8;beep(120,.25,'sawtooth');if(lives<=0){scene='over';beep(80,.6,'sawtooth')}}
+function die(){ // in water / gevallen
+ if(scene==='street'){fade=40;load('sewer');P=newPlayer(40,-40);safe={x:40,y:128};say('Oeps! Een open put! Je valt het riool in...',240);beep(300,.4,'triangle');beep(150,.6,'triangle');return}
+ beep(100,.4,'sawtooth');
+ P.x=safe.x;P.y=safe.y;P.vx=P.vy=0;P.inv=120;say('Plons! Geen zorgen, probeer het opnieuw.',100)}
+// ---- update ----
+function update(){
+ frame++;if(msgT>0)msgT--;if(shake>0)shake--;
+ if(scene==='title'||scene==='over'||scene==='win'){if(startEdge){startEdge=0;startGame()}return}
+ startEdge=0;
+ const sp=1.5;
+ if(K.left&&!K.right){P.vx=-sp;P.face=-1}else if(K.right&&!K.left){P.vx=sp;P.face=1}else P.vx*=.7;if(Math.abs(P.vx)<.05)P.vx=0;
+ if(jumpEdge&&P.ground){P.vy=-5.7;P.ground=false;beep(520,.1,'square')}jumpEdge=0;
+ if(!K.jump&&P.vy<-2)P.vy*=.85;
+ P.vy=Math.min(P.vy+.28,6);
+ if(hitEdge&&P.cd<=0){P.hit=14;P.cd=22;beep(220,.07,'triangle')}hitEdge=0;
+ if(throwEdge&&hams.length<2){hams.push({x:P.x+P.w/2,y:P.y+3,vx:P.face*3.8+P.vx*.3,vy:-1.8,a:0,f:P.face});P.hit=0;beep(400,.08,'triangle')}throwEdge=0;
+ if(P.hit>0)P.hit--;if(P.cd>0)P.cd--;if(P.inv>0)P.inv--;
+ // beweeg X
+ P.x+=P.vx;if(hitsSolid(P.x,P.y,P.w,P.h)){P.x-=P.vx;while(!hitsSolid(P.x+Math.sign(P.vx)*.5,P.y,P.w,P.h)&&P.vx)P.x+=Math.sign(P.vx)*.5;P.vx=0}
+ // beweeg Y
+ const pb=P.y+P.h;P.y+=P.vy;P.ground=false;const ow=P.vy>0?pb:undefined;
+ if(hitsSolid(P.x,P.y,P.w,P.h,ow)){P.y-=P.vy;const s=Math.sign(P.vy)||1;while(!hitsSolid(P.x,P.y+s*.5,P.w,P.h,ow))P.y+=s*.5;if(P.vy>0)P.ground=true;P.vy=0}
+ if(P.ground){P.walk+=Math.abs(P.vx)*.12;const c=Math.floor((P.x+P.w/2)/T),r=Math.floor((P.y+P.h+1)/T);
+  if(solid(tile(c,r))&&solid(tile(c-1,r))&&solid(tile(c+1,r))&&scene==='sewer'&&L.t[r-1]&&!hitsSolid(c*T,P.y-4,T,P.h)){safe={x:c*T+3,y:P.y}}}
+ if(P.x<0)P.x=0;if(P.x+P.w>L.cols*T)P.x=L.cols*T-P.w;
+ // water / afgrond
+ const fr=Math.floor((P.y+P.h-2)/T),fc=Math.floor((P.x+P.w/2)/T);
+ if(scene==='sewer'&&tile(fc,fr)===4&&P.y+P.h>10*T+4)die();
+ if(P.y>H+30)die();
+ // straat: tekst bij het busje
+ if(scene==='street'&&P.x>260&&P.x<330&&msgT<20)say('Nog even naar je busje...',60);
+ // munten
+ coins.forEach(c=>{if(!c.got&&Math.abs(c.x+4-(P.x+5))<9&&Math.abs(c.y+4-(P.y+8))<12){c.got=1;bolts++;if(bolts%25===0){lives++;say('Extra leven!',80)}beep(880,.07);beep(1180,.1)}});
+ // ratten
+ rats.forEach(r=>{
+  if(r.dead){r.dead++;return}
+  r.a+=.15;const nx=r.x+r.dir*.3,ahead=r.dir>0?nx+r.w:nx,col=Math.floor(ahead/T),row=Math.floor((r.y+r.h-1)/T);
+  if(solid(tile(col,row))||!solid(tile(col,row+1)))r.dir*=-1;else r.x=nx;
+  // hamer
+  if(P.hit>0){const hx=P.face>0?P.x+P.w-2:P.x-22;if(r.x<hx+24&&r.x+r.w>hx&&r.y<P.y+P.h&&r.y+r.h>P.y){r.dead=1;bolts+=3;beep(660,.1,'sawtooth');beep(330,.12,'sawtooth');shake=3;return}}
+  // aanraking
+  if(P.x<r.x+r.w&&P.x+P.w>r.x&&P.y<r.y+r.h&&P.y+P.h>r.y){
+   if(P.vy>1&&P.y+P.h-r.y<9){r.dead=1;P.vy=-4;bolts+=2;beep(500,.1)}else hurt(P.x<r.x?-1:1)}});
+ hams=hams.filter(h=>{h.x+=h.vx;h.vy+=.1;h.y+=h.vy;h.a+=.45*h.f;
+  if(h.y>H||h.x<cam-30||h.x>cam+W+30||solid(tile(Math.floor(h.x/T),Math.floor(h.y/T))))return false;
+  for(const r of rats){if(!r.dead&&h.x>r.x-4&&h.x<r.x+r.w+4&&h.y>r.y-6&&h.y<r.y+r.h+4){r.dead=1;bolts+=3;beep(660,.1,'sawtooth');beep(330,.12,'sawtooth');shake=3;return false}}
+  return true});
+ rats=rats.filter(r=>r.dead<20);
+ // finish
+ if(scene==='sewer'&&P.x>1975){scene='win';beep(660,.12);setTimeout(()=>beep(880,.12),130);setTimeout(()=>beep(1320,.3),260)}
+ cam=Math.max(0,Math.min(L.cols*T-W,P.x-130));
+}
+// ---- render ----
+const F='8px "Press Start 2P",monospace';
+function txt(s,x,y,col='#fff',al='left',sz=8){ctx.font=sz+'px "Press Start 2P",monospace';ctx.textAlign=al;ctx.fillStyle='#000';ctx.fillText(s,x+1,y+1);ctx.fillStyle=col;ctx.fillText(s,x,y)}
+function box(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+function bgStreet(){
+ box(0,0,W,H,'#6ec6ff');box(0,110,W,50,'#8fd4ff');
+ for(let i=0;i<5;i++){const x=((i*90-cam*.2)%(W+90)+W+90)%(W+90)-40;box(x,24+(i%3)*14,34,8,'#fff');box(x+6,18+(i%3)*14,20,8,'#fff')}
+ for(let i=0;i<8;i++){const x=((i*70-cam*.5)%(W+140)+W+140)%(W+140)-60,h=50+(i*37%40);box(x,160-h,48,h,i%2?'#8a7a9a':'#9a8a7a');
+  for(let j=0;j<3;j++)for(let k=0;k<h/16-1;k++)box(x+6+j*14,160-h+6+k*14,8,8,'#d8f0ff')}}
+function bgSewer(){
+ box(0,0,W,H,'#10201a');
+ for(let i=0;i<14;i++){const x=((i*48-cam*.4)%(W+96)+W+96)%(W+96)-30;box(x,0,6,160,'#1a3a2c');box(x-2,50+(i*29%60),10,6,'#244e3a')}
+ box(0,28,W,8,'#1a3a2c');box(0,30,W,2,'#244e3a');
+ const dx=(frame*1.3)%160;for(let i=0;i<3;i++)box((i*113-cam*.8+W*3)%W,(dx+i*50)%160,2,4,'#7ad7a0')}
+function drawTile(t,x,y,c,r){
+ if(t===1){box(x,y,T,T,'#4a4a52');if(r===10){box(x,y,T,4,'#7a7a84');box(x,y+4,T,1,'#2a2a30')}else for(let i=0;i<2;i++)box(x+i*8,y+8,1,8,'#2a2a30')}
+ else if(t===2){box(x,y,T,T,'#4a6a4a');box(x,y,T,1,'#7aa07a');box(x,y+7,T,1,'#2a3e2a');box(x,y+15,T,1,'#2a3e2a');
+  const o=(r%2)*8;box(x+o,y,1,8,'#2a3e2a');box(x+(o+8)%16,y+8,1,8,'#2a3e2a');if(r===10)box(x,y,T,3,'#6a9a5a')}
+ else if(t===3){box(x,y,T,6,'#8a5a2a');box(x,y,T,2,'#b07a3a');box(x+2,y+6,2,4,'#5a3a1a');box(x+12,y+6,2,4,'#5a3a1a')}
+ else if(t===4){box(x,y,T,T,'#1f6a4a');const w=Math.sin((frame+c*9)*.12)*2;box(x,y+4+w,T,2,'#4fc49a');box(x,y+9,T,1,'#2f8a64')}
+ else if(t===5){box(x,y,T,T,'#4a4a52');if(r===10){box(x,y,T,4,'#7a7a84')}if(r===10&&c===23){box(x-8,y+1,32,2,'#2a2a30');box(x-6,y-1,28,1,'#8a8a94')}}}
+function drawPlayer(){
+ if(P.inv>0&&(frame>>2)&1)return;
+ const f=P.ground&&P.vx!==0?(Math.floor(P.walk)&1):0,s=(P.face>0?PR:PL)[f];
+ ctx.drawImage(s,Math.round(P.x-1-cam),Math.round(P.y));
+ // hamer
+ const a=P.hit>0?(14-P.hit)/14:-1;
+ ctx.save();const hx=P.x+5-cam+P.face*5,hy=P.y+9;ctx.translate(Math.round(hx),Math.round(hy));
+ if(a<0){ctx.rotate(P.face*.5)}else{ctx.rotate(P.face*(-1.4+a*2.8))}
+ ctx.drawImage(HAM,-3,-8);ctx.restore()}
+function render(){
+ ctx.save();if(shake)ctx.translate((Math.random()-.5)*3,(Math.random()-.5)*3);
+ if(scene==='street'||scene==='title'&&0)bgStreet();else bgSewer();
+ const c0=Math.floor(cam/T),c1=c0+Math.ceil(W/T)+1;
+ for(let r=0;r<12;r++)for(let c=c0;c<=c1;c++){if(c<L.cols){const t=L.t[r][c];if(t)drawTile(t,c*T-Math.round(cam),r*T,c,r)}}
+ if(scene==='street'){ctx.drawImage(VAN,520-cam,160-26,48,26);txt('KLUSHELD',538-cam,160-12,'#d63a2a','left',5)}
+ if(scene==='sewer'){
+  // finish: huis + klant
+  ctx.drawImage(HOUSE,1900-cam,160-12*4,76,48);ctx.drawImage(CUST,1990-cam,160-20,16,20);
+  const bob=Math.sin(frame*.1)*2;txt('KLANT',1998-cam,160-26+bob,'#ffcc1d','center',6);
+  box(1840-cam,160-30,3,30,'#aaa');box(1843-cam,160-30,18,10,'#ffcc1d');txt('FINISH',1852-cam,160-33,'#fff','center',5)}
+ coins.forEach(c=>{if(!c.got)ctx.drawImage(BOLT,Math.round(c.x-cam),Math.round(c.y+Math.sin(frame*.1+c.x)*1.5),8,8)});
+ rats.forEach(r=>{const s=(r.dir>0?RATSF:RATS)[Math.floor(r.a)&1];
+  if(r.dead){ctx.drawImage(s,Math.round(r.x-cam-1),Math.round(r.y+r.h-3),10,3)}else ctx.drawImage(s,Math.round(r.x-cam-1),Math.round(r.y-1))});
+ hams.forEach(h=>{ctx.save();ctx.translate(Math.round(h.x-cam),Math.round(h.y));ctx.rotate(h.a);ctx.drawImage(HAM,-3,-4);ctx.restore()});
+ if(scene!=='title'&&P)drawPlayer();
+ ctx.restore();
+ // HUD
+ if(scene==='street'||scene==='sewer'||scene==='over'||scene==='win'){
+  txt('♥'.repeat(Math.max(lives,0)),8,14,'#ff4a4a');txt('⚙ '+bolts,W-8,14,'#ffcc1d','right');
+  if(msgT>0&&scene!=='over'&&scene!=='win'){const w=Math.min(W-16,msg.length*6+12);box((W-w)/2,22,w,16,'rgba(0,0,0,.7)');txt(msg,W/2,33,'#fff','center',6)}}
+ if(scene==='title'){box(0,0,W,H,'rgba(0,0,0,.72)');txt('KLUSHELD',W/2,60,'#ffcc1d','center',22);
+  txt('Je klusbedrijf wordt gebeld...',W/2,88,'#fff','center',7);
+  ctx.drawImage(PR[(frame>>3)&1],W/2-6,102);ctx.save();ctx.translate(W/2+12,112);ctx.rotate(Math.sin(frame*.1)*.6);ctx.drawImage(HAM,-3,-8);ctx.restore();
+  if((frame>>5)&1)txt('Druk op ENTER of tik om te starten',W/2,150,'#fff','center',7);
+  txt('Pijltjes = lopen · Spatie = springen · X = hamer',W/2,172,'#8c93a8','center',6)}
+ if(scene==='over'){box(0,0,W,H,'rgba(0,0,0,.75)');txt('GAME OVER',W/2,80,'#ff4a4a','center',18);txt('Je haalde '+bolts+' moeren',W/2,104,'#fff','center',8);if((frame>>5)&1)txt('ENTER = opnieuw',W/2,140,'#fff','center',8)}
+ if(scene==='win'){box(0,0,W,H,'rgba(0,0,0,.65)');txt('KLUS GEKLAARD!',W/2,70,'#ffcc1d','center',16);
+  txt('Klant: "Wat een held! Mijn riool is gered."',W/2,94,'#fff','center',6);txt('Moeren: '+bolts+'   Levens: '+lives,W/2,114,'#fff','center',8);
+  if((frame>>5)&1)txt('ENTER = nog een keer',W/2,148,'#fff','center',8)}
+ if(fade>0){box(0,0,W,H,'rgba(0,0,0,'+fade/40+')');fade--}}
+// ---- loop ----
+let last=performance.now(),acc=0;
+function loop(t){acc+=Math.min(100,t-last);last=t;while(acc>=1000/60){update();acc-=1000/60;if(scene==='title')frame++}render();requestAnimationFrame(loop)}
+load('street');P=newPlayer(24,128);requestAnimationFrame(loop);
+</script>
+
+</body></html>

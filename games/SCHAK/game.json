@@ -1,0 +1,28 @@
+{
+    "title": "Schaken 2.0",
+    "code": "SCHAK",
+    "categories": [
+        "Puzzel",
+        "2 spelers",
+        "Strategie"
+    ],
+    "published": "2026-11-15",
+    "version": "1.0.0",
+    "description": "Schaken, maar dan als oorlog op het bord. Zet tanks, turrets en saboteurs slim in en vernietig het vijandelijke konvooi.",
+    "author": "Bert",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": null,
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "2026-11-15",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

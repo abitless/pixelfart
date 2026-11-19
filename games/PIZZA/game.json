@@ -1,0 +1,27 @@
+{
+    "title": "Hete Pizza",
+    "code": "PIZZA",
+    "categories": [
+        "Arcade",
+        "Snel"
+    ],
+    "published": "2026-11-15",
+    "version": "1.0.0",
+    "description": "Bezorg pizza's op je scooter door de stad. Hoe warmer de pizza aankomt, hoe hoger de fooi. Daarmee koop je een snellere scooter.",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": null,
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "2026-11-15",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

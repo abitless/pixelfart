@@ -1,0 +1,980 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Hete Pizza</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+<style>
+/* Layout: one centred column. Order slip and gauges sit above a pixel stage, controls below.
+   Title, driving, receipt and garage screens swap in the same spot. Single dark look, by choice. */
+:root {
+  --ink: #17151f;
+  --panel: #252233;
+  --panel-2: #302c44;
+  --line: #4b4668;
+  --text: #f5efe2;
+  --muted: #a8a3bd;
+  --tomato: #ee4b2b;
+  --sauce: #9b2a16;
+  --cheese: #f7c948;
+  --cheese-dk: #a5781b;
+  --basil: #59c26a;
+  --cold: #6aa8ff;
+  --paper: #f3ead3;
+  --paper-ink: #2a2230;
+  --font-display: 'Press Start 2P', ui-monospace, Menlo, Consolas, monospace;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-bon: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  padding-block: 20px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1000px; margin: 0 auto; display: grid; gap: 16px; }
+.wrap > * { min-width: 0; }
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.logo { font-family: var(--font-display); font-weight: 400; font-size: clamp(16px, 4.6vw, 24px); color: var(--cheese); text-shadow: 3px 3px 0 var(--sauce); margin: 0; line-height: 1.3; }
+.chips { display: flex; gap: 8px; align-items: center; }
+.chip { font-family: var(--font-display); font-size: 10px; line-height: 1.4; padding: 10px 12px; background: var(--panel); box-shadow: 0 0 0 2px var(--line); color: var(--text); border: 0; }
+.chip b { color: var(--cheese); font-weight: 400; }
+.chipbtn { cursor: pointer; color: var(--muted); }
+.chipbtn:hover { color: var(--text); }
+
+.panel { background: var(--panel); box-shadow: 0 0 0 2px var(--line); padding: 20px; }
+h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(13px, 3.2vw, 16px); line-height: 1.6; margin: 0 0 12px; color: var(--cheese); }
+.lead { margin: 0 0 16px; max-width: 56ch; color: var(--text); }
+
+.btn { font-family: var(--font-display); font-size: 11px; line-height: 1.4; padding: 14px 16px; background: var(--cheese); color: #2a1a05; border: 0; box-shadow: 0 4px 0 var(--cheese-dk); cursor: pointer; transform: translateY(0); }
+.btn:hover:not(:disabled) { filter: brightness(1.08); }
+.btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--cheese-dk); }
+.btn:disabled { background: var(--panel-2); color: var(--muted); box-shadow: 0 4px 0 var(--ink); cursor: not-allowed; }
+.btn.ghost { background: var(--panel-2); color: var(--text); box-shadow: 0 0 0 2px var(--line), 0 4px 0 2px var(--ink); }
+.btn.ghost:active:not(:disabled) { box-shadow: 0 0 0 2px var(--line); }
+.btn.small { padding: 10px 12px; font-size: 10px; }
+button:focus-visible { outline: 3px solid var(--cold); outline-offset: 3px; }
+.row-btns { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+.row-btns.center { justify-content: center; margin-top: 18px; }
+
+/* title */
+.hero { display: grid; grid-template-columns: 1.25fr 1fr; gap: 24px; align-items: center; }
+.road { position: relative; min-height: 190px; background: #3a3c48; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--line); overflow: hidden; }
+.road::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 4px; transform: translateY(-50%); background: repeating-linear-gradient(90deg, #e3b93e 0 20px, transparent 20px 36px); }
+.road::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: #9996a8; }
+.road canvas { position: relative; z-index: 1; width: 182px; height: 182px; image-rendering: pixelated; max-width: 100%; }
+.stats { font-family: var(--font-display); font-size: 9px; line-height: 1.8; color: var(--muted); margin: 18px 0 0; }
+.keyhelp { display: grid; gap: 8px; margin: 18px 0 0; font-size: 14px; color: var(--muted); }
+.keyhelp div { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.kbd { font-family: var(--font-display); font-size: 9px; padding: 5px 7px; background: var(--panel-2); color: var(--text); box-shadow: 0 0 0 2px var(--line); }
+
+/* play */
+.hudbar { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 12px; margin-bottom: 12px; }
+.slip, .gauges { background: var(--panel); box-shadow: 0 0 0 2px var(--line); padding: 10px 12px; font-family: var(--font-display); font-size: 9px; line-height: 1.7; min-width: 0; }
+.slip { display: grid; gap: 2px; align-content: center; }
+.slip-k { color: var(--muted); }
+.slip b { color: var(--cheese); font-weight: 400; }
+.slip .who { font-family: var(--font-body); font-size: 13px; line-height: 1.35; color: var(--text); }
+.gauges { display: grid; gap: 6px; align-content: center; }
+.gauge { display: grid; grid-template-columns: 56px minmax(0, 1fr) 40px; gap: 8px; align-items: center; }
+.gl { color: var(--muted); }
+.gv { text-align: right; color: var(--text); }
+.bar { height: 10px; background: var(--ink); box-shadow: 0 0 0 2px var(--line); }
+.bar i { display: block; height: 100%; width: 100%; background: var(--tomato); }
+.stage { position: relative; background: #000; box-shadow: 0 0 0 3px var(--line); line-height: 0; }
+.stage canvas { display: block; width: 100%; height: auto; aspect-ratio: 352 / 240; image-rendering: pixelated; touch-action: none; }
+.speed { position: absolute; left: 8px; bottom: 8px; font-family: var(--font-display); font-size: clamp(8px, 1.5vw, 11px); line-height: 1.4; padding: 6px 8px; background: rgba(23, 21, 31, .82); color: var(--text); }
+.hint { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); width: max-content; max-width: 92%; text-align: center; font-family: var(--font-display); font-size: clamp(8px, 1.7vw, 12px); line-height: 1.6; padding: 10px 12px; background: rgba(23, 21, 31, .9); color: var(--cheese); box-shadow: 0 0 0 2px var(--cheese-dk); }
+.below { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+.keys { margin: 0; font-size: 13px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pad { display: none; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; user-select: none; -webkit-user-select: none; }
+.pad .grp { display: flex; gap: 10px; justify-content: center; align-items: center; }
+.pad button { width: clamp(58px, 19vw, 84px); height: clamp(58px, 19vw, 84px); background: var(--panel-2); color: var(--text); border: 0; box-shadow: 0 0 0 2px var(--line), 0 4px 0 2px var(--ink); touch-action: none; display: grid; place-items: center; font-family: var(--font-display); font-size: 9px; -webkit-tap-highlight-color: transparent; }
+.pad button.on { background: var(--cheese); color: #2a1a05; box-shadow: 0 0 0 2px var(--cheese-dk); transform: translateY(4px); }
+.pad svg { width: 30px; height: 30px; }
+.pad .a-right svg { transform: rotate(180deg); }
+.pad .a-up svg { transform: rotate(90deg); }
+.pad .a-down svg { transform: rotate(-90deg); }
+@media (pointer: coarse), (max-width: 760px) { .pad { display: grid; } .keys { display: none; } }
+
+/* receipt */
+.bon { background: var(--paper); color: var(--paper-ink); font-family: var(--font-bon); font-size: 15px; line-height: 1.5; max-width: 440px; margin: 0 auto; padding: 24px 22px 28px; position: relative; box-shadow: 0 6px 0 rgba(0, 0, 0, .35); }
+.bon hr { border: 0; border-top: 2px dashed rgba(42, 34, 48, .45); margin: 14px 0; }
+.bon p { margin: 0; }
+.bon-head { font-family: var(--font-display); font-size: 16px; text-align: center; color: var(--sauce); line-height: 1.4; }
+.bon-sub { text-align: center; font-size: 13px; opacity: .7; }
+.bon-line { font-weight: 700; font-size: 17px; }
+.bon-small { font-size: 13px; opacity: .8; }
+.bon .row { display: flex; gap: 8px; align-items: baseline; }
+.bon .row i { flex: 1; border-bottom: 2px dotted rgba(42, 34, 48, .4); transform: translateY(-4px); min-width: 12px; }
+.bon .row + .row { margin-top: 4px; }
+.bon-total { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.bon-total span { font-family: var(--font-display); font-size: 12px; }
+.bon-total strong { font-family: var(--font-display); font-size: clamp(20px, 6vw, 28px); font-weight: 400; color: var(--sauce); }
+.bon-msg { font-size: 13px; opacity: .85; }
+.stamp { display: inline-block; font-family: var(--font-display); font-size: 11px; line-height: 1.5; padding: 8px 10px; border: 3px solid var(--basil); color: #2f8a43; transform: rotate(-6deg); margin-top: 16px; }
+.stamp.bad { border-color: var(--tomato); color: var(--tomato); }
+.stamp-wrap { text-align: center; }
+
+/* garage */
+.garage-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.ups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.up { background: var(--panel-2); padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.up h3 { margin: 0; font-size: 16px; line-height: 1.3; }
+.up .blurb { margin: 0; font-size: 14px; color: var(--muted); }
+.up .fx { margin: 0; font-family: var(--font-display); font-size: 9px; line-height: 1.8; color: var(--text); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.up .fx .next { color: var(--basil); }
+.pips { display: flex; gap: 4px; }
+.pips i { width: 20px; height: 8px; background: var(--ink); box-shadow: 0 0 0 2px var(--line); }
+.pips i.on { background: var(--cheese); }
+.up .btn { justify-self: start; margin-top: 4px; }
+
+@media (max-width: 700px) {
+  .hero { grid-template-columns: 1fr; }
+  .hudbar { grid-template-columns: 1fr; }
+  .road { min-height: 150px; }
+  .road canvas { width: 130px; height: 130px; }
+}
+@media (prefers-reduced-motion: reduce) { .btn, .pad button { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1 class="logo">HETE PIZZA</h1>
+    <div class="chips">
+      <span class="chip">KAS <b class="wallet">€ 0</b></span>
+      <button class="chip chipbtn" id="btnSound" type="button">GELUID AAN</button>
+    </div>
+  </header>
+
+  <section id="screen-title" class="panel hero">
+    <div>
+      <h2>Bezorg hem warm</h2>
+      <p class="lead">Je rijdt voor Hete Pizza. Je start bij de pizzeria met de bestelling achterop en brengt hem met je scooter naar de klant. Hoe warmer hij aankomt, hoe hoger de fooi. Van die fooi koop je een betere scooter.</p>
+      <div class="row-btns">
+        <button class="btn" id="btnStart" type="button">Start bezorging</button>
+        <button class="btn ghost" id="btnGarageTitle" type="button">Garage</button>
+      </div>
+      <p class="stats" id="titleStats"></p>
+      <div class="keyhelp">
+        <div><span class="kbd">←</span><span class="kbd">→</span> sturen <span class="kbd">↑</span> gas <span class="kbd">↓</span> remmen</div>
+        <div><span class="kbd">SPATIE</span> turbo (na aankoop) <span class="kbd">ESC</span> stoppen</div>
+        <div>Op een telefoon verschijnen er knoppen onder het scherm.</div>
+      </div>
+    </div>
+    <div class="road"><canvas id="heroScooter" width="26" height="26" aria-label="Pixelscooter met pizzadoos"></canvas></div>
+  </section>
+
+  <section id="screen-play" hidden>
+    <div class="hudbar">
+      <div class="slip">
+        <span class="slip-k">BESTELLING <b id="slipNo">#1</b></span>
+        <span class="who" id="slipPizza"></span>
+        <span class="who" id="slipWho"></span>
+      </div>
+      <div class="gauges">
+        <div class="gauge"><span class="gl">WARMTE</span><div class="bar"><i id="barWarm"></i></div><span class="gv" id="valWarm">0 s</span></div>
+        <div class="gauge"><span class="gl">DOOS</span><div class="bar"><i id="barBox"></i></div><span class="gv" id="valBox">100%</span></div>
+        <div class="gauge" id="gaugeTurbo"><span class="gl">TURBO</span><div class="bar"><i id="barTurbo" style="background:var(--basil)"></i></div><span class="gv"></span></div>
+      </div>
+    </div>
+    <div class="stage">
+      <canvas id="game" width="352" height="240" role="img" aria-label="Bovenaanzicht van de stad met je scooter"></canvas>
+      <div class="speed" id="hudSpeed">0 km/h</div>
+      <div class="hint" id="hudHint">Gas geven om te vertrekken</div>
+    </div>
+    <div class="pad" id="pad">
+      <div class="grp">
+        <button type="button" data-k="left" class="a-left" aria-label="Links sturen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4 L6 12 L16 20 Z" fill="currentColor"/></svg></button>
+        <button type="button" data-k="right" class="a-right" aria-label="Rechts sturen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4 L6 12 L16 20 Z" fill="currentColor"/></svg></button>
+      </div>
+      <div class="grp">
+        <button type="button" data-k="turbo" aria-label="Turbo">TURBO</button>
+        <button type="button" data-k="down" class="a-down" aria-label="Remmen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4 L6 12 L16 20 Z" fill="currentColor"/></svg></button>
+        <button type="button" data-k="up" class="a-up" aria-label="Gas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4 L6 12 L16 20 Z" fill="currentColor"/></svg></button>
+      </div>
+    </div>
+    <div class="below">
+      <p class="keys"><span class="kbd">←</span><span class="kbd">→</span> sturen <span class="kbd">↑</span> gas <span class="kbd">↓</span> rem <span class="kbd">SPATIE</span> turbo <span class="kbd">ESC</span> stoppen</p>
+      <button class="btn ghost small" id="btnStop" type="button">Stoppen</button>
+    </div>
+  </section>
+
+  <section id="screen-result" hidden>
+    <div class="bon" id="bon"></div>
+    <div class="row-btns center">
+      <button class="btn" id="btnNext" type="button">Volgende bestelling</button>
+      <button class="btn ghost" id="btnGarageResult" type="button">Garage</button>
+    </div>
+  </section>
+
+  <section id="screen-garage" class="panel" hidden>
+    <div class="garage-head">
+      <h2>Garage</h2>
+      <span class="chip">KAS <b class="wallet">€ 0</b></span>
+    </div>
+    <p class="lead">Betaal met je fooi. Elke upgrade heeft 5 niveaus.</p>
+    <div class="ups" id="upgradeList"></div>
+    <div class="row-btns"><button class="btn" id="btnGarageNext" type="button">Volgende bestelling</button></div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ===== constants ===== */
+const BLOCK = 192;                 // 12 tiles of 16px: 3 road + 9 block
+const BCOLS = 5, BROWS = 4;
+const WORLD_W = BCOLS * BLOCK + 48; // 1008
+const WORLD_H = BROWS * BLOCK + 48; // 816
+const VIEW_W = 352, VIEW_H = 240;
+const R = 4.5;                      // scooter radius
+const BASE_SPEED = 88;              // px/s, shown as 44 km/h
+const PIZZERIA = { bx: 2, by: 1 };
+const C = {
+  asphalt: '#3a3c48', speck1: '#33353f', speck2: '#444654',
+  sidewalk: '#9996a8', sidewalkLine: '#8b889b', kerb: '#b9b6c8',
+  lane: '#e3b93e', zebra: '#d9d6e3',
+  tomato: '#ee4b2b', cheese: '#f7c948', cream: '#f3ead3', ink: '#17151f'
+};
+
+const STREETS = ['Lindelaan','Kerkstraat','Molenweg','Dorpsplein','Beukenlaan','Havenstraat','Schoolstraat','Tulpenlaan','Stationsweg','Vlinderlaan','Wilgenpad','Bakkersteeg','Smidsweg','Koningsplein','Meidoornlaan','Brouwersgracht','Eikenlaan','Zonnebloemstraat','Windmolenlaan','Rozengracht'];
+const PIZZAS = ['Margherita','Salami','Hawaii','Quattro Formaggi','Tonno','Funghi','Diavola','Prosciutto','Vegetariana','Shoarma'];
+const WHO = ['Fam. De Boer','Mevr. Jansen','Dhr. Bakker','Fam. Visser','Mevr. Smit','Dhr. Meijer','Fam. Mulder','Mevr. Bos','Dhr. Vos','Fam. Peters','Mevr. Hendriks','Dhr. Dekker'];
+const CAR_COLORS = [['#d9453a','#e8786f'],['#3d7fd8','#76a8ea'],['#e4c24a','#f1da82'],['#59b36a','#8fd19b'],['#8a8fa3','#b8bccb'],['#f3ead3','#ffffff'],['#9a5cd0','#bf92e6'],['#2f3a55','#56658c']];
+const PED_COLORS = ['#3d6fd8','#59c26a','#c25fd0','#f7c948','#e8e8f0','#ff8a2b'];
+const ROOFS = ['#b5523a','#4d6b8a','#c79a3b','#6f5a8c','#3f8a7a','#8a4e5e','#7b7f93'];
+
+/* ===== helpers ===== */
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const fmt = n => n.toFixed(2).replace('.', ',');
+const eur = n => '€ ' + fmt(n);
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function shade(hex, a) {
+  const n = parseInt(hex.slice(1), 16); let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const f = a < 0 ? 0 : 255, t = Math.abs(a);
+  r = Math.round(r + (f - r) * t); g = Math.round(g + (f - g) * t); b = Math.round(b + (f - b) * t);
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+const isRoad = (x, y) => (x % BLOCK < 48) || (y % BLOCK < 48);
+function circleRect(cx, cy, r, rx, ry, rw, rh) {
+  const nx = Math.max(rx, Math.min(cx, rx + rw)), ny = Math.max(ry, Math.min(cy, ry + rh));
+  const dx = cx - nx, dy = cy - ny;
+  return dx * dx + dy * dy < r * r;
+}
+
+/* ===== save ===== */
+const SAVE_KEY = 'hete-pizza-v1';
+const defaultSave = () => ({ money: 0, levels: { motor: 0, banden: 0, remmen: 0, doos: 0, turbo: 0 }, delivered: 0, bestTip: 0 });
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) { const s = JSON.parse(raw); const d = defaultSave(); return Object.assign(d, s, { levels: Object.assign(d.levels, s.levels || {}) }); }
+  } catch (e) { /* storage unavailable */ }
+  return defaultSave();
+}
+let save = loadSave();
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+let muted = false;
+try { muted = localStorage.getItem('hete-pizza-muted') === '1'; } catch (e) { /* ignore */ }
+
+/* ===== upgrades ===== */
+const MAX_LVL = 5;
+const COST_MULT = [1, 2, 3.5, 5.5, 8];
+const turboSec = l => l ? 1.2 + 0.8 * l : 0;
+const UPGRADES = [
+  { id: 'motor', name: 'Opgevoerde motor', blurb: 'Hogere topsnelheid en sneller optrekken.', base: 15, show: l => Math.round(BASE_SPEED * (1 + 0.10 * l) * 0.5) + ' km/h' },
+  { id: 'banden', name: 'Betere banden', blurb: 'Scherper sturen en minder snelheidsverlies in bochten.', base: 10, show: l => 'Grip ' + (100 + 10 * l) + '%' },
+  { id: 'remmen', name: 'Schijfremmen', blurb: 'Sneller stilstaan voor een voetganger of kegel.', base: 10, show: l => 'Remkracht ' + (100 + 15 * l) + '%' },
+  { id: 'doos', name: 'Stevige pizzadoos', blurb: 'De pizza overleeft meer botsingen.', base: 12, show: l => 'Schade ' + Math.round(100 - 14 * l) + '%' },
+  { id: 'turbo', name: 'Turbo', blurb: 'Korte boost. Houd spatie of de turbo-knop ingedrukt.', base: 20, show: l => l ? turboSec(l).toFixed(1).replace('.', ',') + ' s boost' : 'Nog niet gekocht' }
+];
+const costOf = (u, l) => Math.round(u.base * COST_MULT[l] / 5) * 5;
+function stats() {
+  const L = save.levels;
+  return {
+    maxSpeed: BASE_SPEED * (1 + 0.10 * L.motor),
+    accel: 120 * (1 + 0.08 * L.motor),
+    turn: 3.2 * (1 + 0.10 * L.banden),
+    turnDrag: 0.35 * (1 - 0.12 * L.banden),
+    brake: 230 * (1 + 0.15 * L.remmen),
+    dmgMul: 1 - 0.14 * L.doos,
+    turboMax: turboSec(L.turbo)
+  };
+}
+
+/* ===== audio ===== */
+let ac = null;
+function tone(f, d, type, vol, slide, delay) {
+  if (muted) return;
+  try {
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume();
+    const t = ac.currentTime + (delay || 0);
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t + d);
+    g.gain.setValueAtTime(vol || 0.05, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g); g.connect(ac.destination);
+    o.start(t); o.stop(t + d + 0.02);
+  } catch (e) { /* audio not available */ }
+}
+const sfx = {
+  crash: () => tone(150, 0.2, 'sawtooth', 0.07, -100),
+  tick: () => tone(320, 0.06, 'square', 0.04),
+  bonk: () => tone(110, 0.14, 'square', 0.07, -50),
+  turbo: () => tone(260, 0.25, 'sawtooth', 0.05, 500),
+  deliver: () => { tone(523, 0.1, 'square', 0.05); tone(659, 0.1, 'square', 0.05, 0, 0.1); tone(784, 0.2, 'square', 0.05, 0, 0.2); },
+  fail: () => { tone(300, 0.2, 'triangle', 0.06, -150); tone(200, 0.3, 'triangle', 0.06, -100, 0.2); },
+  buy: () => { tone(880, 0.08, 'square', 0.04); tone(1175, 0.14, 'square', 0.04, 0, 0.08); }
+};
+
+/* ===== sprites ===== */
+const SPR_N = 16, SPR = [];
+function makeSprites() {
+  const gw = 19, gh = 11, grid = [];
+  for (let y = 0; y < gh; y++) grid.push(new Array(gw).fill(null));
+  const rect = (x, y, w, h, c) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (grid[j] && i >= 0 && i < gw) grid[j][i] = c; };
+  rect(0, 2, 6, 7, '#f3ead3'); rect(2, 2, 1, 7, '#d58a2b'); rect(0, 5, 6, 1, '#d58a2b'); // pizza box
+  rect(6, 4, 3, 3, '#15141c');                                                            // rear wheel
+  rect(7, 3, 8, 5, '#ee4b2b'); rect(7, 7, 8, 1, '#9b2a16');                               // body
+  rect(15, 4, 4, 3, '#15141c');                                                           // front wheel
+  rect(13, 1, 2, 9, '#9a98ab');                                                           // handlebar
+  rect(8, 2, 4, 7, '#3d6fd8'); rect(11, 2, 3, 1, '#3d6fd8'); rect(11, 8, 3, 1, '#3d6fd8'); // rider
+  rect(9, 4, 3, 3, '#f7c948');                                                            // helmet
+  for (let a = 0; a < SPR_N; a++) {
+    const ang = a / SPR_N * Math.PI * 2, cos = Math.cos(ang), sin = Math.sin(ang);
+    const c = document.createElement('canvas'); c.width = 26; c.height = 26;
+    const g = c.getContext('2d');
+    for (let oy = 0; oy < 26; oy++) for (let ox = 0; ox < 26; ox++) {
+      const dx = ox + 0.5 - 13, dy = oy + 0.5 - 13;
+      const sx = Math.floor(dx * cos + dy * sin + 9.5), sy = Math.floor(-dx * sin + dy * cos + 5.5);
+      if (sx >= 0 && sx < gw && sy >= 0 && sy < gh) { const col = grid[sy][sx]; if (col) { g.fillStyle = col; g.fillRect(ox, oy, 1, 1); } }
+    }
+    SPR.push(c);
+  }
+}
+
+/* ===== world (pre-rendered) ===== */
+const world = document.createElement('canvas');
+world.width = WORLD_W; world.height = WORLD_H;
+const wctx = world.getContext('2d');
+const buildings = [];
+
+function doorSpot(b, side, off) {
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  off = off || 0;
+  switch (side) {
+    case 0: return { x: cx + off, y: b.y - 8, aw: { x: cx + off - 8, y: b.y, w: 16, h: 5 } };
+    case 1: return { x: b.x + b.w + 8, y: cy + off, aw: { x: b.x + b.w - 5, y: cy + off - 8, w: 5, h: 16 } };
+    case 2: return { x: cx + off, y: b.y + b.h + 8, aw: { x: cx + off - 8, y: b.y + b.h - 5, w: 16, h: 5 } };
+    default: return { x: b.x - 8, y: cy + off, aw: { x: b.x, y: cy + off - 8, w: 5, h: 16 } };
+  }
+}
+
+function drawBuilding(g, b, isPizzeria) {
+  const rng = mulberry32(b.bx * 31 + b.by * 7 + 3);
+  const roof = isPizzeria ? C.tomato : ROOFS[Math.floor(rng() * ROOFS.length)];
+  g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(b.x + 6, b.y + 6, b.w, b.h);
+  g.fillStyle = shade(roof, -0.5); g.fillRect(b.x, b.y, b.w, b.h);
+  const rx = b.x + 2, ry = b.y + 2, rw = b.w - 4, rh = b.h - 10;
+  if (isPizzeria) {
+    for (let r = 0; r < Math.ceil(rh / 8); r++) for (let c = 0; c < Math.ceil(rw / 8); c++) {
+      g.fillStyle = (r + c) % 2 ? C.cream : C.tomato;
+      g.fillRect(rx + c * 8, ry + r * 8, Math.min(8, rw - c * 8), Math.min(8, rh - r * 8));
+    }
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2 - 2;
+    g.fillStyle = '#d9972e'; g.beginPath(); g.arc(cx, cy, 25, 0, Math.PI * 2); g.fill();
+    g.fillStyle = C.cheese; g.beginPath(); g.arc(cx, cy, 21, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#c8341e';
+    [[-9, -8], [8, -10], [-12, 5], [4, 2], [12, 10], [-3, 13]].forEach(p => { g.beginPath(); g.arc(cx + p[0], cy + p[1], 3.5, 0, Math.PI * 2); g.fill(); });
+    g.fillStyle = '#59c26a'; [[-2, -4], [10, -1], [-8, 10], [2, -14], [14, 4]].forEach(p => g.fillRect(cx + p[0], cy + p[1], 2, 2));
+    g.fillStyle = C.ink; g.fillRect(cx - 30, b.y + 5, 60, 13);
+    g.fillStyle = C.cheese; g.font = '8px "Press Start 2P", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('PIZZA', cx, b.y + 12);
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.fillStyle = C.tomato; const ds = doorSpot(b, 2, 0).aw; g.fillRect(ds.x, ds.y, ds.w, ds.h);
+    g.fillStyle = C.cream; g.fillRect(ds.x + 2, ds.y + 1, ds.w - 4, 1);
+  } else {
+    g.fillStyle = roof; g.fillRect(rx, ry, rw, rh);
+    g.fillStyle = shade(roof, -0.18);
+    for (let y = ry + 6; y < ry + rh - 2; y += 8) g.fillRect(rx, y, rw, 1);
+    g.fillStyle = shade(roof, 0.18); g.fillRect(rx, ry, rw, 2);
+    const items = randi2(rng, 2, 3);
+    for (let i = 0; i < items; i++) {
+      const kind = Math.floor(rng() * 3);
+      const ix = rx + 14 + Math.floor(rng() * (rw - 50)), iy = ry + 14 + Math.floor(rng() * (rh - 44));
+      if (kind === 0) { g.fillStyle = '#6c6f80'; g.fillRect(ix + 2, iy + 2, 14, 10); g.fillStyle = '#b5b8c8'; g.fillRect(ix, iy, 14, 10); g.fillStyle = '#6c6f80'; g.fillRect(ix + 3, iy + 3, 8, 4); }
+      else if (kind === 1) { g.fillStyle = '#5a2a20'; g.fillRect(ix + 2, iy + 2, 9, 9); g.fillStyle = '#8c4331'; g.fillRect(ix, iy, 9, 9); g.fillStyle = '#2a1812'; g.fillRect(ix + 2, iy + 2, 5, 5); }
+      else { g.fillStyle = '#4f6f86'; g.fillRect(ix, iy, 18, 12); g.fillStyle = '#a8d8f0'; g.fillRect(ix + 2, iy + 2, 14, 8); }
+    }
+  }
+}
+function randi2(rng, a, b) { return a + Math.floor(rng() * (b - a + 1)); }
+
+function buildWorld() {
+  const g = wctx;
+  g.fillStyle = C.asphalt; g.fillRect(0, 0, WORLD_W, WORLD_H);
+  const nr = mulberry32(99);
+  for (let i = 0; i < 1400; i++) { g.fillStyle = nr() < 0.5 ? C.speck1 : C.speck2; g.fillRect(Math.floor(nr() * WORLD_W), Math.floor(nr() * WORLD_H), 1, 1); }
+  buildings.length = 0;
+  for (let by = 0; by < BROWS; by++) for (let bx = 0; bx < BCOLS; bx++) {
+    const ox = bx * BLOCK + 48, oy = by * BLOCK + 48;
+    g.fillStyle = C.sidewalk; g.fillRect(ox, oy, 144, 144);
+    g.fillStyle = C.sidewalkLine;
+    for (let i = 0; i <= 144; i += 16) { g.fillRect(ox + i, oy, 1, 144); g.fillRect(ox, oy + i, 144, 1); }
+    g.fillStyle = C.kerb;
+    g.fillRect(ox, oy, 144, 2); g.fillRect(ox, oy + 142, 144, 2); g.fillRect(ox, oy, 2, 144); g.fillRect(ox + 142, oy, 2, 144);
+    const b = { x: ox + 16, y: oy + 16, w: 112, h: 112, bx, by };
+    buildings.push(b);
+    drawBuilding(g, b, bx === PIZZERIA.bx && by === PIZZERIA.by);
+  }
+  g.fillStyle = C.lane;
+  for (let j = 0; j <= BROWS; j++) {
+    const y = j * BLOCK + 24;
+    for (let k = 0; k < BCOLS; k++) for (let x = k * BLOCK + 52; x < (k + 1) * BLOCK - 13; x += 18) g.fillRect(x, y - 1, 10, 2);
+  }
+  for (let k = 0; k <= BCOLS; k++) {
+    const x = k * BLOCK + 24;
+    for (let j = 0; j < BROWS; j++) for (let y = j * BLOCK + 52; y < (j + 1) * BLOCK - 13; y += 18) g.fillRect(x - 1, y, 2, 10);
+  }
+  g.fillStyle = C.zebra;
+  for (let j = 0; j <= BROWS; j++) for (let k = 0; k <= BCOLS; k++) {
+    const ix = k * BLOCK, iy = j * BLOCK;
+    for (let i = 0; i < 6; i++) {
+      if (k > 0) g.fillRect(ix - 14, iy + 3 + i * 8, 10, 4);
+      if (k < BCOLS) g.fillRect(ix + 52, iy + 3 + i * 8, 10, 4);
+      if (j > 0) g.fillRect(ix + 3 + i * 8, iy - 14, 4, 10);
+      if (j < BROWS) g.fillRect(ix + 3 + i * 8, iy + 52, 4, 10);
+    }
+  }
+}
+
+/* ===== game state ===== */
+const S = { mode: 'title', t: 0, p: null, U: stats(), cam: { x: 0, y: 0 }, shake: 0 };
+let L = null;
+const parts = [], floats = [];
+const keys = { up: false, down: false, left: false, right: false, turbo: false };
+const reduceMotion = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+
+function hitStatic(x, y) {
+  if (x < R || y < R || x > WORLD_W - R || y > WORLD_H - R) return 'edge';
+  for (const b of buildings) if (circleRect(x, y, R, b.x, b.y, b.w, b.h)) return 'building';
+  if (L) for (const b of L.barriers) if (circleRect(x, y, R, b.x, b.y, b.w, b.h)) return 'barrier';
+  return null;
+}
+
+/* ===== level ===== */
+function makeLane(axis, fixed, dir, cap) {
+  const Ltot = (axis === 'h' ? WORLD_W : WORLD_H) + 60;
+  const speed = rand(26, 50);
+  const n = randi(0, cap);
+  const cars = [];
+  const spacing = Ltot / Math.max(n, 1), base = rand(0, Ltot);
+  for (let i = 0; i < n; i++) {
+    const col = pick(CAR_COLORS);
+    const c = { axis, fixed, dir, speed, Ltot, pos: (base + i * spacing) % Ltot, x: 0, y: 0, c1: col[0], c2: col[1] };
+    moveCar(c, 0); cars.push(c);
+  }
+  return cars;
+}
+function moveCar(c, dt) {
+  c.pos = ((c.pos + c.dir * c.speed * dt) % c.Ltot + c.Ltot) % c.Ltot;
+  if (c.axis === 'h') { c.x = c.pos - 30; c.y = c.fixed; } else { c.x = c.fixed; c.y = c.pos - 30; }
+}
+const carRect = c => c.axis === 'h' ? { x: c.x - 12, y: c.y - 6.5, w: 24, h: 13 } : { x: c.x - 6.5, y: c.y - 12, w: 13, h: 24 };
+
+function roadPoint(avoidCrossings) {
+  for (let i = 0; i < 40; i++) {
+    if (Math.random() < 0.5) {
+      const j = randi(0, BROWS), x = rand(20, WORLD_W - 20), m = x % BLOCK;
+      if (avoidCrossings && (m < 64 || m > 176)) continue;
+      return { x, y: j * BLOCK + rand(8, 40), axis: 'h', j };
+    } else {
+      const k = randi(0, BCOLS), y = rand(20, WORLD_H - 20), m = y % BLOCK;
+      if (avoidCrossings && (m < 64 || m > 176)) continue;
+      return { x: k * BLOCK + rand(8, 40), y, axis: 'v', k };
+    }
+  }
+  return { x: 100, y: 24, axis: 'h', j: 0 };
+}
+function makePed(spawn) {
+  for (let tries = 0; tries < 20; tries++) {
+    let a, b;
+    if (Math.random() < 0.5) {
+      const j = randi(0, BROWS), k = randi(0, BCOLS - 1), x = k * BLOCK + 48 + rand(24, 120);
+      a = { x, y: Math.max(8, j * BLOCK - 8) }; b = { x, y: Math.min(WORLD_H - 8, j * BLOCK + 56) };
+    } else {
+      const k = randi(0, BCOLS), j = randi(0, BROWS - 1), y = j * BLOCK + 48 + rand(24, 120);
+      a = { x: Math.max(8, k * BLOCK - 8), y }; b = { x: Math.min(WORLD_W - 8, k * BLOCK + 56), y };
+    }
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    if (Math.hypot(mx - spawn.x, my - spawn.y) < 70) continue;
+    const p = { a, b, t: Math.random(), dir: Math.random() < 0.5 ? 1 : -1, speed: rand(14, 22), len: Math.hypot(b.x - a.x, b.y - a.y), state: 'walk', timer: 0, color: pick(PED_COLORS), x: 0, y: 0 };
+    movePed(p, 0); return p;
+  }
+  return null;
+}
+function movePed(p, dt) {
+  if (p.state === 'walk') {
+    p.t += p.dir * p.speed * dt / p.len;
+    if (p.t >= 1 || p.t <= 0) { p.t = clamp(p.t, 0, 1); p.dir *= -1; p.state = 'wait'; p.timer = rand(1, 3); }
+  } else {
+    p.timer -= dt;
+    if (p.timer <= 0) p.state = 'walk';
+  }
+  p.x = p.a.x + (p.b.x - p.a.x) * p.t; p.y = p.a.y + (p.b.y - p.a.y) * p.t;
+}
+
+function buildLevel() {
+  const n = save.delivered;
+  const pb = buildings[PIZZERIA.by * BCOLS + PIZZERIA.bx];
+  const ps = doorSpot(pb, 2, 0);
+  const spawn = { x: ps.x, y: ps.y, angle: Math.PI / 2 };
+  const minD = Math.min(170 + n * 40, 520);
+  const cand = [];
+  for (const b of buildings) {
+    if (b === pb) continue;
+    for (let s = 0; s < 4; s++) {
+      const sp = doorSpot(b, s, randi(-2, 2) * 8);
+      cand.push({ b, s, sp, d: Math.abs(sp.x - spawn.x) + Math.abs(sp.y - spawn.y) });
+    }
+  }
+  let pool = cand.filter(c => c.d >= minD && c.d <= minD + 260);
+  if (!pool.length) pool = cand.filter(c => c.d >= minD);
+  if (!pool.length) { cand.sort((a, b) => b.d - a.d); pool = cand.slice(0, 6); }
+  const tg = pick(pool);
+  const par = tg.d * 1.2 / BASE_SPEED;
+  const limit = clamp(par * 1.8 + 8, 16, 40);
+  const order = {
+    pizza: pick(PIZZAS), cust: pick(WHO),
+    addr: STREETS[(tg.b.by * BCOLS + tg.b.bx) % STREETS.length] + ' ' + randi(1, 64)
+  };
+  const lc = 1 + Math.min(2, Math.floor(n / 4));
+  const cars = [];
+  for (let j = 0; j <= BROWS; j++) {
+    cars.push(...makeLane('h', j * BLOCK + 36, 1, lc));
+    cars.push(...makeLane('h', j * BLOCK + 12, -1, lc));
+  }
+  for (let k = 0; k <= BCOLS; k++) {
+    cars.push(...makeLane('v', k * BLOCK + 12, 1, lc));
+    cars.push(...makeLane('v', k * BLOCK + 36, -1, lc));
+  }
+  const free = (x, y) => Math.hypot(x - spawn.x, y - spawn.y) > 70 && Math.hypot(x - tg.sp.x, y - tg.sp.y) > 40;
+  const cones = [], holes = [], barriers = [], peds = [];
+  const nCones = Math.min(8 + n * 2, 30), nHoles = Math.min(6 + n, 20), nBar = Math.min(2 + Math.floor(n / 2), 10), nPeds = Math.min(3 + n, 12);
+  for (let i = 0; i < nCones; i++) { const p = roadPoint(false); if (free(p.x, p.y)) cones.push({ x: p.x, y: p.y, knocked: false, vx: 0, vy: 0 }); }
+  for (let i = 0; i < nHoles; i++) { const p = roadPoint(false); if (free(p.x, p.y)) holes.push({ x: p.x, y: p.y, cd: 0 }); }
+  for (let i = 0; i < nBar; i++) {
+    const p = roadPoint(true);
+    if (!free(p.x, p.y)) continue;
+    if (p.axis === 'h') { const cy = p.j * BLOCK + (Math.random() < 0.5 ? 12 : 36); barriers.push({ x: p.x - 15, y: cy - 4.5, w: 30, h: 9 }); }
+    else { const cx = p.k * BLOCK + (Math.random() < 0.5 ? 12 : 36); barriers.push({ x: cx - 4.5, y: p.y - 15, w: 9, h: 30 }); }
+  }
+  for (let i = 0; i < nPeds; i++) { const p = makePed(spawn); if (p) peds.push(p); }
+  return { n, spawn, target: { x: tg.sp.x, y: tg.sp.y, aw: tg.sp.aw }, manh: tg.d, limit, order, cars, cones, holes, barriers, peds };
+}
+
+/* ===== screens / ui ===== */
+const screens = { title: $('#screen-title'), play: $('#screen-play'), result: $('#screen-result'), garage: $('#screen-garage') };
+function show(name) {
+  for (const k in screens) screens[k].hidden = (k !== name);
+  S.mode = name;
+}
+function updateWallet() {
+  document.querySelectorAll('.wallet').forEach(w => { w.textContent = '€ ' + save.money; });
+  const st = $('#titleStats');
+  st.textContent = save.delivered ? 'Bezorgd: ' + save.delivered + '  ·  Beste fooi: € ' + save.bestTip : 'Nog geen bestellingen bezorgd.';
+  $('#btnStart').textContent = save.delivered ? 'Verder rijden' : 'Start bezorging';
+}
+function updateSoundBtn() { $('#btnSound').textContent = muted ? 'GELUID UIT' : 'GELUID AAN'; }
+
+function renderGarage() {
+  $('#upgradeList').innerHTML = '';
+  for (const u of UPGRADES) {
+    const lvl = save.levels[u.id], maxed = lvl >= MAX_LVL, cost = maxed ? 0 : costOf(u, lvl);
+    const card = document.createElement('article');
+    card.className = 'up';
+    let pips = '';
+    for (let i = 0; i < MAX_LVL; i++) pips += '<i class="' + (i < lvl ? 'on' : '') + '"></i>';
+    card.innerHTML = '<h3>' + u.name + '</h3><p class="blurb">' + u.blurb + '</p>' +
+      '<p class="fx"><span>' + u.show(lvl) + '</span>' + (maxed ? '' : '<span>→</span><span class="next">' + u.show(lvl + 1) + '</span>') + '</p>' +
+      '<div class="pips">' + pips + '</div>';
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn small';
+    btn.textContent = maxed ? 'Maximaal' : 'Koop € ' + cost;
+    btn.disabled = maxed || save.money < cost;
+    btn.addEventListener('click', () => {
+      if (save.money < cost) return;
+      save.money -= cost; save.levels[u.id]++; persist(); sfx.buy();
+      S.U = stats(); updateWallet(); renderGarage();
+    });
+    card.appendChild(btn);
+    $('#upgradeList').appendChild(card);
+  }
+}
+function openGarage() { updateWallet(); renderGarage(); show('garage'); }
+
+function startOrder() {
+  S.U = stats();
+  L = buildLevel();
+  S.p = { x: L.spawn.x, y: L.spawn.y, angle: L.spawn.angle, v: 0, quality: 1, time: L.limit, started: false, crashCd: 0, turbo: S.U.turboMax, turboOn: false, safe: { x: L.spawn.x, y: L.spawn.y } };
+  parts.length = 0; floats.length = 0; S.shake = 0;
+  S.cam.x = clamp(S.p.x - VIEW_W / 2, 0, WORLD_W - VIEW_W);
+  S.cam.y = clamp(S.p.y - VIEW_H / 2, 0, WORLD_H - VIEW_H);
+  $('#slipNo').textContent = '#' + (save.delivered + 1);
+  $('#slipPizza').textContent = '1× ' + L.order.pizza;
+  $('#slipWho').textContent = L.order.cust + ', ' + L.order.addr;
+  $('#gaugeTurbo').hidden = !(S.U.turboMax > 0);
+  $('#hudHint').hidden = false;
+  show('play');
+  hud();
+}
+
+function endOrder(reason) {
+  if (S.mode !== 'play') return;
+  const P = S.p;
+  let tip = 0, rows = '', msg = '', stamp = '', bad = false;
+  const f = clamp(P.time / L.limit, 0, 1), q = P.quality;
+  const base = 3 + L.manh / 60, speedMul = 0.4 + 2 * f;
+  if (reason === 'done') {
+    tip = Math.max(1, Math.round(base * speedMul * q));
+    save.money += tip; save.delivered++; save.bestTip = Math.max(save.bestTip, tip);
+    rows = row('Afstand', eur(base)) + row('Snelheid', '×' + speedMul.toFixed(2).replace('.', ',')) + row('Tijd over', P.time.toFixed(1).replace('.', ',') + ' s') + row('Doos in staat', Math.round(q * 100) + '%');
+    stamp = (f >= 0.5 && q >= 0.8) ? 'LEKKER WARM!' : 'BEZORGD';
+    msg = f >= 0.5 ? 'De klant is blij. Dat was snel.' : 'Een beetje lauw, maar bezorgd.';
+    sfx.deliver();
+  } else {
+    bad = true;
+    if (reason === 'cold') { stamp = 'KOUD GEWORDEN'; msg = 'De tijd was om. Deze pizza eet niemand meer.'; }
+    else if (reason === 'wreck') { stamp = 'PLATGEREDEN'; msg = 'De pizzadoos is total loss. Geen fooi.'; }
+    else { stamp = 'OPGEGEVEN'; msg = 'Bestelling afgebroken. De pizza gaat terug naar de oven.'; }
+    rows = row('Doos in staat', Math.round(q * 100) + '%');
+    sfx.fail();
+  }
+  persist();
+  const no = String(save.delivered + (reason === 'done' ? 0 : 1)).padStart(4, '0');
+  $('#bon').innerHTML =
+    '<p class="bon-head">HETE PIZZA</p><p class="bon-sub">Bon ' + no + '</p><hr>' +
+    '<p class="bon-line">1× ' + L.order.pizza + '</p><p class="bon-small">' + L.order.cust + '<br>' + L.order.addr + '</p><hr>' +
+    rows + '<hr>' +
+    '<div class="bon-total"><span>FOOI</span><strong>€ ' + tip + '</strong></div>' +
+    '<p class="bon-msg">' + msg + '</p>' +
+    '<div class="stamp-wrap"><span class="stamp' + (bad ? ' bad' : '') + '">' + stamp + '</span></div>';
+  updateWallet();
+  show('result');
+}
+const row = (a, b) => '<div class="row"><span>' + a + '</span><i></i><span>' + b + '</span></div>';
+
+/* ===== effects ===== */
+function addFloat(x, y, text, color) { floats.push({ x, y, text, color, t: 0 }); }
+function burst(x, y, n) {
+  for (let i = 0; i < (n || 8); i++) {
+    const a = Math.random() * Math.PI * 2, s = rand(30, 90);
+    parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.25, 0.5), color: Math.random() < 0.5 ? C.cheese : '#ffffff' });
+  }
+}
+function crash(kind, power) {
+  const P = S.p;
+  const base = { building: 0.30, edge: 0.20, barrier: 0.25, car: 0.35, ped: 0.18 }[kind] || 0.2;
+  const sev = clamp((power - 20) / 80, 0.15, 1);
+  const dmg = base * sev * S.U.dmgMul;
+  P.quality = Math.max(0, P.quality - dmg);
+  P.crashCd = 0.35; S.shake = reduceMotion ? 0 : 0.25;
+  addFloat(P.x, P.y - 10, '-' + Math.max(1, Math.round(dmg * 100)) + '%', C.tomato);
+  burst(P.x, P.y, 8); sfx.crash();
+  if (P.quality <= 0.001) endOrder('wreck');
+}
+
+/* ===== update ===== */
+function pushOut(P, r) {
+  const nx = clamp(P.x, r.x, r.x + r.w), ny = clamp(P.y, r.y, r.y + r.h);
+  const dx = P.x - nx, dy = P.y - ny, d = Math.hypot(dx, dy);
+  if (d > 0.001) { P.x = nx + dx / d * (R + 0.6); P.y = ny + dy / d * (R + 0.6); }
+  else {
+    const l = P.x - r.x, rr = r.x + r.w - P.x, t = P.y - r.y, b = r.y + r.h - P.y, m = Math.min(l, rr, t, b);
+    if (m === l) P.x = r.x - R - 0.6; else if (m === rr) P.x = r.x + r.w + R + 0.6; else if (m === t) P.y = r.y - R - 0.6; else P.y = r.y + r.h + R + 0.6;
+  }
+}
+function unstick(P) {
+  if (!hitStatic(P.x, P.y)) return;
+  for (let r = 1; r <= 40; r++) for (let k = 0; k < 16; k++) {
+    const a = k / 16 * Math.PI * 2, x = P.x + Math.cos(a) * r, y = P.y + Math.sin(a) * r;
+    if (!hitStatic(x, y)) { P.x = x; P.y = y; return; }
+  }
+  P.x = P.safe.x; P.y = P.safe.y;
+}
+
+function update(dt) {
+  const P = S.p, U = S.U;
+  for (const c of L.cars) moveCar(c, dt);
+  for (const p of L.peds) movePed(p, dt);
+  const fr = Math.pow(0.02, dt);
+  for (const c of L.cones) if (c.knocked) { c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= fr; c.vy *= fr; }
+  for (const h of L.holes) if (h.cd > 0) h.cd -= dt;
+  P.crashCd = Math.max(0, P.crashCd - dt);
+  S.shake = Math.max(0, S.shake - dt);
+
+  let up = keys.up; const down = keys.down;
+  const steer = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+  const turboReq = keys.turbo && U.turboMax > 0 && P.turbo > 0.02;
+  if (turboReq && !P.turboOn) sfx.turbo();
+  P.turboOn = turboReq;
+  if (turboReq) up = true;
+  if (!P.started && up) { P.started = true; $('#hudHint').hidden = true; }
+
+  const road = isRoad(P.x, P.y);
+  const maxV = U.maxSpeed * (turboReq ? 1.45 : 1) * (road ? 1 : 0.6);
+  const acc = U.accel * (turboReq ? 2 : 1);
+  if (up) P.v += acc * dt;
+  else if (down) { if (P.v > 0) P.v = Math.max(0, P.v - U.brake * dt); else P.v -= acc * 0.5 * dt; }
+  else { const f = 45 * dt; P.v = Math.abs(P.v) <= f ? 0 : P.v - Math.sign(P.v) * f; }
+  if (P.v > maxV) P.v = Math.max(maxV, P.v - 160 * dt);
+  if (P.v < -30) P.v = -30;
+
+  const sp = clamp(Math.abs(P.v) / 35, 0, 1);
+  P.angle += steer * U.turn * sp * dt * (P.v >= 0 ? 1 : -1);
+  if (steer && Math.abs(P.v) > 20) P.v -= Math.sign(P.v) * Math.abs(P.v) * U.turnDrag * dt * sp;
+
+  if (turboReq) {
+    P.turbo = Math.max(0, P.turbo - dt);
+    if (Math.random() < 0.7) parts.push({ x: P.x - Math.cos(P.angle) * 11, y: P.y - Math.sin(P.angle) * 11, vx: -Math.cos(P.angle) * 40 + rand(-12, 12), vy: -Math.sin(P.angle) * 40 + rand(-12, 12), life: 0.25, color: Math.random() < 0.5 ? '#ff8a2b' : C.cheese });
+  } else P.turbo = Math.min(U.turboMax, P.turbo + dt * 0.4);
+
+  const steps = 2;
+  for (let i = 0; i < steps; i++) {
+    const d = P.v * dt / steps, dx = Math.cos(P.angle) * d, dy = Math.sin(P.angle) * d;
+    let hit = null;
+    const nx = P.x + dx; const h1 = hitStatic(nx, P.y); if (h1) hit = h1; else P.x = nx;
+    const ny = P.y + dy; const h2 = hitStatic(P.x, ny); if (h2) hit = hit || h2; else P.y = ny;
+    if (hit) {
+      const imp = Math.abs(P.v);
+      if (imp > 30 && P.crashCd <= 0) { crash(hit, imp); if (S.mode !== 'play') return; P.v *= -0.25; }
+      else P.v *= 0.9;
+    }
+  }
+
+  let carHit = false;
+  for (const c of L.cars) {
+    const r = carRect(c);
+    if (circleRect(P.x, P.y, R, r.x, r.y, r.w, r.h)) {
+      carHit = true; pushOut(P, r);
+      if (P.crashCd <= 0) { crash('car', Math.abs(P.v) + c.speed); if (S.mode !== 'play') return; P.v *= -0.2; }
+      else P.v *= 0.9;
+    }
+  }
+  unstick(P);
+  if (!carHit && !hitStatic(P.x, P.y)) { P.safe.x = P.x; P.safe.y = P.y; }
+
+  for (const c of L.cones) {
+    if (c.knocked) continue;
+    if (Math.hypot(P.x - c.x, P.y - c.y) < R + 3.5) {
+      c.knocked = true; c.vx = Math.cos(P.angle) * Math.max(40, Math.abs(P.v)); c.vy = Math.sin(P.angle) * Math.max(40, Math.abs(P.v));
+      P.v *= 0.88; const dmg = 0.03 * S.U.dmgMul; P.quality = Math.max(0, P.quality - dmg);
+      addFloat(P.x, P.y - 10, '-' + Math.max(1, Math.round(dmg * 100)) + '%', C.tomato); burst(c.x, c.y, 4); sfx.tick();
+      if (P.quality <= 0.001) { endOrder('wreck'); return; }
+    }
+  }
+  for (const h of L.holes) {
+    if (h.cd <= 0 && Math.hypot(P.x - h.x, P.y - h.y) < R + 5) {
+      h.cd = 1; P.v *= 0.55; const dmg = 0.04 * S.U.dmgMul; P.quality = Math.max(0, P.quality - dmg);
+      S.shake = reduceMotion ? 0 : 0.15; addFloat(P.x, P.y - 10, 'BONK', C.cheese); sfx.bonk();
+      if (P.quality <= 0.001) { endOrder('wreck'); return; }
+    }
+  }
+  for (const p of L.peds) {
+    if (p.state !== 'hit' && Math.hypot(P.x - p.x, P.y - p.y) < R + 3.5) {
+      p.state = 'hit'; p.timer = 1.4;
+      addFloat(p.x, p.y - 12, 'HÉ!', '#ffffff');
+      crash('ped', Math.abs(P.v)); if (S.mode !== 'play') return;
+      P.v *= 0.3;
+    }
+  }
+
+  if (Math.hypot(P.x - L.target.x, P.y - L.target.y) < 14) { endOrder('done'); return; }
+  if (P.started) { P.time -= dt; if (P.time <= 0) { P.time = 0; endOrder('cold'); return; } }
+
+  for (let i = parts.length - 1; i >= 0; i--) { const q = parts[i]; q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.life <= 0) parts.splice(i, 1); }
+  for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.t += dt; f.y -= 14 * dt; if (f.t > 0.9) floats.splice(i, 1); }
+
+  const tx = clamp(P.x - VIEW_W / 2 + Math.cos(P.angle) * P.v * 0.25, 0, WORLD_W - VIEW_W);
+  const ty = clamp(P.y - VIEW_H / 2 + Math.sin(P.angle) * P.v * 0.25, 0, WORLD_H - VIEW_H);
+  const k = 1 - Math.pow(0.001, dt);
+  S.cam.x += (tx - S.cam.x) * k; S.cam.y += (ty - S.cam.y) * k;
+  hud();
+}
+
+/* ===== hud ===== */
+const el = { warm: $('#barWarm'), valWarm: $('#valWarm'), box: $('#barBox'), valBox: $('#valBox'), speed: $('#hudSpeed'), turbo: $('#barTurbo') };
+function hud() {
+  const P = S.p;
+  const w = clamp(P.time / L.limit, 0, 1);
+  el.warm.style.width = (w * 100).toFixed(1) + '%';
+  el.warm.style.background = w > 0.6 ? 'var(--tomato)' : w > 0.3 ? 'var(--cheese)' : 'var(--cold)';
+  el.valWarm.textContent = Math.ceil(P.time) + ' s';
+  el.box.style.width = (P.quality * 100).toFixed(1) + '%';
+  el.box.style.background = P.quality > 0.5 ? 'var(--basil)' : P.quality > 0.25 ? 'var(--cheese)' : 'var(--tomato)';
+  el.valBox.textContent = Math.round(P.quality * 100) + '%';
+  el.speed.textContent = Math.round(Math.abs(P.v) * 0.5) + ' km/h';
+  if (S.U.turboMax > 0) el.turbo.style.width = (P.turbo / S.U.turboMax * 100).toFixed(1) + '%';
+}
+
+/* ===== render ===== */
+const ctx = $('#game').getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+function drawCar(c) {
+  const x = Math.round(c.x), y = Math.round(c.y);
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  if (c.axis === 'h') ctx.fillRect(x - 11, y - 4, 24, 13); else ctx.fillRect(x - 4, y - 11, 13, 24);
+  ctx.save(); ctx.translate(x, y);
+  ctx.rotate(c.axis === 'h' ? (c.dir > 0 ? 0 : Math.PI) : (c.dir > 0 ? Math.PI / 2 : -Math.PI / 2));
+  ctx.fillStyle = c.c1; ctx.fillRect(-12, -6, 24, 13);
+  ctx.fillStyle = c.c2; ctx.fillRect(-6, -4, 10, 9);
+  ctx.fillStyle = '#bfe6ff'; ctx.fillRect(4, -4, 3, 9);
+  ctx.fillStyle = '#6f9bb8'; ctx.fillRect(-8, -4, 2, 9);
+  ctx.fillStyle = '#ffe8a0'; ctx.fillRect(10, -5, 2, 2); ctx.fillRect(10, 4, 2, 2);
+  ctx.fillStyle = '#ff4a4a'; ctx.fillRect(-12, -5, 1, 2); ctx.fillRect(-12, 4, 1, 2);
+  ctx.restore();
+}
+function drawBarrier(b) {
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(b.x + 1, b.y + 2, b.w, b.h);
+  const horiz = b.w > b.h, n = Math.floor((horiz ? b.w : b.h) / 5);
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = i % 2 ? C.cream : C.tomato;
+    if (horiz) ctx.fillRect(b.x + i * 5, b.y, 5, b.h); else ctx.fillRect(b.x, b.y + i * 5, b.w, 5);
+  }
+}
+function drawCone(c) {
+  const x = Math.round(c.x), y = Math.round(c.y);
+  if (c.knocked) { ctx.fillStyle = '#ff8a2b'; ctx.fillRect(x - 4, y - 2, 8, 4); ctx.fillStyle = C.cream; ctx.fillRect(x - 1, y - 2, 2, 4); return; }
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x - 3, y - 2, 8, 8);
+  ctx.fillStyle = '#ff8a2b'; ctx.fillRect(x - 4, y - 4, 8, 8);
+  ctx.fillStyle = C.cream; ctx.fillRect(x - 2, y - 2, 4, 4);
+  ctx.fillStyle = '#ff8a2b'; ctx.fillRect(x - 1, y - 1, 2, 2);
+}
+function drawHole(h) {
+  const x = Math.round(h.x), y = Math.round(h.y);
+  ctx.fillStyle = '#262731'; ctx.fillRect(x - 6, y - 3, 12, 6); ctx.fillRect(x - 4, y - 5, 8, 10);
+  ctx.fillStyle = '#1b1c24'; ctx.fillRect(x - 3, y - 2, 6, 4);
+}
+function drawPed(p) {
+  const x = Math.round(p.x), y = Math.round(p.y);
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x - 3, y - 1, 7, 6);
+  ctx.fillStyle = p.color; ctx.fillRect(x - 3, y - 2, 6, 5);
+  ctx.fillStyle = '#f2c9a0'; ctx.fillRect(x - 2, y - 5, 4, 4);
+  ctx.fillStyle = '#2a2230'; ctx.fillRect(x - 2, y - 5, 4, 1);
+}
+
+function render() {
+  const P = S.p;
+  let sx = Math.round(S.cam.x), sy = Math.round(S.cam.y);
+  if (S.shake > 0) { sx += Math.round((Math.random() - 0.5) * 6 * S.shake * 4); sy += Math.round((Math.random() - 0.5) * 6 * S.shake * 4); }
+  sx = clamp(sx, 0, WORLD_W - VIEW_W); sy = clamp(sy, 0, WORLD_H - VIEW_H);
+  ctx.drawImage(world, sx, sy, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
+  ctx.save(); ctx.translate(-sx, -sy);
+
+  for (const h of L.holes) drawHole(h);
+  for (const b of L.barriers) drawBarrier(b);
+  for (const c of L.cones) drawCone(c);
+
+  const T = L.target, pulse = Math.sin(S.t * 6);
+  ctx.fillStyle = C.tomato; ctx.fillRect(T.aw.x, T.aw.y, T.aw.w, T.aw.h);
+  ctx.strokeStyle = C.cheese; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(T.x, T.y, 11 + pulse * 1.5, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = C.cheese; ctx.beginPath(); ctx.arc(T.x, T.y, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#c8341e'; ctx.fillRect(Math.round(T.x) - 2, Math.round(T.y) - 2, 2, 2); ctx.fillRect(Math.round(T.x) + 1, Math.round(T.y) + 1, 2, 2);
+
+  for (const c of L.cars) drawCar(c);
+  for (const p of L.peds) drawPed(p);
+
+  const idx = ((Math.round(P.angle / (Math.PI * 2) * SPR_N) % SPR_N) + SPR_N) % SPR_N;
+  ctx.drawImage(SPR[idx], Math.round(P.x) - 13, Math.round(P.y) - 13);
+
+  for (const q of parts) { ctx.fillStyle = q.color; ctx.fillRect(Math.round(q.x), Math.round(q.y), 2, 2); }
+
+  const dx = T.x - P.x, dy = T.y - P.y, d = Math.hypot(dx, dy);
+  if (d > 40) {
+    const a = Math.atan2(dy, dx);
+    ctx.save(); ctx.translate(Math.round(P.x + Math.cos(a) * 24), Math.round(P.y + Math.sin(a) * 24)); ctx.rotate(a);
+    ctx.fillStyle = C.cheese; ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.font = '8px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = C.ink;
+  for (const f of floats) { ctx.strokeText(f.text, Math.round(f.x), Math.round(f.y)); ctx.fillStyle = f.color; ctx.fillText(f.text, Math.round(f.x), Math.round(f.y)); }
+  ctx.textAlign = 'left';
+  ctx.restore();
+}
+
+/* ===== loop ===== */
+let last = 0;
+function frame(ts) {
+  const dt = Math.min(0.05, (ts - last) / 1000 || 0);
+  last = ts; S.t += dt;
+  if (S.mode === 'play') { update(dt); if (S.mode === 'play') render(); }
+  requestAnimationFrame(frame);
+}
+
+/* ===== input ===== */
+const KEYMAP = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'turbo', ShiftLeft: 'turbo', ShiftRight: 'turbo' };
+window.addEventListener('keydown', e => {
+  if (e.code === 'Escape' && S.mode === 'play') { endOrder('stop'); return; }
+  const k = KEYMAP[e.code];
+  if (!k) return;
+  if (S.mode === 'play') e.preventDefault();
+  keys[k] = true;
+});
+window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+document.querySelectorAll('[data-k]').forEach(btn => {
+  const k = btn.dataset.k;
+  const on = e => { e.preventDefault(); keys[k] = true; btn.classList.add('on'); try { btn.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ } };
+  const off = () => { keys[k] = false; btn.classList.remove('on'); };
+  btn.addEventListener('pointerdown', on);
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => btn.addEventListener(ev, off));
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+});
+
+$('#btnStart').addEventListener('click', startOrder);
+$('#btnGarageTitle').addEventListener('click', openGarage);
+$('#btnNext').addEventListener('click', startOrder);
+$('#btnGarageResult').addEventListener('click', openGarage);
+$('#btnGarageNext').addEventListener('click', startOrder);
+$('#btnStop').addEventListener('click', () => endOrder('stop'));
+$('#btnSound').addEventListener('click', () => {
+  muted = !muted;
+  try { localStorage.setItem('hete-pizza-muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
+  updateSoundBtn();
+  if (!muted) sfx.tick();
+});
+
+/* ===== boot ===== */
+makeSprites();
+buildWorld();
+if (document.fonts && document.fonts.load) document.fonts.load('8px "Press Start 2P"').then(buildWorld).catch(() => {});
+{
+  const hc = $('#heroScooter').getContext('2d');
+  hc.imageSmoothingEnabled = false;
+  hc.drawImage(SPR[0], 0, 0);
+}
+updateWallet(); updateSoundBtn();
+show('title');
+requestAnimationFrame(frame);
+
+})();
+</script>
+
+</body></html>

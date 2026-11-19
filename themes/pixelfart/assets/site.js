@@ -88,6 +88,12 @@
 
 	window.pfRobot = robot; // ook voor de doneerformulieren (plugin)
 
+	/* ---------- aankondiging bovenaan: wegklikken (onthoudt alleen deze browser) ---------- */
+	const ann = $('#aankondiging');
+	if (ann) {
+		$('[data-ann-close]', ann).addEventListener('click', () => { ann.hidden = true; store.set('pf_ann', ann.dataset.ann); });
+	}
+
 	/* ---------- grijpmachine-menu ---------- */
 	const nav = $('.claw-nav');
 	if (nav) {
@@ -380,10 +386,17 @@
 		const lit = (on) => ideaBox.classList.toggle('is-lit', on || count > 0);
 		form.addEventListener('focusin', () => lit(true));
 		form.addEventListener('focusout', (e) => { if (!form.contains(e.relatedTarget)) lit(false); });
-		$('[data-bulb]', ideaBox).addEventListener('click', () => { if (!form.hidden) form.text.focus(); });
-		$$('.idea-types button', form).forEach((b) => b.addEventListener('click', () => {
-			$$('.idea-types button', form).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-		}));
+		// Ingeklapt tot je een soort kiest; nog eens op dezelfde soort klikken klapt hem weer in.
+		const fields = $('[data-idea-fields]', form);
+		const types = $$('.idea-types button', form);
+		const pick = (b) => {
+			const open = !!b && b.getAttribute('aria-pressed') !== 'true';
+			types.forEach((x) => x.setAttribute('aria-pressed', String(open && x === b)));
+			fields.hidden = !open;
+			if (open) form.text.focus();
+		};
+		types.forEach((b) => b.addEventListener('click', () => pick(b)));
+		$('[data-bulb]', ideaBox).addEventListener('click', () => { if (!form.hidden) (fields.hidden ? types[0] : form.text).focus(); });
 		form.text.addEventListener('input', () => { submit.disabled = !form.text.value.trim(); err.hidden = true; });
 		const check = robot(form);
 		form.addEventListener('submit', async (e) => {
@@ -404,7 +417,7 @@
 				err.textContent = x.message; err.hidden = false; submit.disabled = false;
 			}
 		});
-		$('[data-again]', ideaBox).addEventListener('click', () => { sent.hidden = true; form.hidden = false; form.text.focus(); });
+		$('[data-again]', ideaBox).addEventListener('click', () => { sent.hidden = true; form.hidden = false; pick(null); types[0].focus(); });
 	}
 
 	/* ---------- nieuwsbrief (footer) ---------- */

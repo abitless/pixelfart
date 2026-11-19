@@ -1,0 +1,9 @@
+# Bronbestanden van de games: niet via de website openen.
+# Games draaien alleen op de game-host (zie de plugin, PF_Hosting). Deze regel is een extra vangnet.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule .* - [F,L]
+</IfModule>
+<IfModule mod_authz_core.c>
+Require all denied
+</IfModule>

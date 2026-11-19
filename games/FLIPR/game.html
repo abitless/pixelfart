@@ -1,0 +1,702 @@
+<!doctype html>
+<!-- Pixelfart · Flipperkoorts · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flipperkoorts</title>
+<script type="application/json" id="pixelfart">
+{
+	"title": "Flipperkoorts",
+	"code": "FLIPR",
+	"version": "1.1.0",
+	"description": "Een flipperkast vol kittens die met je bolletje wol willen spelen. Flipper met linker en rechter Shift en speel door tot je ballen op zijn.",
+	"categories": ["Arcade", "Retro"],
+	"age": "ALL",
+	"author": "NAT",
+	"changelog": "Grotere kast met meeschuivende camera, kittens, meer banen en doelen, en Kittenfeest-multibal.",
+	"score": { "order": "desc", "label": "punten" }
+}
+</script>
+<style>
+	html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+	body { display: grid; place-items: center; }
+	canvas { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="game" width="160" height="240" aria-label="Flipperkoorts, een flipperkast met kittens"></canvas>
+<script>
+(() => {
+	'use strict';
+	const W = 160, H = 240;          // scherm
+	const TH = 404;                  // hoogte van de hele kast
+	const HUD = 16, VIEW = H - HUD;  // scorebord bovenin, daaronder het stuk kast dat je ziet
+	const cv = document.getElementById('game');
+	const g = cv.getContext('2d');
+	g.imageSmoothingEnabled = false;
+	Pixelfart.fit(cv, { mode: 'integer' });
+
+	// ---------- palet: schattig, pastel op paars ----------
+	const C = {
+		zwart: '#000000', kast: '#24163a', kast2: '#34204f', uit: '#4a2d66', wit: '#f2f2f2', lichtgrijs: '#bdbdbd',
+		grijs: '#8a8a8a', donkergrijs: '#6a6a6a', roze: '#ff8fc8', rozeDonker: '#c84a8a', rozeLicht: '#ffd6e8',
+		geel: '#ffcf4a', mint: '#9be3d0', lila: '#c9a6ff', oranje: '#ff9a4a', oranjeDonker: '#c8622a',
+		bruin: '#8a5a2a', bruinLicht: '#b07a3a', blauw: '#6ec9ff', groen: '#5dde7a', dmd: '#1e0d02', dmdUit: '#4a2408',
+	};
+	const BIG = '8px "Press Start 2P"', SMALL = '8px Tiny5';
+
+	// ---------- natuurkunde ----------
+	const BALL_R = 2.5, GRAV = 380, VMAX = 600, SUB = 12;
+	const LANE = { x: 149, top: 389 };
+
+	// ---------- de kast (coördinaten in kastpixels, 0 = bovenkant) ----------
+	const walls = [];
+	const seg = (ax, ay, bx, by, kind = 'wall') => walls.push([ax, ay, bx, by, kind]);
+	const arc = [];
+	for (let i = 0; i <= 16; i++) { const a = Math.PI + (i / 16) * Math.PI; arc.push([80 + 76 * Math.cos(a), 52 + 46 * Math.sin(a)]); }
+	for (let i = 0; i < arc.length - 1; i++) seg(arc[i][0], arc[i][1], arc[i + 1][0], arc[i + 1][1]);
+	seg(4, 52, 4, 410);             // buitenmuur links (onderaan open: de uitloop)
+	seg(156, 52, 156, 398);         // buitenmuur rechts
+	seg(142, 64, 142, 398);         // binnenmuur afschietbaan
+	seg(142, 396, 156, 396);        // bodem afschietbaan
+	seg(16, 150, 16, 260);          // krabpaal-baan links (de 'orbit')
+	seg(14, 316, 14, 340); seg(14, 340, 48, 373);       // geleider links: uitloop | inloop naar de flipper
+	seg(132, 316, 132, 340); seg(132, 340, 98, 373);    // geleider rechts
+	seg(141, 146, 132, 175);        // geleider naar de kleine flipper
+	for (const x of [40, 58, 76, 94, 112]) seg(x, 20, x, 32);   // paaltjes tussen de P-O-E-S-baantjes
+	const SL = [[26, 298], [26, 324], [42, 342]], SR = SL.map(([x, y]) => [146 - x, y]);
+	for (const [S, i] of [[SL, 0], [SR, 1]]) {
+		seg(S[0][0], S[0][1], S[1][0], S[1][1]); seg(S[1][0], S[1][1], S[2][0], S[2][1]);
+		seg(S[0][0], S[0][1], S[2][0], S[2][1], 'sling' + i);
+	}
+	const GATE = [142, 64, 156, 52];
+
+	const LANES_X = [49, 67, 85, 103], LANE_TXT = 'POES';
+	const BUMPERS = [{ x: 50, y: 74 }, { x: 92, y: 74 }, { x: 71, y: 98 }].map((b) => ({ ...b, r: 7, flash: 0 }));
+	const BASKET = { x: 124, y: 74 };           // mand met kitten: vangt de bal
+	const BOWL = { x: 71, y: 132 };             // melkschaaltje: vangt de bal
+	const TARGETS = [40, 56, 72, 88, 104].map((x, i) => ({ x, y: 228, ch: 'MIAUW'[i], lit: false, flash: 0 }));
+	const LEDGE = [ // kittens op de richel: tikken de bal weg als hij langskomt
+		{ x: 28, y: 262, dx: 0.55, dy: -0.83, paw: 0, cool: 0, pal: 'grijs' },
+		{ x: 118, y: 262, dx: -0.55, dy: -0.83, paw: 0, cool: 0, pal: 'wit' },
+	];
+	const slingFlash = [0, 0];
+
+	// ---------- flippers (twee onder, één kleintje rechts in het midden) ----------
+	const deg = (d) => (d * Math.PI) / 180;
+	const flippers = [
+		{ px: 50, py: 376, len: 19, rest: deg(30), up: deg(-26), a: deg(30), w: 0, side: 'L' },
+		{ px: 96, py: 376, len: 19, rest: deg(150), up: deg(206), a: deg(150), w: 0, side: 'R' },
+		{ px: 130, py: 178, len: 14, rest: deg(160), up: deg(208), a: deg(160), w: 0, side: 'R' },
+	];
+	const FLIP_R = 2.2;
+
+	// ---------- toestand ----------
+	let state = 'title';      // title | play | over
+	let balls = [];           // { x, y, vx, vy, st: lane|live|held, gate, hold, holdT, cool, still }
+	let phase = 'play';       // play | drain (bonus tellen)
+	let score, lives, mult, bonus, lanesLit, extraLit, extraGot, replayAt, saveT, saved, kickback, feest, multiball, multiSaveT, orbits;
+	let charge = 0, drainT = 0, overT = 0, sentScore = false, t = 0, camY = TH - VIEW;
+	let msg = '', msgT = 0, newRecord = false;
+	let basketAnim = 0, bowlAnim = 0;
+	let top5 = Pixelfart.store.get('top5', []);
+	const REPLAYS = [150000, 400000, 800000, 1500000, 3000000];
+
+	function reset() {
+		score = 0; lives = 3; extraGot = 0; replayAt = 0; sentScore = false; newRecord = false;
+		newBall();
+	}
+	function newBall() {
+		balls = [{ x: LANE.x, y: LANE.top, vx: 0, vy: 0, st: 'lane', gate: true, cool: 0, still: 0 }];
+		phase = 'play'; charge = 0; saveT = 0; saved = false; bonus = 0; mult = 1; orbits = 0;
+		lanesLit = [false, false, false, false]; extraLit = extraLit && extraGot < 2;
+		kickback = false; feest = 0; multiball = false; multiSaveT = 0;
+		TARGETS.forEach((x) => { x.lit = false; });
+		say(touchMode ? 'TIK = SCHIET' : 'SPATIE = SCHIET', 2.5);
+	}
+	function say(text, sec = 1.6) { msg = text; msgT = sec; }
+	function add(points, b = 0) {
+		score += points * (multiball ? 2 : 1); bonus += b;
+		if (score >= REPLAYS[replayAt]) { replayAt++; extraBall(); }
+	}
+	function extraBall() { lives++; say('EXTRA BAL!', 2); jingle(); }
+	const liveBalls = () => balls.filter((b) => b.st === 'live');
+
+	// ---------- invoer ----------
+	const keys = new Set();
+	const pointers = new Map();
+	let touchMode = false;
+	const KEY_L = ['ShiftLeft', 'ArrowLeft', 'KeyZ'], KEY_R = ['ShiftRight', 'ArrowRight', 'Slash', 'KeyM'], KEY_P = ['Space', 'Enter', 'ArrowDown'];
+	const held = (list, side) => list.some((k) => keys.has(k)) || [...pointers.values()].includes(side);
+	const sideHeld = (s) => (s === 'L' ? held(KEY_L, 'L') : held(KEY_R, 'R'));
+	const laneBall = () => balls.find((b) => b.st === 'lane');
+
+	addEventListener('keydown', (e) => {
+		if (e.code === 'Escape') { Pixelfart.back(); return; }
+		if ([...KEY_L, ...KEY_R, ...KEY_P, 'ArrowUp'].includes(e.code)) e.preventDefault();
+		if (e.repeat) return;
+		touchMode = false; audio(); keys.add(e.code);
+		if (KEY_L.includes(e.code)) pressed('L');
+		if (KEY_R.includes(e.code)) pressed('R');
+		if (KEY_P.includes(e.code)) pressed('P');
+	});
+	addEventListener('keyup', (e) => { keys.delete(e.code); if (KEY_P.includes(e.code)) released(); });
+	const toGame = (e) => { const r = cv.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * W; };
+	addEventListener('pointerdown', (e) => {
+		audio();
+		if (e.pointerType !== 'mouse') touchMode = true;
+		const side = state === 'play' && laneBall() && !liveBalls().length ? 'P' : (toGame(e) < W / 2 ? 'L' : 'R');
+		pointers.set(e.pointerId, side);
+		pressed(side);
+	});
+	const up = (e) => { const s = pointers.get(e.pointerId); pointers.delete(e.pointerId); if (s === 'P') released(); };
+	addEventListener('pointerup', up); addEventListener('pointercancel', up);
+	cv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+	function pressed(side) {
+		if (state === 'title' || (state === 'over' && overT > 1.2)) { state = 'play'; reset(); return; }
+		if (state !== 'play') return;
+		if (side === 'L' || side === 'R') {
+			flipSound();
+			// P-O-E-S-lampjes doorschuiven, zo mik je op een baantje dat nog uit is
+			lanesLit = side === 'L' ? [...lanesLit.slice(1), lanesLit[0]] : [lanesLit[3], ...lanesLit.slice(0, 3)];
+		}
+	}
+	function released() {
+		const b = laneBall();
+		if (state !== 'play' || !b || charge < 0.05) return;
+		b.st = 'live'; b.gate = true; b.vy = -(520 + 130 * charge); b.vx = 0;
+		if (!saved) saveT = 5;
+		launchSound(charge); charge = 0;
+	}
+
+	Pixelfart.onPause(() => { keys.clear(); pointers.clear(); if (ac) ac.suspend(); });
+	Pixelfart.onResume(() => { if (ac) ac.resume(); });
+
+	// ---------- geluid ----------
+	let ac = null;
+	function audio() { if (!ac) { try { ac = new AudioContext(); } catch (e) { ac = null; } } else if (ac.state === 'suspended') ac.resume(); }
+	function beep(f, d, type = 'square', vol = 0.04, to = 0, delay = 0) {
+		if (!ac || ac.state !== 'running') return;
+		const o = ac.createOscillator(), v = ac.createGain(), s = ac.currentTime + delay;
+		o.type = type; o.frequency.setValueAtTime(f, s);
+		if (to) o.frequency.exponentialRampToValueAtTime(to, s + d);
+		v.gain.setValueAtTime(vol, s); v.gain.exponentialRampToValueAtTime(0.0005, s + d);
+		o.connect(v); v.connect(ac.destination); o.start(s); o.stop(s + d + 0.02);
+	}
+	const flipSound = () => beep(140, 0.05, 'square', 0.03, 90);
+	const bumpSound = () => beep(520, 0.09, 'square', 0.04, 260);
+	const slingSound = () => beep(330, 0.06, 'triangle', 0.06, 200);
+	const dingSound = () => beep(880, 0.12, 'triangle', 0.05);
+	const launchSound = (c) => beep(120, 0.25, 'triangle', 0.08, 300 + 400 * c);
+	const drainSound = () => beep(300, 0.6, 'square', 0.04, 60);
+	const miauw = () => { beep(700, 0.12, 'triangle', 0.06, 950); beep(950, 0.25, 'triangle', 0.06, 520, 0.12); };
+	const purr = () => { for (let i = 0; i < 6; i++) beep(70, 0.08, 'square', 0.025, 55, i * 0.12); };
+	const jingle = () => [523, 659, 784, 1046].forEach((f, i) => beep(f, 0.12, 'square', 0.04, 0, i * 0.1));
+
+	// ---------- botsingen ----------
+	function hitSeg(b, ax, ay, bx, by, R) {
+		const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+		let k = ((b.x - ax) * dx + (b.y - ay) * dy) / l2;
+		k = k < 0 ? 0 : k > 1 ? 1 : k;
+		const qx = ax + k * dx, qy = ay + k * dy, ex = b.x - qx, ey = b.y - qy, d2 = ex * ex + ey * ey;
+		if (d2 >= R * R) return null;
+		const d = Math.sqrt(d2) || 0.001;
+		return { nx: ex / d, ny: ey / d, qx, qy, pen: R - d };
+	}
+	function bounce(b, c, e, sx = 0, sy = 0) {
+		b.x += c.nx * c.pen; b.y += c.ny * c.pen;
+		const vn = (b.vx - sx) * c.nx + (b.vy - sy) * c.ny;
+		if (vn < 0) { b.vx -= (1 + e) * vn * c.nx; b.vy -= (1 + e) * vn * c.ny; }
+		return -vn;
+	}
+	function hitCircle(b, x, y, r) {
+		const dx = b.x - x, dy = b.y - y, R = r + BALL_R, d2 = dx * dx + dy * dy;
+		if (d2 >= R * R) return null;
+		const d = Math.sqrt(d2) || 0.001;
+		return { nx: dx / d, ny: dy / d, pen: R - d };
+	}
+
+	function catchBall(b, where) {
+		b.st = 'held'; b.hold = where; b.vx = b.vy = 0;
+		const p = where === 'basket' ? BASKET : BOWL;
+		b.x = p.x; b.y = p.y; b.holdT = 1.3;
+		if (where === 'basket') {
+			basketAnim = 1.3; miauw();
+			if (multiball) { add(25000, 2000); say('JACKPOT!', 2); jingle(); }
+			else if (extraLit) { extraLit = false; extraGot++; add(2500, 500); extraBall(); }
+			else { add(2500, 500); if (!kickback) { kickback = true; say('KITTEN-KICK AAN', 1.6); } else say('IN DE MAND!', 1.4); }
+		} else {
+			bowlAnim = 1.3; purr();
+			add(1000, 300);
+			if (!multiball) {
+				feest++;
+				if (feest >= 3) { feest = 0; b.holdT = 2; startFeest(); } else say('MELK ' + feest + '/3', 1.4);
+			} else say('SLURP!', 1);
+		}
+	}
+	function release(b) {
+		b.st = 'live'; b.cool = 0.6;
+		if (b.hold === 'basket') { b.vx = -210; b.vy = -20; } else { b.vx = (Math.random() < 0.5 ? -1 : 1) * 70; b.vy = 140; }
+	}
+	function startFeest() {
+		multiball = true; multiSaveT = 8;
+		say('KITTENFEEST!', 2.5); jingle(); miauw();
+		balls.push({ x: BASKET.x, y: BASKET.y, vx: -190, vy: -40, st: 'live', gate: false, cool: 0.6, still: 0 });
+		balls.push({ x: 20, y: 300, vx: 30, vy: -380, st: 'live', gate: false, cool: 0, still: 0 });
+	}
+
+	function stepFlippers(h) {
+		for (const f of flippers) {
+			const on = sideHeld(f.side), target = on ? f.up : f.rest, speed = (on ? 30 : 18) * h, old = f.a;
+			f.a = Math.abs(target - f.a) <= speed ? target : f.a + Math.sign(target - f.a) * speed;
+			f.w = (f.a - old) / h;
+		}
+	}
+
+	function stepBall(b, h) {
+		const py = b.y;
+		b.vy += GRAV * h;
+		b.x += b.vx * h; b.y += b.vy * h;
+
+		for (const [ax, ay, bx, by, kind] of walls) {
+			const c = hitSeg(b, ax, ay, bx, by, BALL_R);
+			if (!c) continue;
+			const hit = bounce(b, c, 0.45);
+			if (kind.startsWith('sling') && hit > 40) {
+				b.vx += c.nx * 170; b.vy += c.ny * 170;
+				slingFlash[+kind[5]] = 0.12; add(10, 10); slingSound();
+			}
+		}
+		if (!b.gate) { const c = hitSeg(b, ...GATE, BALL_R); if (c) bounce(b, c, 0.4); }
+		if (b.gate && b.x < 138) b.gate = false;
+
+		// bumpers: pootafdrukken
+		for (const bu of BUMPERS) {
+			const c = hitCircle(b, bu.x, bu.y, bu.r);
+			if (!c) continue;
+			bounce(b, c, 0.9);
+			const out = b.vx * c.nx + b.vy * c.ny;
+			if (out < 230) { b.vx += c.nx * (230 - out); b.vy += c.ny * (230 - out); }
+			bu.flash = 0.1; add(100, 20); bumpSound();
+		}
+
+		// MIAUW-doelen
+		for (const tg of TARGETS) {
+			const c = hitSeg(b, tg.x - 3.5, tg.y, tg.x + 3.5, tg.y, BALL_R + 1);
+			if (!c) continue;
+			const hit = bounce(b, c, 0.5);
+			if (hit < 25) continue;
+			tg.flash = 0.15; add(100);
+			if (!tg.lit) {
+				tg.lit = true; add(750, 150); dingSound();
+				if (TARGETS.every((x) => x.lit)) {
+					add(10000, 1000); TARGETS.forEach((x) => { x.lit = false; });
+					if (extraGot < 2) { extraLit = true; say('EXTRA BAL IN MAND', 2); } else say('MIAUW! 10000', 1.6);
+					miauw();
+				}
+			}
+		}
+
+		// kittens op de richel: lijf is hard, en ze tikken de bal weg
+		for (const k of LEDGE) {
+			const c = hitCircle(b, k.x, k.y, 5);
+			if (c) bounce(b, c, 0.5);
+			if (k.cool <= 0 && Math.hypot(b.x - k.x, b.y - k.y) < 11) {
+				b.vx = k.dx * 320; b.vy = k.dy * 320;
+				k.paw = 0.25; k.cool = 0.7; add(500, 100); miauw();
+			}
+		}
+
+		// flippers
+		for (const f of flippers) {
+			const tx = f.px + f.len * Math.cos(f.a), ty = f.py + f.len * Math.sin(f.a);
+			const c = hitSeg(b, f.px, f.py, tx, ty, BALL_R + FLIP_R);
+			if (c) bounce(b, c, 0.25, -f.w * (c.qy - f.py), f.w * (c.qx - f.px));
+		}
+
+		// P-O-E-S-baantjes
+		if (b.vy > 0 && b.y > 30 && py <= 30) {
+			LANES_X.forEach((x, i) => {
+				if (Math.abs(b.x - x) < 7 && !lanesLit[i]) {
+					lanesLit[i] = true; add(250, 100); dingSound();
+					if (lanesLit.every(Boolean)) {
+						lanesLit = [false, false, false, false];
+						if (mult < 6) mult++;
+						add(5000); say('BONUS X' + mult, 1.6); jingle();
+					}
+				}
+			});
+		}
+		// krabpaal-baan: helemaal omhoog = een rondje
+		if (b.x < 16 && b.vy < 0 && b.y < 200 && py >= 200) {
+			orbits++; add(2000 * Math.min(orbits, 5), 300);
+			say('KRABPAAL ' + orbits + 'X', 1.4); dingSound();
+			if (orbits % 3 === 0 && !kickback) { kickback = true; say('KITTEN-KICK AAN', 1.6); }
+		}
+		// kitten-kick in de linker uitloop
+		if (kickback && b.x < 14 && b.y > 352 && b.vy > 0) {
+			kickback = false; b.vx = 0; b.vy = -540; say('KITTEN-KICK!', 1.4); miauw();
+		}
+
+		// mand en melkschaaltje
+		if (b.cool <= 0) {
+			if (Math.hypot(b.x - BASKET.x, b.y - BASKET.y) < 4) catchBall(b, 'basket');
+			else if (Math.hypot(b.x - BOWL.x, b.y - BOWL.y) < 3.5) catchBall(b, 'bowl');
+		}
+
+		const v = Math.hypot(b.vx, b.vy);
+		if (v > VMAX) { b.vx *= VMAX / v; b.vy *= VMAX / v; }
+		if (b.st === 'live' && b.x > 143 && b.y > LANE.top - 1 && v < 40) { b.st = 'lane'; b.x = LANE.x; b.y = LANE.top; b.vx = b.vy = 0; b.gate = true; }
+	}
+
+	function collideBalls() {
+		const L = liveBalls();
+		for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+			const a = L[i], b = L[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+			if (d >= BALL_R * 2 || d === 0) continue;
+			const nx = dx / d, ny = dy / d, p = (BALL_R * 2 - d) / 2;
+			a.x -= nx * p; a.y -= ny * p; b.x += nx * p; b.y += ny * p;
+			const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+			if (rv < 0) { const k = -rv * 0.95; a.vx -= nx * k; a.vy -= ny * k; b.vx += nx * k; b.vy += ny * k; }
+		}
+	}
+
+	function drained(b) {
+		balls.splice(balls.indexOf(b), 1);
+		if (multiball && multiSaveT > 0) {        // tijdens het begin van het feest: bal terug uit de mand
+			balls.push({ x: BASKET.x, y: BASKET.y, vx: -190, vy: -40, st: 'live', gate: false, cool: 0.6, still: 0 });
+			return;
+		}
+		if (balls.length) { if (balls.length === 1 && multiball) { multiball = false; say('FEEST VOORBIJ', 1.4); } return; }
+		if (saveT > 0 && !saved) {
+			saved = true; saveT = 0;
+			balls = [{ x: LANE.x, y: LANE.top, vx: 0, vy: 0, st: 'lane', gate: true, cool: 0, still: 0 }];
+			say('BAL TERUG!', 1.6); jingle(); return;
+		}
+		phase = 'drain'; drainT = 2.2;
+		const b2 = bonus * mult; score += b2;
+		say(b2 ? 'BONUS ' + b2 : 'BAL WEG', 2.2); drainSound();
+	}
+
+	function gameOver() {
+		state = 'over'; overT = 0;
+		if (!sentScore) { sentScore = true; Pixelfart.score(score); }   // één keer per potje
+		if (score > 0) {
+			newRecord = !top5.length || score > top5[0];
+			top5 = [...top5, score].sort((a, b) => b - a).slice(0, 5);
+			Pixelfart.store.set('top5', top5);
+		}
+	}
+
+	// ---------- spel-update ----------
+	function update(dt) {
+		t += dt;
+		msgT = Math.max(0, msgT - dt);
+		BUMPERS.forEach((b) => { b.flash = Math.max(0, b.flash - dt); });
+		TARGETS.forEach((x) => { x.flash = Math.max(0, x.flash - dt); });
+		slingFlash.forEach((s, i) => { slingFlash[i] = Math.max(0, s - dt); });
+		LEDGE.forEach((k) => { k.paw = Math.max(0, k.paw - dt); k.cool = Math.max(0, k.cool - dt); });
+		basketAnim = Math.max(0, basketAnim - dt); bowlAnim = Math.max(0, bowlAnim - dt);
+		const h = dt / SUB;
+
+		if (state !== 'play') {
+			for (let i = 0; i < SUB; i++) stepFlippers(h);
+			if (state === 'over') overT += dt;
+			camY = (TH - VIEW) * (0.5 + 0.5 * Math.sin(t * 0.35));   // rustig over de kast kijken
+			return;
+		}
+
+		saveT = Math.max(0, saveT - dt);
+		multiSaveT = Math.max(0, multiSaveT - dt);
+		const lb = laneBall();
+		if (lb) { if (held(KEY_P, 'P')) charge = Math.min(1, charge + dt); lb.y = LANE.top + charge * 5; }
+		for (const b of balls) {
+			b.cool = Math.max(0, (b.cool || 0) - dt);
+			if (b.st === 'held') { b.holdT -= dt; if (b.holdT <= 0) release(b); }
+		}
+		if (phase === 'drain') {
+			drainT -= dt;
+			if (drainT <= 0) { lives--; if (lives > 0) newBall(); else gameOver(); }
+		}
+
+		for (let i = 0; i < SUB; i++) {
+			stepFlippers(h);
+			for (const b of liveBalls()) stepBall(b, h);
+			collideBalls();
+		}
+		for (const b of liveBalls()) if (b.y > TH + 4) drained(b);
+
+		// vastgelopen bal: na een tijdje stil liggen een zacht duwtje (niet als je hem op een flipper vasthoudt)
+		for (const b of liveBalls()) {
+			const cradle = (sideHeld('L') || sideHeld('R')) && (b.y > 355 || (b.y > 160 && b.y < 185 && b.x > 110));
+			b.still = Math.hypot(b.vx, b.vy) < 12 && !cradle ? (b.still || 0) + dt : 0;
+			if (b.still > 1.2) { b.vx = (b.x < 73 ? 1 : -1) * 60; b.vy = -40; b.still = 0; }
+		}
+
+		// camera: volgt de laagste bal (die is het spannendst), vloeiend
+		const follow = liveBalls().length ? Math.max(...liveBalls().map((b) => b.y)) : (balls[0] ? balls[0].y : TH);
+		const target = Math.max(0, Math.min(TH - VIEW, follow - VIEW * 0.6));
+		camY += (target - camY) * Math.min(1, dt * 7);
+		// nooit uit beeld
+		camY = Math.max(follow - VIEW + 14, Math.min(follow - 14, camY));
+		camY = Math.max(0, Math.min(TH - VIEW, camY));
+	}
+
+	// ---------- pixeltekenhulpjes ----------
+	function line(ctx, x0, y0, x1, y1, th = 1) {
+		x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+		const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, o = Math.floor(th / 2);
+		let err = dx + dy;
+		for (;;) {
+			ctx.fillRect(x0 - o, y0 - o, th, th);
+			if (x0 === x1 && y0 === y1) break;
+			const e2 = 2 * err;
+			if (e2 >= dy) { err += dy; x0 += sx; }
+			if (e2 <= dx) { err += dx; y0 += sy; }
+		}
+	}
+	function disc(ctx, cx, cy, r) {
+		cx = Math.round(cx); cy = Math.round(cy);
+		for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r * r - y * y + r * 0.8)); ctx.fillRect(cx - w, cy + y, w * 2 + 1, 1); }
+	}
+	function tri(ctx, P) {
+		const ys = P.map((p) => p[1]), y0 = Math.min(...ys), y1 = Math.max(...ys);
+		for (let y = y0; y <= y1; y++) {
+			const xs = [];
+			for (let i = 0; i < 3; i++) {
+				const [ax, ay] = P[i], [bx, by] = P[(i + 1) % 3];
+				if ((y >= ay && y <= by) || (y >= by && y <= ay)) xs.push(ay === by ? ax : ax + ((y - ay) / (by - ay)) * (bx - ax));
+			}
+			if (xs.length) { const l = Math.round(Math.min(...xs)), r = Math.round(Math.max(...xs)); ctx.fillRect(l, y, r - l + 1, 1); }
+		}
+	}
+	function bitmap(ctx, rows, x, y, colors) {
+		rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const c = colors[row[i]]; if (c) { ctx.fillStyle = c; ctx.fillRect(x + i, y + j, 1, 1); } } });
+	}
+	const text = (s, x, y, c = C.wit, font = BIG, align = 'left', ctx = g) => { ctx.font = font; ctx.fillStyle = c; ctx.textAlign = align; ctx.textBaseline = 'top'; Pixelfart.text(ctx, s, x, y); };
+
+	// ---------- kittens ----------
+	const KITTEN = [
+		'O.........O',
+		'OP.......PO',
+		'OOOOSSSOOOO',
+		'OOOOOSOOOOO',
+		'OEEOOOOOEEO',
+		'OEEOOOOOEEO',
+		'OOOMMPMMOOO',
+		'.OOOMMMOOO.',
+		'..OOOOOOO..',
+		'.OOOOOOOOO.',
+		'OOSOOOOOSOO',
+		'OOOOOOOOOOO',
+		'OMMOOOOOMMO',
+	];
+	const FUR = {
+		oranje: { O: C.oranje, S: C.oranjeDonker, M: C.wit },
+		grijs: { O: C.lichtgrijs, S: C.grijs, M: C.wit },
+		wit: { O: C.wit, S: C.lichtgrijs, M: C.rozeLicht },
+	};
+	// Kitten met oogjes die naar de dichtstbijzijnde bal kijken. paw > 0: pootje omhoog naar kant 'side'.
+	function kitten(ctx, x, y, furName, look, paw = 0, side = 1) {
+		const f = FUR[furName];
+		bitmap(ctx, KITTEN, x, y, { O: f.O, S: f.S, M: f.M, P: C.roze, E: C.zwart });
+		const lx = look && look.x > x + 5 ? 1 : 0, ly = look && look.y > y + 5 ? 1 : 0;
+		ctx.fillStyle = C.wit;
+		ctx.fillRect(x + 1 + lx, y + 4 + ly, 1, 1); ctx.fillRect(x + 8 + lx, y + 4 + ly, 1, 1);
+		if (paw > 0) {   // pootje dat naar de bal tikt
+			const px = side > 0 ? x + 10 : x - 3, py = y + 6;
+			ctx.fillStyle = f.O; ctx.fillRect(px, py, 4, 4);
+			ctx.fillStyle = f.M; ctx.fillRect(px + 1, py + 1, 2, 2);
+			ctx.fillStyle = C.roze; ctx.fillRect(px + 1, py + 1, 1, 1);
+		}
+	}
+	function nearestBall(x, y) {
+		let best = null, bd = 1e9;
+		for (const b of balls) { const d = Math.hypot(b.x - x, b.y - y); if (d < bd) { bd = d; best = b; } }
+		return best;
+	}
+
+	// ---------- vaste kast: één keer tekenen ----------
+	const bg = document.createElement('canvas'); bg.width = W; bg.height = TH;
+	function pawPrint(b, x, y, c) {
+		b.fillStyle = c; b.fillRect(x + 1, y + 3, 3, 2); b.fillRect(x, y + 1, 1, 1); b.fillRect(x + 2, y, 1, 1); b.fillRect(x + 4, y + 1, 1, 1);
+	}
+	function drawTable() {
+		const b = bg.getContext('2d');
+		b.fillStyle = C.zwart; b.fillRect(0, 0, W, TH);
+		b.fillStyle = C.kast;
+		for (let y = 6; y < TH; y++) {
+			const yy = Math.min(1, Math.max(-1, (y - 52) / 46)), half = y < 52 ? 76 * Math.sqrt(1 - yy * yy) : 76;
+			b.fillRect(Math.round(80 - half), y, Math.round(half * 2), 1);
+		}
+		// pootafdrukjes over de hele kast
+		for (let i = 0; i < 26; i++) {
+			const x = (i * 37) % 120 + 18, y = (i * 61) % 330 + 40;
+			if (y < 212 || y > 254) pawPrint(b, x, y, C.kast2);   // niet over de MIAUW-letters en lampjes
+		}
+		// slapende kitten op het speelveld, met zzz
+		b.fillStyle = C.kast2;
+		disc(b, 66, 282, 8); b.fillRect(58, 282, 26, 7); disc(b, 82, 280, 6);
+		tri(b, [[78, 276], [79, 270], [82, 275]]); tri(b, [[84, 275], [87, 270], [87, 277]]);
+		b.fillStyle = C.uit; b.fillRect(79, 280, 2, 1); b.fillRect(84, 280, 2, 1); line(b, 56, 289, 50, 284, 2);
+		text('z', 90, 266, C.uit, SMALL, 'left', b); text('Z', 95, 258, C.uit, SMALL, 'left', b);
+		text('FLIPPERKOORTS', 73, 186, C.uit, SMALL, 'center', b);
+		// afschietbaan en krabpaal-baan
+		b.fillStyle = C.kast2; b.fillRect(143, 64, 13, 332); b.fillRect(5, 150, 11, 110);
+		b.fillStyle = C.bruin; for (let y = 152; y < 258; y += 6) b.fillRect(6, y, 9, 2);   // krabpaal-touw
+		// muren
+		b.fillStyle = C.mint;
+		for (const [ax, ay, bx, by, kind] of walls) if (kind === 'wall') line(b, ax, ay, bx, by, 2);
+		// slingshots als kussentjes
+		for (const S of [SL, SR]) {
+			b.fillStyle = C.rozeDonker; tri(b, S);
+			b.fillStyle = C.roze; line(b, S[0][0], S[0][1], S[1][0], S[1][1], 2); line(b, S[1][0], S[1][1], S[2][0], S[2][1], 2);
+		}
+		// melkschaaltje
+		b.fillStyle = C.wit; b.fillRect(BOWL.x - 6, BOWL.y + 1, 13, 2); b.fillRect(BOWL.x - 5, BOWL.y + 3, 11, 2);
+		b.fillStyle = C.zwart; disc(b, BOWL.x, BOWL.y, 3);
+		b.fillStyle = C.blauw; b.fillRect(BOWL.x - 5, BOWL.y + 1, 2, 1); b.fillRect(BOWL.x + 4, BOWL.y + 1, 2, 1);
+		// gat in de mand
+		b.fillStyle = C.zwart; disc(b, BASKET.x, BASKET.y, 4);
+		// letters bij de doelen en baantjes staan in draw() (ze lichten op)
+	}
+
+	// ---------- tekenen ----------
+	function lamp(x, y, on, col, w = 5, h = 3) { g.fillStyle = on ? col : C.uit; g.fillRect(x, y, w, h); }
+	function drawBall(b) {
+		const x = Math.round(b.x) - 2, y = Math.round(b.y) - 2;
+		bitmap(g, ['.PPP.', 'PLDPP', 'PPLDP', 'PDPLP', '.PPP.'], x, y, { P: C.roze, L: C.rozeLicht, D: C.rozeDonker });
+	}
+	function draw() {
+		const cy = Math.round(camY), blink = Math.floor(t * 4) % 2 === 0, attract = state !== 'play';
+		g.fillStyle = C.zwart; g.fillRect(0, 0, W, H);
+		g.drawImage(bg, 0, HUD - cy);
+		g.save(); g.translate(0, HUD - cy);
+
+		// P-O-E-S
+		LANES_X.forEach((x, i) => text(LANE_TXT[i], x, 35, (attract ? blink === (i % 2 === 0) : lanesLit[i]) ? C.geel : C.uit, SMALL, 'center'));
+		// bonus-vermenigvuldiger x2..x6
+		[2, 3, 4, 5, 6].forEach((m, i) => {
+			const x = 46 + i * 11, on = attract ? Math.floor(t * 3) % 5 === i : mult >= m;
+			lamp(x, 244, on, C.oranje, 9, 7);
+			text(String(m), x + 3, 243, on ? C.zwart : C.kast, SMALL);
+		});
+		// melk-teller (3 druppels) en lampjes
+		for (let i = 0; i < 3; i++) lamp(BOWL.x - 7 + i * 6, BOWL.y + 8, multiball ? blink : feest > i, C.blauw, 3, 3);
+		lamp(BASKET.x - 6, BASKET.y + 8, extraLit && blink, C.groen, 5, 3);
+		lamp(BASKET.x + 2, BASKET.y + 8, multiball && blink, C.geel, 5, 3);
+		lamp(6, 346, kickback, C.groen, 7, 4);
+		lamp(70, 360, (state === 'play' && laneBall() && !saved) || saveT > 2 || (saveT > 0 && blink), C.roze, 7, 4);
+		// krabpaal-lampjes
+		for (let i = 0; i < 3; i++) lamp(18, 230 - i * 8, (orbits || 0) % 3 > i || (attract && blink), C.lila, 3, 5);
+
+		// MIAUW-doelen
+		TARGETS.forEach((tg) => {
+			g.fillStyle = tg.flash > 0 ? C.wit : tg.lit ? C.geel : C.lila; g.fillRect(tg.x - 3, tg.y - 1, 7, 3);
+			text(tg.ch, tg.x, tg.y + 4, tg.lit || (attract && blink) ? C.geel : C.uit, SMALL, 'center');
+		});
+
+		// bumpers: roze kussentjes met een pootafdruk
+		BUMPERS.forEach((bu) => {
+			g.fillStyle = bu.flash > 0 ? C.wit : C.roze; disc(g, bu.x, bu.y, bu.r);
+			g.fillStyle = bu.flash > 0 ? C.roze : C.rozeLicht; disc(g, bu.x, bu.y, bu.r - 2);
+			pawPrint(g, bu.x - 2, bu.y - 2, C.rozeDonker);
+		});
+		[SL, SR].forEach((S, i) => { g.fillStyle = slingFlash[i] > 0 ? C.wit : C.roze; line(g, S[0][0], S[0][1], S[2][0], S[2][1], 2); });
+
+		// kittens
+		const nb = (x, y) => nearestBall(x, y);
+		LEDGE.forEach((k) => kitten(g, k.x - 5, k.y - 7, k.pal, nb(k.x, k.y), k.paw, k.dx > 0 ? 1 : -1));
+		// melk-kitten: likt aan het schaaltje als ze de bal heeft
+		kitten(g, BOWL.x - 19, BOWL.y - 9 + (bowlAnim > 0 && Math.floor(t * 8) % 2 ? 1 : 0), 'grijs', nb(BOWL.x - 14, BOWL.y));
+		if (bowlAnim > 0) { g.fillStyle = C.roze; g.fillRect(BOWL.x - 8, BOWL.y - 2, 2, 1); }
+
+		// flippers
+		flippers.forEach((f) => {
+			const tx = f.px + f.len * Math.cos(f.a), ty = f.py + f.len * Math.sin(f.a);
+			g.fillStyle = C.wit; line(g, f.px, f.py, tx, ty, 4);
+			g.fillStyle = C.roze; line(g, f.px, f.py, f.px + (tx - f.px) * 0.35, f.py + (ty - f.py) * 0.35, 4);
+		});
+
+		// veer
+		const py = 393 + Math.round(charge * 5);
+		g.fillStyle = C.grijs; for (let y = py; y < 396; y += 2) g.fillRect(146, y, 7, 1);
+		g.fillStyle = C.oranje; g.fillRect(145, py - 1, 9, 2);
+
+		// ballen (bolletjes wol)
+		if (state === 'play') balls.forEach(drawBall);
+
+		// mand-kitten: zit bovenop de mand; met de bal speelt ze met haar pootjes
+		const playing = basketAnim > 0;
+		kitten(g, BASKET.x - 5, BASKET.y - 15, 'oranje', nb(BASKET.x, BASKET.y - 10), playing && Math.floor(t * 10) % 2 ? 1 : 0, Math.floor(t * 5) % 2 ? 1 : -1);
+		// voorkant van de mand (over de bal heen)
+		for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? C.bruinLicht : C.bruin; g.fillRect(BASKET.x - 8, BASKET.y + 2 + i, 17, 1); }
+		g.fillStyle = C.bruinLicht; for (let x = BASKET.x - 7; x < BASKET.x + 9; x += 3) g.fillRect(x, BASKET.y + 2, 1, 4);
+		if (playing && state === 'play') { const hb = balls.find((x) => x.hold === 'basket' && x.st === 'held'); if (hb) { hb.x = BASKET.x + (Math.floor(t * 10) % 2 ? 1 : -1); drawBall(hb); } }
+
+		g.restore();
+		drawDmd(blink);
+		// pijltje: waar is de bal als hij net uit beeld is (bij multibal)
+		if (state === 'play') for (const b of liveBalls()) {
+			if (b.y < camY - 2) { g.fillStyle = C.roze; g.fillRect(Math.round(b.x) - 1, HUD + 1, 3, 1); g.fillRect(Math.round(b.x), HUD, 1, 1); }
+			if (b.y > camY + VIEW + 2) { g.fillStyle = C.roze; g.fillRect(Math.round(b.x) - 1, H - 2, 3, 1); g.fillRect(Math.round(b.x), H - 1, 1, 1); }
+		}
+		if (state === 'title') drawPanel('title');
+		if (state === 'over') drawPanel('over');
+	}
+
+	function drawDmd(blink) {
+		g.fillStyle = C.dmd; g.fillRect(0, 0, W, HUD);
+		g.fillStyle = C.dmdUit; g.fillRect(0, HUD - 1, W, 1);
+		if (msgT > 0 && state === 'play') { text(msg, W / 2, 4, C.oranje, msg.length > 13 ? SMALL : BIG, 'center'); return; }
+		g.fillStyle = C.oranje;
+		const n = state === 'title' ? 3 : lives;
+		for (let i = 0; i < Math.min(n, 6); i++) g.fillRect(4 + i * 6, 6, 4, 4);
+		if (state === 'play' && mult > 1) text('X' + mult, 42, 5, C.oranje, SMALL);
+		const s = String(state === 'title' ? (top5[0] || 0) : score).padStart(8, ' ');
+		for (let i = 0; i < s.length; i++) if (s[i] !== ' ') text(s[i], 92 + i * 8, 4, state === 'title' && blink ? C.dmdUit : C.oranje);
+	}
+
+	function drawPanel(kind) {
+		const x = 12, y = 40, w = W - 24, h = 168;
+		g.fillStyle = C.zwart; g.fillRect(x, y, w, h);
+		g.fillStyle = C.roze; g.fillRect(x, y, w, 2); g.fillRect(x, y + h - 2, w, 2); g.fillRect(x, y, 2, h); g.fillRect(x + w - 2, y, 2, h);
+		const blink = Math.floor(t * 2) % 2 === 0;
+		if (kind === 'title') {
+			text('FLIPPER', W / 2, y + 10, C.roze, BIG, 'center');
+			text('KOORTS', W / 2, y + 20, C.geel, BIG, 'center');
+			kitten(g, W / 2 - 5, y + 32, 'oranje', { x: W / 2 + (blink ? 9 : -9), y: y + 40 });
+			text('TOPSCORES', W / 2, y + 52, C.mint, SMALL, 'center');
+			for (let i = 0; i < 5; i++) {
+				text((i + 1) + '.', 36, y + 63 + i * 9, C.grijs, SMALL);
+				text(top5[i] ? String(top5[i]) : '-', 124, y + 63 + i * 9, i === 0 ? C.geel : C.wit, SMALL, 'right');
+			}
+			text('SHIFT L/R = FLIPPERS', W / 2, y + 114, C.wit, SMALL, 'center');
+			text('SPATIE = AFSCHIETEN', W / 2, y + 124, C.wit, SMALL, 'center');
+			text('TELEFOON: TIK LINKS/RECHTS', W / 2, y + 134, C.grijs, SMALL, 'center');
+			if (blink) text('DRUK SHIFT OF TIK', W / 2, y + 150, C.groen, SMALL, 'center');
+		} else {
+			text('GAME OVER', W / 2, y + 12, C.roze, BIG, 'center');
+			text(String(score), W / 2, y + 28, C.geel, BIG, 'center');
+			text('punten', W / 2, y + 40, C.grijs, SMALL, 'center');
+			if (newRecord && blink) text('NIEUW RECORD!', W / 2, y + 54, C.groen, SMALL, 'center');
+			text('TOPSCORES', W / 2, y + 70, C.mint, SMALL, 'center');
+			for (let i = 0; i < 5; i++) text(top5[i] ? String(top5[i]) : '-', W / 2, y + 81 + i * 9, top5[i] === score && score ? C.geel : C.wit, SMALL, 'center');
+			if (overT > 1.2 && blink) text('SHIFT/TIK = OPNIEUW', W / 2, y + 150, C.groen, SMALL, 'center');
+		}
+	}
+
+	// Alleen voor automatisch testen (flipperkoorts.html#test).
+	if (location.hash === '#test') window.__flip = () => ({ state, phase, balls: balls.map((b) => ({ st: b.st, x: b.x, y: b.y, vx: b.vx, vy: b.vy })), score, lives, mult, multiball, camY });
+
+	// ---------- start ----------
+	Pixelfart.fonts(['Press Start 2P', 'Tiny5']).then(() => {
+		drawTable();
+		Pixelfart.loop(update, { fps: 60, draw });
+	});
+})();
+</script>
+</body>
+</html>

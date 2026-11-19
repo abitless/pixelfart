@@ -1,0 +1,35 @@
+{
+    "title": "Pixelpatrouille",
+    "code": "PATRO",
+    "categories": [
+        "Arcade",
+        "Retro"
+    ],
+    "published": "2026-10-25",
+    "version": "1.1.0",
+    "description": "Je schip vuurt vanzelf. Ontwijk de roze kogels en pak capsules: P voor sterkere wapens, S voor een schild. Hoeveel golven haal jij?",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": {
+        "order": "desc",
+        "label": "punten"
+    },
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-17",
+            "notes": "Topscores: de eindscore gaat naar de topscorelijst op de site (Pixelfart SDK)."
+        },
+        {
+            "version": "1.0.0",
+            "date": "2026-10-25",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}

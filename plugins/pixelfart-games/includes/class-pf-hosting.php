@@ -10,7 +10,7 @@
  * - Elke game krijgt bij installatie een Content-Security-Policy: niets laden of versturen buiten de eigen origin
  *   (geen trackers, geen externe fonts, geen formulieren).
  * - .htaccess (als de game-host naar dezelfde map wijst, zoals lokaal): op de game-host alleen de game-bestanden,
- *   geen PHP; op de hoofdhost geen game-HTML.
+ *   geen PHP; op de hoofdhost geen game-HTML. En nooit de gamebronnen in wp-content/games (de repository).
  * - _tools/capture.html op de game-origin maakt screenshots voor thumbnails, zodat een game nooit in wp-admin draait.
  */
 
@@ -142,6 +142,17 @@ class PF_Hosting {
 				'</IfModule>',
 			];
 		}
+		// Bronbestanden van de games in de repository (wp-content/games): nooit via de website,
+		// want daar zouden ze op het hoofddomein draaien in plaats van op de game-host.
+		$src   = preg_quote( ltrim( wp_make_link_relative( content_url( 'games/' ) ), '/' ), '' );
+		$lines = array_merge( [
+			'<IfModule mod_rewrite.c>',
+			'RewriteEngine On',
+			'# Gamebronnen in de repository: niet via de website.',
+			"RewriteRule ^{$src} - [F,L]",
+			'</IfModule>',
+		], $lines );
+
 		$current = (string) file_get_contents( $file );
 		if ( ! str_contains( $current, '# BEGIN ' . self::MARKER ) ) {
 			file_put_contents( $file, '# BEGIN ' . self::MARKER . "\n# END " . self::MARKER . "\n\n" . $current );

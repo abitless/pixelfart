@@ -28,9 +28,11 @@ $pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( '
 				<form class="js-only" data-form="idee" novalidate aria-labelledby="idea-title">
 					<div class="idea-types" role="group" aria-label="Soort idee">
 						<?php foreach ( PF_Messages::TYPES as $i => $t ) : ?>
-							<button type="button" data-type="<?php echo esc_attr( $t ); ?>" aria-pressed="<?php echo 0 === $i ? 'true' : 'false'; ?>"><?php echo esc_html( $t ); ?></button>
+							<button type="button" data-type="<?php echo esc_attr( $t ); ?>" aria-pressed="false" aria-controls="idea-fields"><?php echo esc_html( $t ); ?></button>
 						<?php endforeach; ?>
 					</div>
+					<?php // Ingeklapt tot je een soort kiest: rustiger op de homepage. ?>
+					<div class="idea-fields" id="idea-fields" data-idea-fields hidden>
 					<label class="screen-reader-text" for="idea-text">Je idee</label>
 					<textarea class="input" id="idea-text" name="text" rows="3" placeholder="Bijvoorbeeld: een spel met een pinguïn die moet glijden…"></textarea>
 					<label class="screen-reader-text" for="idea-name">Je naam</label>
@@ -39,6 +41,7 @@ $pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( '
 					<div class="robot" data-robot></div>
 					<div class="form-error" data-error hidden></div>
 					<button type="submit" class="btn btn-yellow" disabled>VERSTUUR ▶</button>
+					</div>
 				</form>
 			</div>
 		<?php endif; ?>

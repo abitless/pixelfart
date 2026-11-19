@@ -1,0 +1,27 @@
+{
+    "title": "Pixel Raket",
+    "code": "RAKET",
+    "categories": [
+        "Actie",
+        "Avontuur"
+    ],
+    "published": "2026-11-01",
+    "version": "1.0.0",
+    "description": "Een pixel-ruimteavontuur langs vijf planeten. Land, val bases binnen, schiet de reactoren kapot en bevrijd de sector.",
+    "author": "",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": null,
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "2026-11-01",
+            "notes": "Eerste versie op Pixelfart."
+        }
+    ]
+}
