@@ -14,7 +14,12 @@
 			el( 'p', null, 'Hier staat op de site de pixelmuur. Klik op een pixel om te zien wie hem kocht. Op de doneerpagina kun je er ook pixels kopen. Beheer: Donaties › Pixelmuur.' ),
 			el( 'label', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } },
 				el( 'input', { type: 'checkbox', checked: attributes.link, onChange: ( e ) => setAttributes( { link: e.target.checked } ) } ),
-				'Knop "Koop ook een pixel" eronder (niet op de doneerpagina)'
+				'Knop "Ook een pixel kopen?" eronder (niet op de doneerpagina)'
+			),
+			el( 'br' ),
+			el( 'label', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } },
+				el( 'input', { type: 'checkbox', checked: !! attributes.big, onChange: ( e ) => setAttributes( { big: e.target.checked } ) } ),
+				'Groot: de muur in het midden, zo breed als de pagina'
 			)
 		),
 		save: () => null,

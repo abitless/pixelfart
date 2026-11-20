@@ -10,7 +10,7 @@ $pf_here  = PF_Donations::on_donate_page();
 $pf_title = trim( (string) ( $attributes['title'] ?? 'ONZE PIXELFANS' ) );
 $pf_keys = function_exists( 'pf_key' ) ? pf_key( 'left' ) . pf_key( 'up' ) . pf_key( 'down' ) . pf_key( 'right' ) . ' ' . pf_key( 'SPATIE' ) : '';
 ?>
-<div <?php echo get_block_wrapper_attributes( [ 'class' => 'pf-wall' ] ); // phpcs:ignore ?> data-pixel-wall<?php echo $pf_here ? ' data-here id="pixelmuur"' : ''; ?>>
+<div <?php echo get_block_wrapper_attributes( [ 'class' => 'pf-wall' . ( ! empty( $attributes['big'] ) ? ' is-big' : '' ) ] ); // phpcs:ignore ?> data-pixel-wall<?php echo $pf_here ? ' data-here id="pixelmuur"' : ''; ?>>
 	<noscript><p>Voor de pixelmuur heb je JavaScript nodig.</p></noscript>
 	<div class="wall-frame js-only">
 		<?php if ( '' !== $pf_title ) : ?>
@@ -52,6 +52,6 @@ $pf_keys = function_exists( 'pf_key' ) ? pf_key( 'left' ) . pf_key( 'up' ) . pf_
 			<p class="fine">Je betaalt veilig met iDEAL | Wero via Mollie. Jonger dan 16? Vraag het eerst aan je ouders.</p>
 		</form>
 	<?php elseif ( $attributes['link'] ?? true ) : ?>
-		<p class="js-only"><a class="btn btn-pink" href="<?php echo esc_url( PF_Donations::page_url() ); ?>#pixelmuur">KOOP OOK EEN PIXEL ▶</a></p>
+		<p class="js-only wall-more"><a class="btn btn-pink" href="<?php echo esc_url( PF_Donations::page_url() ); ?>#pixelmuur">OOK EEN PIXEL KOPEN? ▶</a></p>
 	<?php endif; ?>
 </div>

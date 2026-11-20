@@ -1,0 +1,19 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "pixelfart/pixel-donors",
+	"title": "Pixelfans",
+	"category": "widgets",
+	"icon": "heart",
+	"description": "Erelijst van iedereen die pixels kocht: hun tekening, drie letters, boodschap en datum. Klik op iemand om de pixels op de muur te zien.",
+	"keywords": [ "pixels", "donateurs", "bedankt" ],
+	"textdomain": "pixelfart",
+	"supports": { "html": false, "multiple": false, "align": [ "wide" ] },
+	"attributes": {
+		"title": { "type": "string", "default": "BEDANKT, PIXELFANS!" }
+	},
+	"editorScript": "file:./editor.js",
+	"viewScript": "pixelfart-donate",
+	"render": "file:./render.php",
+	"style": "pixelfart-wall"
+}

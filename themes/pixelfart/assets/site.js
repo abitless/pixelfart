@@ -662,4 +662,32 @@
 			});
 		}
 	}
+
+	/* ---------- topscores: filter op game en naam (gewoon GET-formulier, hier alleen vanzelf versturen) ---------- */
+	const hsf = $('[data-hs-filter]');
+	if (hsf) {
+		const go = () => (hsf.requestSubmit ? hsf.requestSubmit() : hsf.submit());
+		const naam = hsf.naam;
+		hsf.game.addEventListener('change', go);
+		naam.addEventListener('input', () => {
+			naam.value = naam.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+			if (naam.value.length === 3 || naam.value === '') go();
+		});
+		hsf.addEventListener('submit', () => {
+			if (!naam.value) naam.disabled = true; // lege velden niet in de link
+			if (!hsf.game.value) hsf.game.disabled = true;
+			try { sessionStorage.setItem('pf_hs_focus', document.activeElement === naam ? 'naam' : ''); } catch (e) { /* privé */ }
+		});
+		try { if (sessionStorage.getItem('pf_hs_focus') === 'naam') { naam.focus(); naam.setSelectionRange(3, 3); } sessionStorage.removeItem('pf_hs_focus'); } catch (e) { /* privé */ }
+		// Je eigen letters (van een eerdere topscore of reactie) met één klik.
+		const mine = store.get('pf_initials');
+		if (mine && /^[A-Z]{3}$/.test(mine) && naam.value !== mine) {
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'btn btn-ghost hs-filter-mine';
+			b.textContent = 'MIJN SCORES (' + mine + ')';
+			b.addEventListener('click', () => { naam.value = mine; go(); });
+			hsf.append(b);
+		}
+	}
 })();

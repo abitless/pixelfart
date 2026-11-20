@@ -129,11 +129,64 @@
 	let wallRefresh = null; // gezet door de muur: opnieuw laden na een gelukte betaling
 	if (wall) initWall(wall);
 
+	/* ---------- Pixelfans: erelijst van de pixelkopers (blok "Pixelfans") ---------- */
+	const donors = $('[data-pixel-donors]');
+	if (donors) {
+		const list = $('[data-donors-list]', donors);
+		const count = $('[data-donors-count]', donors);
+		const BOX = 72; // de tekening past in een vak van zoveel schermpixels
+		const render = (W) => {
+			const pal = PFD.palette;
+			const art = W.d.map(() => []);
+			for (let i = 0; i < W.px.length; i += 4) if (W.px[i + 3] >= 0 && art[W.px[i + 3]]) art[W.px[i + 3]].push([W.px[i], W.px[i + 1], W.px[i + 2]]);
+			const total = W.d.reduce((n, d) => n + d.k, 0);
+			count.textContent = W.d.length
+				? `${W.d.length === 1 ? 'Eén pixelfan kocht' : W.d.length + ' pixelfans kochten samen'} ${total} ${total === 1 ? 'pixel' : 'pixels'}. Dankjewel!`
+				: 'Nog niemand. Word jij de eerste pixelfan?';
+			list.textContent = '';
+			for (let i = W.d.length - 1; i >= 0; i--) { // de nieuwste eerst
+				const d = W.d[i], px = art[i];
+				const li = document.createElement('li');
+				li.className = 'donor';
+				const card = document.createElement(wall ? 'button' : 'div');
+				card.className = 'donor-card';
+				if (wall) { card.type = 'button'; card.title = 'Laat zien op de muur'; card.addEventListener('click', () => document.dispatchEvent(new CustomEvent('pf-wall-focus', { detail: i }))); }
+				if (px.length) { // de eigen tekening, scherp uitvergroot
+					const xs = px.map((p) => p[0]), ys = px.map((p) => p[1]);
+					const x0 = Math.min(...xs), y1 = Math.max(...ys), w = Math.max(...xs) - x0 + 1, h = y1 - Math.min(...ys) + 1;
+					const cv = document.createElement('canvas');
+					cv.className = 'donor-art';
+					cv.width = w; cv.height = h;
+					cv.setAttribute('aria-hidden', 'true');
+					const g = cv.getContext('2d');
+					for (const [x, y, c] of px) { g.fillStyle = pal[c]; g.fillRect(x - x0, y1 - y, 1, 1); }
+					const s = Math.max(w, h) > BOX / 2 ? BOX / Math.max(w, h) : Math.floor(BOX / Math.max(w, h));
+					cv.style.width = w * s + 'px'; cv.style.height = h * s + 'px';
+					const frame = document.createElement('span');
+					frame.className = 'donor-frame';
+					frame.append(cv);
+					card.append(frame);
+				}
+				const txt = document.createElement('span');
+				txt.className = 'donor-text';
+				txt.innerHTML = `<span class="donor-name">${esc(d.n)}</span>`
+					+ (d.m ? `<span class="donor-says">${esc(d.m)}</span>` : '')
+					+ `<span class="donor-meta">${esc(d.t)} · ${d.k} ${d.k === 1 ? 'pixel' : 'pixels'}</span>`;
+				card.append(txt);
+				li.append(card);
+				list.append(li);
+			}
+		};
+		if (wall) document.addEventListener('pf-wall', (e) => render(e.detail));
+		else api('pixels').then(render).catch(() => { count.textContent = 'De lijst kon even niet laden. Probeer het later nog eens.'; });
+	}
+
 	function initWall(root) {
 		// Eén pf-pixel is 10×10 punten op de muur; op het scherm schalen we dat mee met de ruimte,
 		// altijd met een heel aantal schermpixels per vakje, zodat de muur scherp blijft.
-		const MAX_W = 960;   // breder dan dit wordt de muur niet (20 px per vakje)
-		const SHOW_ROWS = 32; // zoveel rijen zie je tegelijk; de rest scrollt
+		const big = root.classList.contains('is-big'); // de pixelmuurpagina: de muur krijgt alle ruimte
+		const MAX_W = big ? 1200 : 960;   // breder dan dit wordt de muur niet (20 of 25 px per vakje)
+		const SHOW_ROWS = big ? 40 : 32; // zoveel rijen zie je tegelijk; de rest scrollt
 		let first = null;     // de eerste lading van de muur
 		let S = 10, u = 1;    // S = schermpixels per vakje (in canvaspixels), u = S / 10 voor de details
 		const here = root.hasAttribute('data-here');
@@ -243,7 +296,23 @@
 			draw();
 			scroller.scrollTop = keepScroll ? scroller.scrollHeight - fromBottom : scroller.scrollHeight; // onderaan beginnen
 			update();
+			document.dispatchEvent(new CustomEvent('pf-wall', { detail: W })); // voor de lijst met pixelfans
 		}
+
+		// Vanuit de lijst met pixelfans: laat iemands pixels zien op de muur.
+		document.addEventListener('pf-wall-focus', (e) => {
+			let at = null;
+			for (const [k, v] of grid) {
+				if (v[1] !== e.detail) continue;
+				const [x, y] = k.split(',').map(Number);
+				if (!at || y > at[1]) at = [x, y];
+			}
+			if (!at) return;
+			showInfo(at[0], at[1]);
+			draw();
+			scroller.scrollTop = toCanvasY(at[1]) / cv.height * scroller.scrollHeight - scroller.clientHeight / 3;
+			root.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+		});
 
 		/** Hoe groot kan de muur? Zo breed als de pagina (niet alleen de tekstkolom), tot MAX_W. */
 		function fit() {

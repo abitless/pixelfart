@@ -30,6 +30,10 @@
 		"link": {
 			"type": "boolean",
 			"default": true
+		},
+		"big": {
+			"type": "boolean",
+			"default": false
 		}
 	},
 	"style": "pixelfart-wall"

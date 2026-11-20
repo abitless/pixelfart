@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.6.2
+Version: 1.7.0
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -439,11 +439,29 @@ textarea.input { resize: vertical; }
 @media (prefers-reduced-motion: reduce) { .hs-title, .hiscore-list li.is-new { animation: none; } }
 
 /* blok Topscores (erelijst) */
-.pf-hiscores { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 24px; }
-.pf-hiscore { box-shadow: 0 0 0 4px var(--c, var(--line)); padding: 16px; margin: 4px; display: flex; flex-direction: column; gap: 10px; }
-.pf-hiscore h3 { margin: 0; font-family: var(--pix); font-size: 10px; line-height: 1.6; }
+/* Topscorepagina: filters bovenaan, daarna alle lijsten onder elkaar. */
+.pf-hiscores { display: flex; flex-direction: column; gap: 20px; max-width: 760px; }
+.hs-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 16px; margin: 4px 4px 12px; background: #0b0b0b; box-shadow: 0 0 0 4px var(--yellow), 6px 6px 0 4px #5a4a1a; }
+.hs-filter label { display: flex; flex-direction: column; gap: 6px; }
+.hs-filter label > span { font-family: var(--pix); font-size: 10px; color: var(--yellow); }
+.hs-filter-game { flex: 1 1 220px; }
+.hs-filter-game select { width: 100%; }
+.hs-filter-name .input { width: 6.5em; font-family: var(--pix); letter-spacing: 3px; text-transform: uppercase; }
+.js .hs-filter-go { display: none; } /* met JavaScript gaat het vanzelf */
+.hs-filter-reset { align-self: center; color: var(--dim); }
+.hs-filter-mine { font-size: 9px; }
+.pf-hiscore { box-shadow: 0 0 0 4px var(--c, var(--line)); padding: 14px 18px 16px; margin: 4px; display: flex; flex-direction: column; gap: 10px; }
+.pf-hiscore h3 { margin: 0; font-family: var(--pix); font-size: 12px; line-height: 1.6; }
 .pf-hiscore h3 a { color: var(--c, var(--ink)); }
-.pf-hiscore .hs-empty { margin: 0; color: var(--mute); }
+.pf-hiscore .hs-empty, .hs-none, .hs-open { margin: 0; color: var(--mute); }
+.hs-open { margin: 4px; line-height: 1.4; }
+.hs-open a { color: var(--dim); }
+.pf-hiscores .hiscore-list li { grid-template-columns: 2.6em 4em 1fr auto; gap: 0 12px; color: var(--dim); }
+.pf-hiscores .hiscore-list li.is-top1 { color: var(--yellow); }
+.pf-hiscores .hiscore-list li.is-top2 { color: var(--ink); }
+.pf-hiscores .hiscore-list li.is-top3 { color: var(--orange, #ff9a4a); }
+.hiscore-list .hs-date { color: var(--mute); font-size: .8em; text-align: right; min-width: 7.5em; }
+@media (max-width: 560px) { .hiscore-list .hs-date { display: none; } .pf-hiscores .hiscore-list li { grid-template-columns: 2.2em 3.6em 1fr; } }
 
 /* ---------- doneren (blokken Doneerknop, Doneren en Pixelmuur) ---------- */
 .btn-pink { background: var(--pink); box-shadow: none; font-size: 11px; display: inline-flex; align-items: center; gap: 10px; }

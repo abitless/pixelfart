@@ -172,7 +172,7 @@ class PF_Donations {
 			'price'   => self::PIXEL_PRICE,
 			'fee'     => [ 'once' => self::fee( false ), 'month' => self::fee( true ) ],
 		] );
-		foreach ( [ 'donate-button', 'donate-widget', 'pixel-wall' ] as $b ) {
+		foreach ( [ 'donate-button', 'donate-widget', 'pixel-wall', 'pixel-donors' ] as $b ) {
 			register_block_type( PIXELFART_DIR . 'blocks/' . $b );
 		}
 	}

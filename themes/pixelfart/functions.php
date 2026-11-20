@@ -113,7 +113,7 @@ function pf_icon( string $name, int $scale = 2, string $class = 'px-icon' ): str
 /** De menu-items (GAMES / TOPSCORES / OVER ONS / CONTACT) en welke actief is (-1 = geen). */
 function pf_nav_items(): array {
 	$items  = [ [ 'label' => 'GAMES', 'url' => home_url( '/' ), 'page' => null ] ];
-	foreach ( [ 'topscores' => 'TOPSCORES', 'over-ons' => 'OVER ONS', 'contact' => 'CONTACT' ] as $slug => $label ) {
+	foreach ( [ 'topscores' => 'TOPSCORES', 'pixelmuur' => 'PIXELMUUR', 'over-ons' => 'OVER ONS' ] as $slug => $label ) {
 		$page    = get_page_by_path( $slug );
 		$items[] = [ 'label' => $label, 'url' => $page ? get_permalink( $page ) : home_url( "/$slug/" ), 'page' => $page ];
 	}
