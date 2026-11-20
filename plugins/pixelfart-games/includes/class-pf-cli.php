@@ -33,6 +33,7 @@ class PF_CLI {
 			WP_CLI::error( "Geen */game.json gevonden in $dir" );
 		}
 		PF_Categories::seed_defaults();
+		PF_Announcements::$quiet = true; // geïmporteerde games zijn niet nieuw: geen aankondiging
 
 		foreach ( $files as $json_file ) {
 			$base = dirname( $json_file ) . '/';

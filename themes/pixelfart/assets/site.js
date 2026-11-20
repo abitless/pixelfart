@@ -90,7 +90,7 @@
 
 	/* ---------- aankondiging bovenaan: wegklikken (onthoudt alleen deze browser) ---------- */
 	const ann = $('#aankondiging');
-	if (ann) {
+	if (ann && $('[data-ann-close]', ann)) {
 		$('[data-ann-close]', ann).addEventListener('click', () => { ann.hidden = true; store.set('pf_ann', ann.dataset.ann); });
 	}
 
@@ -120,8 +120,16 @@
 		$$('.claw-menu a', nav).forEach((a) => intercept(a, +a.dataset.i));
 		const logo = $('.logo');
 		if (logo) {
-			// klik op het logo: de spetters en de wolk spelen op de volgende pagina opnieuw af
-			logo.addEventListener('click', () => { try { sessionStorage.setItem('pf_logo', 'again'); } catch (e) {} });
+			// klik op het logo: spetters en wolk meteen opnieuw; de volgende pagina speelt verder vanaf hetzelfde moment
+			logo.addEventListener('click', (e) => {
+				if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+				const h = document.documentElement;
+				h.classList.add('logo-seen');
+				void h.offsetWidth; // animaties stoppen, zodat ze hieronder opnieuw beginnen
+				h.style.setProperty('--la-start', '0s');
+				h.classList.remove('logo-seen');
+				try { sessionStorage.setItem('pf_logo', 'again:' + Date.now()); } catch (err) {}
+			});
 			intercept(logo, 0);
 		}
 		// pijltjes links/rechts bewegen de grijper (niet tijdens typen)

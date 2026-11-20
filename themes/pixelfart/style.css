@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.6.1
+Version: 1.6.2
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -59,16 +59,17 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .logo { display: flex; align-items: baseline; font-family: var(--pix); font-size: clamp(20px, 3.4vw, 34px); letter-spacing: 2px; color: var(--ink); padding-bottom: 18px; user-select: none; }
 .logo:hover { color: var(--ink); text-decoration: none; }
 /* Gifgroene spetters en een scheetwolkje achter de letters (parts/logo-art.svg, raster = 1/8 em zoals het lettertype).
- * Eén seconde na het laden komen de spetters, dan het wolkje: dat dijt uit en lost op. De spetters blijven staan.
- * Eén keer per bezoek (sessionStorage, zie header.php), opnieuw na een klik op het logo, en niet bij "minder beweging". */
+ * Kort na het laden komen de spetters, dan het wolkje: dat dijt uit en lost op. De spetters blijven staan.
+ * Eén keer per bezoek (sessionStorage, zie header.php), en niet bij "minder beweging".
+ * Een klik op het logo speelt hem meteen opnieuw (--la-start: 0s) en de volgende pagina speelt verder waar hij was (negatieve start). */
 .logo { position: relative; isolation: isolate; }
 .logo-art { position: absolute; left: -1em; top: -.75em; width: 11.75em; height: 2.75em; z-index: -1; pointer-events: none; overflow: visible; }
 .logo-art path { fill: #9dff2e; }
 .logo-art .la-dark { fill: #3d8a12; }
 .logo-art .la-gas { opacity: .38; }
 .la-splat, .la-cloud { transform-box: fill-box; transform-origin: center; }
-.js .la-splat { animation: la-pop .36s steps(3, jump-start) both; animation-delay: calc(1s + var(--i) * .16s); }
-.js .la-cloud { transform-origin: 35% 85%; animation: la-gas 3.4s linear both; animation-delay: 1.95s; }
+.js .la-splat { animation: la-pop .36s steps(3, jump-start) both; animation-delay: calc(var(--la-start, .4s) + var(--i) * .16s); }
+.js .la-cloud { transform-origin: 35% 85%; animation: la-gas 3.4s linear both; animation-delay: calc(var(--la-start, .4s) + .95s); }
 /* de wolk komt op, dijt uit en lost langzaam op; de spetters blijven staan */
 @keyframes la-gas {
 	from { opacity: 0; transform: scale(.3); animation-timing-function: steps(5, jump-start); }

@@ -9,7 +9,7 @@
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#000000">
-<script>document.documentElement.classList.replace('no-js','js');try{sessionStorage.getItem('pf_logo')==='1'?document.documentElement.classList.add('logo-seen'):sessionStorage.setItem('pf_logo','1')}catch(e){}</script>
+<script>(function(h){h.classList.replace('no-js','js');try{var v=sessionStorage.getItem('pf_logo')||'',t=Date.now()-(+v.split(':')[1]||0);if(v==='1'||(v&&t>6e3))h.classList.add('logo-seen');else if(v)h.style.setProperty('--la-start',-t/1e3+'s');sessionStorage.setItem('pf_logo','1')}catch(e){}})(document.documentElement)</script>
 <?php wp_head(); ?>
 </head>
 <body <?php body_class(); ?>>
@@ -41,6 +41,7 @@
 	</header>
 	<?php $pf_ann = class_exists( 'PF_Announcements' ) ? PF_Announcements::current() : null; ?>
 	<?php if ( $pf_ann ) : ?>
+		<?php $pf_ann_vast = PF_Announcements::important( $pf_ann ); // belangrijke mededeling: niet weg te klikken ?>
 		<aside class="announce" id="aankondiging" data-ann="<?php echo (int) $pf_ann->ID; ?>" aria-label="Aankondiging">
 			<div class="announce-box">
 				<span class="announce-icon" aria-hidden="true"><?php echo pf_icon( 'megaphone', 3 ); // phpcs:ignore ?></span>
@@ -48,10 +49,13 @@
 					<strong class="announce-title"><?php echo esc_html( get_the_title( $pf_ann ) ); ?></strong>
 					<?php echo PF_Announcements::html( $pf_ann ); // phpcs:ignore -- gefilterd met wp_kses ?>
 				</div>
-				<button type="button" class="announce-close js-only" data-ann-close aria-label="Aankondiging sluiten">×</button>
+				<?php if ( ! $pf_ann_vast ) : ?>
+					<button type="button" class="announce-close js-only" data-ann-close aria-label="Aankondiging sluiten">×</button>
+				<?php endif; ?>
 			</div>
 		</aside>
-		<?php // Weggeklikt? Dan meteen verbergen, zonder eerst te knipperen. Alleen deze browser onthoudt het. ?>
-		<script>try{if(localStorage.getItem('pf_ann')==='<?php echo (int) $pf_ann->ID; ?>')document.getElementById('aankondiging').hidden=true}catch(e){}</script>
+		<?php if ( ! $pf_ann_vast ) : // Weggeklikt? Dan meteen verbergen, zonder eerst te knipperen. Alleen deze browser onthoudt het. ?>
+			<script>try{if(localStorage.getItem('pf_ann')==='<?php echo (int) $pf_ann->ID; ?>')document.getElementById('aankondiging').hidden=true}catch(e){}</script>
+		<?php endif; ?>
 	<?php endif; ?>
 	<main class="site-main" id="main">
