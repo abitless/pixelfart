@@ -16,6 +16,7 @@ class PF_Donations_Admin {
 		add_action( 'admin_init', [ __CLASS__, 'settings' ] );
 		add_action( 'admin_post_pf_donation', [ __CLASS__, 'action' ] );
 		add_action( 'admin_post_pf_wall_grow', [ __CLASS__, 'grow' ] );
+		add_action( 'admin_post_pf_delete_tests', [ __CLASS__, 'delete_tests' ] );
 		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'assets' ] );
 	}
 
@@ -101,7 +102,8 @@ class PF_Donations_Admin {
 				case 'ok_drawing': // tekening en letters wel, boodschap niet
 					$wpdb->update( PF_Donations::table(), [ 'review' => 'approved' ] + ( '' !== $row['message'] ? [ 'msg_status' => 'hidden' ] : [] ), [ 'id' => $id ] );
 					break;
-				case 'deny': // niet op de muur: pixels verborgen, boodschap geweigerd
+				case 'deny': // niet op de muur: de pixels zijn meteen weer te koop; tekening en boodschap blijven in het beheer
+					$wpdb->delete( PF_Donations::pixel_table(), [ 'donation_id' => $id ] );
 					$wpdb->update( PF_Donations::table(), [ 'review' => 'rejected', 'hidden' => 1 ] + ( '' !== $row['message'] ? [ 'msg_status' => 'hidden' ] : [] ), [ 'id' => $id ] );
 					break;
 				case 'approve':
@@ -113,8 +115,13 @@ class PF_Donations_Admin {
 				case 'hide':
 					$wpdb->update( PF_Donations::table(), [ 'hidden' => 1 ], [ 'id' => $id ] );
 					break;
-				case 'show': // weer tonen = ook goedgekeurd
-					$wpdb->update( PF_Donations::table(), [ 'hidden' => 0 ] + ( 'pending' === $row['review'] || 'rejected' === $row['review'] ? [ 'review' => 'approved' ] : [] ), [ 'id' => $id ] );
+				case 'show': // alleen voor verborgen pixels die nog op de muur staan (niet na afwijzen of weghalen)
+					if ( 'rejected' !== $row['review'] ) {
+						$wpdb->update( PF_Donations::table(), [ 'hidden' => 0 ], [ 'id' => $id ] );
+					}
+					break;
+				case 'delete': // testbetaling helemaal weg (delete_test weigert echte donaties)
+					$msg = PF_Donations::delete_test( $id ) ? 'deleted' : 'notest';
 					break;
 				case 'free':
 					$wpdb->delete( PF_Donations::pixel_table(), [ 'donation_id' => $id ] );
@@ -131,6 +138,15 @@ class PF_Donations_Admin {
 		}
 		do_action( 'litespeed_purge', 'pf_wall' );
 		wp_safe_redirect( add_query_arg( 'pf_msg', $msg, wp_get_referer() ?: self::url() ) );
+		exit;
+	}
+
+	public static function delete_tests() {
+		if ( ! current_user_can( self::CAP ) || ! check_admin_referer( 'pf_delete_tests' ) ) {
+			wp_die( 'Geen toegang.' );
+		}
+		$n = PF_Donations::delete_all_tests();
+		wp_safe_redirect( self::url( [ 'pf_msg' => 'tests', 'pf_n' => $n ] ) );
 		exit;
 	}
 
@@ -156,10 +172,13 @@ class PF_Donations_Admin {
 			'stopped'  => 'De maandelijkse donatie is gestopt. Het e-mailadres is gewist.',
 			'stopfail' => 'Stoppen bij Mollie lukte niet. Probeer het nog eens of stop hem in het Mollie-dashboard.',
 			'grown'    => 'Er zijn rijen bijgekomen bovenaan de muur.',
+			'deleted'  => 'De testbetaling en de pixels ervan zijn weg.',
+			'notest'   => 'Dit is geen testbetaling: die verwijderen we niet.',
+			'tests'    => sprintf( '%d testbetalingen verwijderd, met hun pixels.', absint( $_GET['pf_n'] ?? 0 ) ), // phpcs:ignore
 		];
 		$m = sanitize_key( $_GET['pf_msg'] ?? '' ); // phpcs:ignore
 		if ( isset( $notes[ $m ] ) ) {
-			printf( '<div class="notice notice-%s is-dismissible"><p>%s</p></div>', 'stopfail' === $m ? 'error' : 'success', esc_html( $notes[ $m ] ) );
+			printf( '<div class="notice notice-%s is-dismissible"><p>%s</p></div>', in_array( $m, [ 'stopfail', 'notest' ], true ) ? 'error' : 'success', esc_html( $notes[ $m ] ) );
 		}
 		echo '<nav class="nav-tab-wrapper">';
 		foreach ( $tabs as $k => $label ) {
@@ -202,6 +221,17 @@ class PF_Donations_Admin {
 		}
 		echo '</div><p class="description">Bedragen zijn wat donateurs betaalden, vóór de kosten van Mollie. Voor je boekhouding: het Mollie-dashboard heeft de officiële overzichten.</p>';
 
+		$tests = (int) $wpdb->get_var( "SELECT COUNT(*) FROM $t WHERE test = 1 AND parent_id = 0" ); // phpcs:ignore
+		if ( $tests ) {
+			printf(
+				'<div class="notice notice-warning inline" style="margin:0 0 20px"><p><strong>%d %s.</strong> Na het overzetten naar productie haal je ze hier in één keer weg, met hun pixels. Echte betalingen blijven staan.</p><form method="post" action="%s" style="margin:0 0 10px" onsubmit="return confirm(\'Alle testbetalingen en hun pixels definitief verwijderen?\')">%s<input type="hidden" name="action" value="pf_delete_tests"><button class="button">Alle testbetalingen verwijderen</button></form></div>',
+				$tests,
+				1 === $tests ? 'testbetaling' : 'testbetalingen',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				wp_nonce_field( 'pf_delete_tests', '_wpnonce', true, false ) // phpcs:ignore
+			);
+		}
+
 		$wait = $wpdb->get_results( "SELECT * FROM $t WHERE status = 'paid' AND ( msg_status = 'pending' OR review = 'pending' ) ORDER BY id DESC", ARRAY_A ); // phpcs:ignore
 		echo '<h2>Wacht op goedkeuring</h2>';
 		if ( ! $wait ) {
@@ -221,6 +251,7 @@ class PF_Donations_Admin {
 			'pixels'   => "kind = 'pixels' AND status = 'paid'",
 			'maand'    => 'recurring = 1 AND parent_id = 0',
 			'betaald'  => "status = 'paid'",
+			'test'     => 'test = 1',
 		];
 		$where  = $wheres[ $filter ] ?? $wheres[''];
 		$page   = max( 1, absint( $_GET['paged'] ?? 1 ) ); // phpcs:ignore
@@ -229,7 +260,7 @@ class PF_Donations_Admin {
 		$rows   = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $t WHERE $where ORDER BY id DESC LIMIT %d OFFSET %d", $per, ( $page - 1 ) * $per ), ARRAY_A ); // phpcs:ignore
 
 		echo '<ul class="subsubsub" style="float:none;margin:12px 0">';
-		$labels = [ '' => 'Alles', 'betaald' => 'Betaald', 'pixels' => 'Pixels', 'maand' => 'Maandelijks' ];
+		$labels = [ '' => 'Alles', 'betaald' => 'Betaald', 'pixels' => 'Pixels', 'maand' => 'Maandelijks', 'test' => 'Test' ];
 		$i      = 0;
 		foreach ( $labels as $k => $l ) {
 			printf( '<li>%s<a href="%s"%s>%s</a></li>', $i++ ? ' | ' : '', esc_url( self::url( [ 'tab' => 'lijst', 'soort' => $k ] ) ), $k === $filter ? ' class="current"' : '', esc_html( $l ) );
@@ -248,6 +279,9 @@ class PF_Donations_Admin {
 
 	private static function table_rows( array $rows ) {
 		$status = [ 'paid' => 'Betaald', 'open' => 'Open', 'failed' => 'Mislukt', 'canceled' => 'Geannuleerd', 'expired' => 'Verlopen' ];
+		global $wpdb;
+		$ids    = array_map( fn( $r ) => (int) $r['id'], $rows );
+		$onwall = $ids ? array_map( 'intval', array_column( $wpdb->get_results( 'SELECT donation_id, COUNT(*) n FROM ' . PF_Donations::pixel_table() . ' WHERE donation_id IN (' . implode( ',', $ids ) . ') GROUP BY donation_id', ARRAY_A ), 'n', 'donation_id' ) ) : []; // phpcs:ignore
 		echo '<table class="widefat striped"><thead><tr><th>Datum</th><th>Wat</th><th>Bedrag</th><th>Status</th><th>Tekening</th><th>Naam</th><th>Boodschap</th><th>Acties</th></tr></thead><tbody>';
 		foreach ( $rows as $r ) {
 			$id   = (int) $r['id'];
@@ -257,6 +291,12 @@ class PF_Donations_Admin {
 			}
 			if ( $r['cover'] ) {
 				$what .= ' · incl. kosten';
+			}
+			if ( $r['test'] ) {
+				$what .= ' · <strong title="Nepbetaling of Mollie-testomgeving: er is niet echt betaald.">test</strong>';
+			}
+			if ( $r['recurring'] && ! $r['parent_id'] && '' !== $r['email'] ) {
+				$what .= sprintf( '<br><a href="mailto:%1$s">%1$s</a>', esc_attr( $r['email'] ) );
 			}
 			if ( 'pending' === $r['review'] && 'paid' === $r['status'] ) {
 				$what .= ' · <strong>wacht op goedkeuring</strong>';
@@ -269,19 +309,21 @@ class PF_Donations_Admin {
 				$what .= ' · <strong title="Betaald na het verlopen van de reservering; een deel van de pixels was al verkocht.">botsing</strong>';
 			}
 			$acts = [];
+			$on   = ! empty( $onwall[ $id ] ); // staan de pixels nog op de muur (niet afgewezen of weggehaald)?
 			if ( 'pending' === $r['review'] && 'paid' === $r['status'] ) {
 				$acts[] = sprintf( '<a href="%s" style="font-weight:600">Goedkeuren</a>', esc_url( self::action_url( 'ok_all', $id ) ) );
 				if ( '' !== $r['message'] ) {
 					$acts[] = sprintf( '<a href="%s">Tekening wel, boodschap niet</a>', esc_url( self::action_url( 'ok_drawing', $id ) ) );
 				}
 				$acts[] = sprintf( '<a href="%s" style="color:#b32d2e">Afwijzen</a>', esc_url( self::action_url( 'deny', $id ) ) );
-			} elseif ( 'pending' === $r['msg_status'] || 'hidden' === $r['msg_status'] ) {
+			} elseif ( $on && ! $r['hidden'] && '' !== $r['message'] && in_array( $r['msg_status'], [ 'pending', 'hidden' ], true ) ) {
+				// Een boodschap is alleen te zien via de pixels: zonder pixels op de muur heeft tonen geen zin.
 				$acts[] = sprintf( '<a href="%s">Boodschap tonen</a>', esc_url( self::action_url( 'approve', $id ) ) );
 			}
-			if ( 'pending' !== $r['review'] && ( 'pending' === $r['msg_status'] || 'approved' === $r['msg_status'] ) ) {
+			if ( $on && 'pending' !== $r['review'] && in_array( $r['msg_status'], [ 'pending', 'approved' ], true ) ) {
 				$acts[] = sprintf( '<a href="%s">Boodschap weigeren</a>', esc_url( self::action_url( 'reject', $id ) ) );
 			}
-			if ( 'pixels' === $r['kind'] && 'paid' === $r['status'] && 'pending' !== $r['review'] ) {
+			if ( $on && 'pixels' === $r['kind'] && 'paid' === $r['status'] && 'pending' !== $r['review'] ) {
 				$acts[] = $r['hidden']
 					? sprintf( '<a href="%s">Pixels weer tonen</a>', esc_url( self::action_url( 'show', $id ) ) )
 					: sprintf( '<a href="%s">Pixels verbergen</a>', esc_url( self::action_url( 'hide', $id ) ) );
@@ -290,6 +332,9 @@ class PF_Donations_Admin {
 			if ( 'open' === $r['status'] && $r['mollie_id'] ) {
 				$acts[] = sprintf( '<a href="%s">Status ophalen</a>', esc_url( self::action_url( 'sync', $id ) ) );
 			}
+			if ( $r['test'] && ! $r['parent_id'] ) {
+				$acts[] = sprintf( '<a href="%s" onclick="return confirm(\'Deze testbetaling en de pixels ervan definitief verwijderen?\')" style="color:#b32d2e">Verwijderen</a>', esc_url( self::action_url( 'delete', $id ) ) );
+			}
 			if ( 'active' === $r['sub_status'] ) {
 				$acts[] = sprintf( '<a href="%s" onclick="return confirm(\'Deze maandelijkse donatie stoppen?\')" style="color:#b32d2e">Stop maandelijks</a>', esc_url( self::action_url( 'stop', $id ) ) );
 			}
@@ -297,7 +342,7 @@ class PF_Donations_Admin {
 			printf(
 				'<tr><td>%s</td><td>%s</td><td>%s</td><td class="st-%s">%s</td><td>%s</td><td><code>%s</code></td><td class="msg">%s</td><td>%s</td></tr>',
 				esc_html( wp_date( 'j M Y H:i', strtotime( ( $r['paid'] ?: $r['created'] ) . ' UTC' ) ) ),
-				wp_kses( $what, [ 'strong' => [ 'title' => true ] ] ),
+				wp_kses( $what, [ 'strong' => [ 'title' => true ], 'br' => [], 'a' => [ 'href' => true ] ] ),
 				esc_html( PF_Donations::euro( (int) $r['amount'] ) ),
 				esc_attr( $r['status'] ),
 				esc_html( $status[ $r['status'] ] ?? $r['status'] ),

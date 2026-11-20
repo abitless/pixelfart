@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 class PF_Donations {
 
-	const DB_VERSION  = '3';
+	const DB_VERSION  = '4';
 	const AMOUNTS     = [ 100, 200, 500, 1000 ]; // centen
 	const PIXEL_PRICE = 100;                     // centen per pf-pixel
 	const PIXEL_COLS  = 48;                      // breedte van de muur in pf-pixels (480 schermpixels)
@@ -88,6 +88,7 @@ class PF_Donations {
 			conflict tinyint(1) NOT NULL DEFAULT 0,
 			cover tinyint(1) NOT NULL DEFAULT 0,
 			review varchar(10) NOT NULL DEFAULT '',
+			test tinyint(1) NOT NULL DEFAULT 0,
 			created datetime NOT NULL,
 			paid datetime NULL,
 			PRIMARY KEY  (id),
@@ -107,6 +108,14 @@ class PF_Donations {
 		add_option( 'pf_wall_rows', self::START_ROWS );
 		// Van vóór versie 3: e-mailadressen van maanddonaties waarvan de eerste betaling niet lukte, alsnog wissen.
 		$wpdb->query( 'UPDATE ' . self::table() . " SET email = '' WHERE recurring = 1 AND parent_id = 0 AND status IN ('failed','canceled','expired')" ); // phpcs:ignore
+		// Versie 4: testbetalingen herkennen. Lokaal is alles test; elders alleen nepbetalingen zonder Mollie-id.
+		if ( in_array( wp_get_environment_type(), [ 'local', 'development' ], true ) ) {
+			$wpdb->query( 'UPDATE ' . self::table() . ' SET test = 1' ); // phpcs:ignore
+		} else {
+			$wpdb->query( 'UPDATE ' . self::table() . " SET test = 1 WHERE mollie_id = '' AND parent_id = 0" ); // phpcs:ignore
+		}
+		// Versie 4: afgewezen tekeningen geven hun pixels vrij (de tekening zelf blijft in pixel_data, voor het beheer).
+		$wpdb->query( 'DELETE p FROM ' . self::pixel_table() . ' p JOIN ' . self::table() . " d ON d.id = p.donation_id WHERE d.review = 'rejected'" ); // phpcs:ignore
 		update_option( 'pf_donations_db', self::DB_VERSION, true );
 	}
 
@@ -409,7 +418,8 @@ class PF_Donations {
 		global $wpdb;
 		self::release_stale();
 		$token = bin2hex( random_bytes( 16 ) );
-		$wpdb->insert( self::table(), $d + [ 'token' => $token, 'status' => 'open', 'created' => current_time( 'mysql', true ) ] );
+		$test  = 'test' === self::mode() || PF_Mollie::is_test(); // nepbetaling of Mollies testomgeving
+		$wpdb->insert( self::table(), $d + [ 'token' => $token, 'status' => 'open', 'test' => (int) $test, 'created' => current_time( 'mysql', true ) ] );
 		$id = (int) $wpdb->insert_id;
 		if ( ! $id ) {
 			return new WP_Error( 'pf_fail', 'Opslaan mislukt. Probeer het nog eens.', [ 'status' => 500 ] );
@@ -692,6 +702,7 @@ class PF_Donations {
 				'amount'    => (int) round( (float) $p['amount']['value'] * 100 ),
 				'status'    => $status,
 				'mollie_id' => $id,
+				'test'      => (int) $parent['test'],
 				'created'   => current_time( 'mysql', true ),
 				'paid'      => 'paid' === $status ? current_time( 'mysql', true ) : null,
 			] );
@@ -727,6 +738,41 @@ class PF_Donations {
 		}
 		self::update( (int) $row['id'], [ 'sub_status' => 'canceled', 'email' => '', 'stop_hash' => '' ] );
 		return true;
+	}
+
+	/**
+	 * Een testbetaling helemaal weghalen: de donatie, de afschrijvingen eronder en de pixels.
+	 * Alleen voor test = 1, zodat er nooit per ongeluk een echte donatie verdwijnt.
+	 */
+	public static function delete_test( int $id ): bool {
+		global $wpdb;
+		$row = self::row( 'id', $id );
+		if ( ! $row || ! (int) $row['test'] ) {
+			return false;
+		}
+		if ( 'active' === $row['sub_status'] ) {
+			self::stop( $row ); // Mollie-testabonnement niet laten doorlopen
+		}
+		$ids = array_merge( [ $id ], array_map( 'intval', $wpdb->get_col( $wpdb->prepare( 'SELECT id FROM ' . self::table() . ' WHERE parent_id = %d', $id ) ) ) ); // phpcs:ignore
+		$in  = implode( ',', $ids );
+		$wpdb->query( 'DELETE FROM ' . self::pixel_table() . " WHERE donation_id IN ($in)" ); // phpcs:ignore -- alleen gehele getallen
+		$wpdb->query( 'DELETE FROM ' . self::table() . " WHERE id IN ($in)" ); // phpcs:ignore
+		return true;
+	}
+
+	/** Alle testbetalingen weghalen (bijvoorbeeld na het overzetten van de database naar productie). */
+	public static function delete_all_tests(): int {
+		global $wpdb;
+		$n = 0;
+		foreach ( $wpdb->get_col( 'SELECT id FROM ' . self::table() . ' WHERE test = 1 AND parent_id = 0' ) as $id ) { // phpcs:ignore
+			$n += self::delete_test( (int) $id ) ? 1 : 0;
+		}
+		$wpdb->query( 'DELETE FROM ' . self::table() . ' WHERE test = 1' ); // losse testafschrijvingen zonder ouder // phpcs:ignore
+		if ( ! (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . self::pixel_table() ) ) { // phpcs:ignore
+			update_option( 'pf_wall_rows', self::START_ROWS ); // lege muur: weer de beginmaat
+		}
+		do_action( 'litespeed_purge', 'pf_wall' );
+		return $n;
 	}
 
 	/* ---------- de muur ---------- */
