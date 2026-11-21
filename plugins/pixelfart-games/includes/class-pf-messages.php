@@ -104,17 +104,20 @@ class PF_Messages {
 		wp_mail(
 			$to,
 			'[Pixelfart] ' . $title,
-			$text . "\n\n—\n" . ( $email ? "E-mail: $email\n" : '' ) . admin_url( 'post.php?post=' . $id . '&action=edit' ),
+			$text . "\n\n—\nNaam: " . ( $name ?: 'anoniem' ) . "\n" . ( $email ? "E-mail: $email\n" : '' ) . admin_url( 'post.php?post=' . $id . '&action=edit' ),
 			$headers
 		);
 		return [ 'ok' => true ];
 	}
 
 	public static function columns( array $c ): array {
-		return [ 'cb' => $c['cb'], 'title' => 'Bericht', 'pf_email' => 'E-mail', 'date' => $c['date'] ];
+		return [ 'cb' => $c['cb'], 'title' => 'Bericht', 'pf_name' => 'Naam', 'pf_email' => 'E-mail', 'date' => $c['date'] ];
 	}
 
 	public static function column( string $col, int $id ) {
+		if ( 'pf_name' === $col ) {
+			echo esc_html( get_post_meta( $id, '_pf_name', true ) ?: 'anoniem' );
+		}
 		if ( 'pf_email' === $col ) {
 			$e = get_post_meta( $id, '_pf_email', true );
 			echo $e ? '<a href="mailto:' . esc_attr( $e ) . '">' . esc_html( $e ) . '</a>' : '–';
