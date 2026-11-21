@@ -31,16 +31,18 @@ Topscores staan in de tabel `wp_pf_scores` (alleen 3 letters, score, datum; per 
 - **ALTCHA** (MIT, zelf gehost, zonder cookies) op idee-, contact-, reactie- en topscoreformulier; plus honeypot,
   linkfilter, WordPress-woordenlijst en limiet per bezoeker (gehasht IP-adres, alleen kortdurend in de cache).
 - Bij reacties wordt geen IP-adres of browser opgeslagen.
+- **E-mail via SMTP** met de gegevens in `wp-config.php` (`PIXELFART_SMTP_HOST`, `_PORT`, `_USER`, `_PASSWORD`,
+  `_FROM`, `_FROM_NAME`), dus nooit een wachtwoord in de database. Testen: `wp pixelfart mailtest jij@example.nl`.
 
 ## Live zetten op CyberPanel / OpenLiteSpeed
 
 1. Maak in CyberPanel het subdomein `play.pixelfart.nl` aan, met SSL.
-2. Laat de documentroot van dat subdomein naar de gamemap wijzen. De makkelijkste manier is een symlink:
+2. Geef het subdomein een eigen documentroot buiten WordPress (bijv. `/home/pixelfart.nl/play`) en laat WordPress
+   de games daar neerzetten, in `wp-config.php`:
    ```
-   mv /home/pixelfart.nl/play.pixelfart.nl /home/pixelfart.nl/play.pixelfart.nl-leeg   # lege map van CyberPanel opzij
-   ln -s /home/pixelfart.nl/public_html/wp-content/uploads/pixelfart-games /home/pixelfart.nl/play.pixelfart.nl
+   define( 'PIXELFART_GAMES_DIR', '/home/pixelfart.nl/play/' );
    ```
-   (paden kunnen per server verschillen). Zet in de vHost van het subdomein *Follow Symbolic Link* aan.
+   De plugin zet in die map een `.htaccess` die PHP en verborgen bestanden weigert.
 3. Zet PHP uit voor het subdomein (de map bevat alleen HTML, JSON, PNG, CSS, JS en fonts). In de vHost-configuratie
    van het subdomein kun je daarnaast deze header toevoegen (context `/`, *Header Operations*):
    ```
@@ -63,6 +65,7 @@ wp pixelfart import <map>        games importeren uit */game.json + game.html + 
 wp pixelfart update <bestand>    nieuwe versie van een game zetten (code/versie/changelog uit het manifest)
 wp pixelfart reprocess           alle games opnieuw verwerken (fonts, CSP, SDK) en hulpbestanden bijwerken
 wp pixelfart rebuild-json        alle game.json opnieuw schrijven
+wp pixelfart mailtest <adres>    testmail sturen (controleert SMTP)
 ```
 
 ## Gameformat
