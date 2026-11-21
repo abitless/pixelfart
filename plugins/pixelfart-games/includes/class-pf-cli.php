@@ -8,6 +8,31 @@ defined( 'ABSPATH' ) || exit;
 class PF_CLI {
 
 	/**
+	 * Stuur een testmail, om de SMTP-instellingen te controleren.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <to>
+	 * : E-mailadres.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp pixelfart mailtest jij@example.nl
+	 */
+	public function mailtest( $args ) {
+		$error = '';
+		add_action( 'wp_mail_failed', function ( $e ) use ( &$error ) {
+			$error = $e->get_error_message();
+		} );
+		WP_CLI::log( PF_Mail::enabled() ? 'Via SMTP: ' . PIXELFART_SMTP_HOST : 'Geen SMTP ingesteld: via PHP mail().' );
+		if ( wp_mail( $args[0], 'Pixelfart testmail', "Hoi!\n\nDeze mail komt van " . home_url() . ". Komt hij aan, dan werkt e-mail.\n" ) ) {
+			WP_CLI::success( 'Verstuurd naar ' . $args[0] . '.' );
+		} else {
+			WP_CLI::error( 'Niet verstuurd: ' . $error );
+		}
+	}
+
+	/**
 	 * Importeer games uit een map met per game een submap (game.json + game.html + thumb.png).
 	 * Bestaande games (zelfde code) worden bijgewerkt.
 	 *
