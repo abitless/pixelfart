@@ -7,6 +7,8 @@
  *
  * - Adres van de games: constante PIXELFART_GAMES_URL of optie pf_games_url (Instellingen › Pixelfart).
  *   Leeg = de uploadsmap op het eigen domein (werkt, maar zonder afscherming).
+ * - Map van de games: constante PIXELFART_GAMES_DIR, bijv. de documentroot van de game-host buiten de webroot
+ *   van WordPress. Leeg = wp-content/uploads/pixelfart-games/.
  * - Elke game krijgt bij installatie een Content-Security-Policy: niets laden of versturen buiten de eigen origin
  *   (geen trackers, geen externe fonts, geen formulieren).
  * - .htaccess (als de game-host naar dezelfde map wijst, zoals lokaal): op de game-host alleen de game-bestanden,
@@ -107,6 +109,7 @@ class PF_Hosting {
 		$capture = str_replace( '__SITE_ORIGIN__', esc_js( self::site_origin() ), $capture );
 		file_put_contents( $tools . 'capture.html', $capture );
 		do_action( 'pixelfart_deploy', PF_Games::base_dir() );
+		self::write_dir_rules();
 
 		self::write_rules();
 		update_option( 'pf_hosting_version', PIXELFART_VERSION . '|' . self::base_url(), false );
@@ -115,6 +118,17 @@ class PF_Hosting {
 	public static function site_origin(): string {
 		$p = wp_parse_url( home_url() );
 		return $p['scheme'] . '://' . $p['host'] . ( isset( $p['port'] ) ? ':' . $p['port'] : '' );
+	}
+
+	/** .htaccess in de gamemap zelf: geen PHP, geen mapoverzicht. Ook als de game-host een eigen documentroot heeft. */
+	public static function write_dir_rules() {
+		$file = PF_Games::base_dir() . '.htaccess';
+		$rules = "# " . self::MARKER . ": alleen statische bestanden.\n"
+			. "Options -Indexes -ExecCGI\n"
+			. "<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteRule \\.(php\\d?|phtml|phar|pl|py|cgi|sh)$ - [F,L]\nRewriteRule (^|/)\\. - [F,L]\n</IfModule>\n";
+		if ( ! is_file( $file ) || file_get_contents( $file ) !== $rules ) {
+			file_put_contents( $file, $rules );
+		}
 	}
 
 	/** Regels bovenaan de .htaccess van WordPress (vóór de WordPress-regels, anders komen die eerst). */

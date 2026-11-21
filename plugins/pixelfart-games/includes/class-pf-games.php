@@ -61,7 +61,11 @@ class PF_Games {
 
 	/* ---------- paden ---------- */
 
+	/** Map met de games. Constante PIXELFART_GAMES_DIR (bijv. de documentroot van play.pixelfart.nl), anders in uploads. */
 	public static function base_dir(): string {
+		if ( defined( 'PIXELFART_GAMES_DIR' ) && PIXELFART_GAMES_DIR ) {
+			return trailingslashit( PIXELFART_GAMES_DIR );
+		}
 		return trailingslashit( wp_upload_dir( null, false )['basedir'] ) . 'pixelfart-games/';
 	}
 
