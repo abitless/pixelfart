@@ -45,6 +45,8 @@ class PF_Mail {
 		$mail->Username   = $user;
 		$mail->Password   = defined( 'PIXELFART_SMTP_PASSWORD' ) ? (string) PIXELFART_SMTP_PASSWORD : '';
 		$mail->Timeout    = 15;
+		// EHLO en Message-ID met de eigen domeinnaam, niet de servernaam ("host"): telt mee bij spamfilters.
+		$mail->Hostname   = (string) wp_parse_url( home_url(), PHP_URL_HOST );
 		// Certificaat altijd controleren: geen SMTPOptions die verify_peer uitzetten.
 		if ( ! $mail->Sender ) {
 			$mail->Sender = self::from( $mail->From ); // envelope-afzender gelijk aan From, voor SPF
