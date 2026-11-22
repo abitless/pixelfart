@@ -14,6 +14,7 @@ class PF_Rest {
 
 	public static function init() {
 		add_action( 'rest_api_init', [ __CLASS__, 'routes' ] );
+		add_filter( 'rest_post_dispatch', [ __CLASS__, 'no_cache' ], 10, 3 );
 		// Gameversie bij reacties in WP-admin (Reacties).
 		add_filter( 'manage_edit-comments_columns', fn( $c ) => array_slice( $c, 0, 3, true ) + [ 'pf_version' => 'Gameversie' ] + $c );
 		add_action( 'manage_comments_custom_column', function ( $col, $cid ) {
@@ -23,8 +24,22 @@ class PF_Rest {
 		}, 10, 2 );
 	}
 
+	/**
+	 * Onze endpoints zijn live gegevens (pixelmuur, betaalstatus, topscores): nooit in de paginacache.
+	 * LiteSpeed Cache bewaart REST-antwoorden anders ook, en negeert daarbij Cache-Control: no-store.
+	 */
+	public static function no_cache( $res, $server, $req ) {
+		if ( str_starts_with( (string) $req->get_route(), '/' . self::NS . '/' ) ) {
+			do_action( 'litespeed_control_set_nocache', 'pixelfart: live gegevens' );
+			if ( $res instanceof WP_REST_Response && empty( $res->get_headers()['Cache-Control'] ) ) {
+				$res->header( 'Cache-Control', 'no-store' );
+			}
+		}
+		return $res;
+	}
+
 	public static function routes() {
-		$id = [ 'id' => [ 'validate_callback' => fn( $v ) => is_numeric( $v ) ] ];
+		$id =[ 'id' => [ 'validate_callback' => fn( $v ) => is_numeric( $v ) ] ];
 
 		register_rest_route( self::NS, '/games/(?P<id>\d+)/play', [
 			'methods'             => 'POST',
