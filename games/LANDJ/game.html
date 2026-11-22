@@ -1,5 +1,6 @@
 <!doctype html>
 <!-- Pixelfart · Landjepik · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
+<!-- Pixelfart · Landjepik · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
 <html lang="nl">
 <head>
 <meta charset="utf-8">
@@ -11,10 +12,16 @@
 	"code": "LANDJ",
 	"version": "1.0.0",
 	"description": "Verover land en verdedig wat je hebt! Stuur je soldaten slim rond en laat de dobbelstenen beslissen. Tegen de computer of met z'n tweeën.",
-	"categories": ["Strategie", "2 spelers", "Rustig"],
-	"age": "8+",
+	"categories": [
+		"2 spelers",
+		"Strategie"
+	],
+	"age": "ALL",
 	"author": "NAT",
-	"score": { "order": "desc", "label": "punten" }
+	"score": {
+		"order": "desc",
+		"label": "punten"
+	}
 }
 </script>
 <style>
@@ -26,6 +33,57 @@
 <body>
 <canvas id="game" width="320" height="180" aria-label="Landjepik, een strategiespel om land te veroveren"></canvas>
 <script>
+// Pixelfart-platformbrug: op pixelfart.nl de echte SDK, los geopend deze eenvoudige vervanging.
+const PF = window.Pixelfart || (() => {
+  const onP = [], onR = [];
+  document.addEventListener('visibilitychange', () => (document.hidden ? onP : onR).forEach((f) => f()));
+  const note = (t) => { // testmelding bovenin; alleen los geopend, nooit op de site
+    let n = document.getElementById('pf-test');
+    if (!n) {
+      n = document.createElement('div'); n.id = 'pf-test'; n.title = 'Klik om te verbergen';
+      n.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;padding:4px 8px;background:#ffcf4a;color:#000;'
+        + 'font:12px/1.4 monospace;text-align:center;cursor:pointer';
+      n.onclick = () => n.remove(); document.body.appendChild(n);
+    }
+    n.textContent = t;
+  };
+  const intro = () => note('TESTVERSIE · Topscores en pixelfonts werken pas als de game op pixelfart.nl staat. '
+    + 'Klaar? Stuur dit HTML-bestand naar Pixelfart. (klik om te verbergen)');
+  if (document.body) intro(); else addEventListener('DOMContentLoaded', intro);
+  return {
+    inSite: false,
+    get paused() { return document.hidden; },
+    fit(cv, o = {}) {
+      const go = () => {
+        let s = Math.min(innerWidth / cv.width, innerHeight / cv.height);
+        if (o.mode === 'integer' && s >= 1) s = Math.floor(s);
+        cv.style.width = Math.floor(cv.width * s) + 'px'; cv.style.height = Math.floor(cv.height * s) + 'px';
+      };
+      cv.style.imageRendering = 'pixelated'; addEventListener('resize', go); go(); return go;
+    },
+    loop(update, o = {}) {
+      let last = 0, raf = 0, on = true; const gap = 1000 / (o.fps || 60) - 1;
+      const frame = (t) => {
+        raf = 0; if (!on || document.hidden) return; raf = requestAnimationFrame(frame);
+        if (last && t - last < gap) return;
+        const dt = last ? Math.min((t - last) / 1000, 0.1) : 0; last = t; update(dt); if (o.draw) o.draw();
+      };
+      const go = () => { if (!raf && on && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } };
+      onR.push(go); go();
+      return { stop() { on = false; cancelAnimationFrame(raf); raf = 0; }, start() { on = true; go(); } };
+    },
+    onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
+    fonts: () => Promise.resolve(),
+    text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
+    score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
+    back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
+    store: {
+      get(k, d) { try { const v = localStorage.getItem('pf:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+      set(k, v) { try { localStorage.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} },
+    },
+  };
+})();
+
 (() => {
 	'use strict';
 	// ---------- scherm ----------
@@ -34,7 +92,7 @@
 	const cv = document.getElementById('game');
 	const g = cv.getContext('2d');
 	g.imageSmoothingEnabled = false;
-	Pixelfart.fit(cv, { mode: 'integer' });
+	PF.fit(cv, { mode: 'integer' });
 	// Op kleine schermen (telefoon) liever zo groot mogelijk dan 1× klein.
 	function refit() {
 		const s = Math.min(innerWidth / W, innerHeight / H);
@@ -55,7 +113,7 @@
 	const F_TITLE = '16px "Press Start 2P"', F_BIG = '8px "Press Start 2P"', F_HUD = '8px Silkscreen', F_SM = '8px Tiny5';
 	function txt(s, x, y, c, f = F_HUD, al = 'left') {
 		g.font = f; g.fillStyle = c; g.textAlign = al; g.textBaseline = 'top';
-		Pixelfart.text(g, s, Math.round(x), Math.round(y));
+		PF.text(g, s, Math.round(x), Math.round(y));
 	}
 	function tw(s, f) { g.font = f; return Math.ceil(g.measureText(s).width); }
 	function makePat(color) {
@@ -69,7 +127,7 @@
 	let ac = null;
 	function audio() {
 		if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
-		if (ac && ac.state === 'suspended' && !Pixelfart.paused) ac.resume();
+		if (ac && ac.state === 'suspended' && !PF.paused) ac.resume();
 	}
 	function tone(f, d, type = 'square', v = 0.04, when = 0, slide = 0) {
 		if (!ac || SIM) return;
@@ -90,8 +148,8 @@
 		lose: () => [392, 330, 262].forEach((f, i) => tone(f, 0.14, 'triangle', 0.08, i * 0.12)),
 		err: () => tone(110, 0.12, 'square', 0.04),
 	};
-	Pixelfart.onPause(() => { if (ac) ac.suspend(); });
-	Pixelfart.onResume(() => { if (ac) ac.resume(); });
+	PF.onPause(() => { if (ac) ac.suspend(); });
+	PF.onResume(() => { if (ac) ac.resume(); });
 
 	// ---------- kansen bij dobbelen (exact uitgerekend) ----------
 	// OUT[a][d] = lijst {la, ld, p}: verliezen aanvaller/verdediger in één worp met a en d stenen.
@@ -306,7 +364,7 @@
 	let T = 0, mapDirty = true, cursorR = 0, lastInput = 'ptr', menuFocus = 0;
 	let fx = [];
 	let SIM = false, simResult = null;
-	let rec = Pixelfart.store.get('rec', [0, 0, 0]);
+	let rec = PF.store.get('rec', [0, 0, 0]);
 
 	const isAI = (p) => aiLevel[p] >= 0;
 	const own = (p) => regions.filter((r) => r.owner === p);
@@ -362,8 +420,8 @@
 			else if (w < 0) sc = land * 5 * (level + 1);
 			else sc = land * 2 * (level + 1);
 			over.score = sc;
-			if (sc > rec[level]) { rec[level] = sc; over.newRec = true; Pixelfart.store.set('rec', rec); }
-			Pixelfart.score(sc);   // één keer per potje
+			if (sc > rec[level]) { rec[level] = sc; over.newRec = true; PF.store.set('rec', rec); }
+			PF.score(sc);   // één keer per potje
 		}
 		if (w === 0 || (mode === 2 && w >= 0)) sfx.win(); else sfx.lose();
 	}
@@ -757,7 +815,7 @@
 			else if ((k === 'Enter' || k === ' ') && nav[menuFocus]) onBtn(nav[menuFocus].id);
 			else if (k === 'Escape') {
 				if (quitAsk) quitAsk = false;
-				else if (scene === 'title') Pixelfart.back();
+				else if (scene === 'title') PF.back();
 				else if (scene === 'over') onBtn('toMenu');
 				else { scene = 'title'; menuFocus = 0; }
 			}
@@ -783,7 +841,7 @@
 		else if (k === 's' || k === 'S') { if (battle && !battle.ai) retreat(); }
 		else if (k === 'Escape') { if (sel) sel = null; else { quitAsk = true; menuFocus = 1; } }
 	});
-	Pixelfart.onPause(() => { /* loop staat vanzelf stil */ });
+	PF.onPause(() => { /* loop staat vanzelf stil */ });
 
 	// ---------- update ----------
 	function update(dt) {
@@ -1127,7 +1185,7 @@
 
 	function newTitleMap() { MAP = genMap((Math.random() * 4294967296) >>> 0); regions = MAP.regions; mapDirty = true; }
 	newTitleMap();
-	Pixelfart.fonts(['Press Start 2P', 'Silkscreen', 'Tiny5']).then(() => Pixelfart.loop(update, { fps: 30, draw }));
+	PF.fonts(['Press Start 2P', 'Silkscreen', 'Tiny5']).then(() => PF.loop(update, { fps: 30, draw }));
 })();
 </script>
 </body>

@@ -1,5 +1,6 @@
 <!doctype html>
 <!-- Pixelfart · Flipperkoorts · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
+<!-- Pixelfart · Flipperkoorts · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
 <html lang="nl">
 <head>
 <meta charset="utf-8">
@@ -11,11 +12,16 @@
 	"code": "FLIPR",
 	"version": "1.1.0",
 	"description": "Een flipperkast vol kittens die met je bolletje wol willen spelen. Flipper met linker en rechter Shift en speel door tot je ballen op zijn.",
-	"categories": ["Arcade", "Retro"],
+	"categories": [
+		"Arcade",
+		"Retro"
+	],
 	"age": "ALL",
 	"author": "NAT",
-	"changelog": "Grotere kast met meeschuivende camera, kittens, meer banen en doelen, en Kittenfeest-multibal.",
-	"score": { "order": "desc", "label": "punten" }
+	"score": {
+		"order": "desc",
+		"label": "punten"
+	}
 }
 </script>
 <style>
@@ -27,6 +33,57 @@
 <body>
 <canvas id="game" width="160" height="240" aria-label="Flipperkoorts, een flipperkast met kittens"></canvas>
 <script>
+// Pixelfart-platformbrug: op pixelfart.nl de echte SDK, los geopend deze eenvoudige vervanging.
+const PF = window.Pixelfart || (() => {
+  const onP = [], onR = [];
+  document.addEventListener('visibilitychange', () => (document.hidden ? onP : onR).forEach((f) => f()));
+  const note = (t) => { // testmelding bovenin; alleen los geopend, nooit op de site
+    let n = document.getElementById('pf-test');
+    if (!n) {
+      n = document.createElement('div'); n.id = 'pf-test'; n.title = 'Klik om te verbergen';
+      n.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;padding:4px 8px;background:#ffcf4a;color:#000;'
+        + 'font:12px/1.4 monospace;text-align:center;cursor:pointer';
+      n.onclick = () => n.remove(); document.body.appendChild(n);
+    }
+    n.textContent = t;
+  };
+  const intro = () => note('TESTVERSIE · Topscores en pixelfonts werken pas als de game op pixelfart.nl staat. '
+    + 'Klaar? Stuur dit HTML-bestand naar Pixelfart. (klik om te verbergen)');
+  if (document.body) intro(); else addEventListener('DOMContentLoaded', intro);
+  return {
+    inSite: false,
+    get paused() { return document.hidden; },
+    fit(cv, o = {}) {
+      const go = () => {
+        let s = Math.min(innerWidth / cv.width, innerHeight / cv.height);
+        if (o.mode === 'integer' && s >= 1) s = Math.floor(s);
+        cv.style.width = Math.floor(cv.width * s) + 'px'; cv.style.height = Math.floor(cv.height * s) + 'px';
+      };
+      cv.style.imageRendering = 'pixelated'; addEventListener('resize', go); go(); return go;
+    },
+    loop(update, o = {}) {
+      let last = 0, raf = 0, on = true; const gap = 1000 / (o.fps || 60) - 1;
+      const frame = (t) => {
+        raf = 0; if (!on || document.hidden) return; raf = requestAnimationFrame(frame);
+        if (last && t - last < gap) return;
+        const dt = last ? Math.min((t - last) / 1000, 0.1) : 0; last = t; update(dt); if (o.draw) o.draw();
+      };
+      const go = () => { if (!raf && on && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } };
+      onR.push(go); go();
+      return { stop() { on = false; cancelAnimationFrame(raf); raf = 0; }, start() { on = true; go(); } };
+    },
+    onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
+    fonts: () => Promise.resolve(),
+    text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
+    score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
+    back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
+    store: {
+      get(k, d) { try { const v = localStorage.getItem('pf:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+      set(k, v) { try { localStorage.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} },
+    },
+  };
+})();
+
 (() => {
 	'use strict';
 	const W = 160, H = 240;          // scherm
@@ -35,7 +92,7 @@
 	const cv = document.getElementById('game');
 	const g = cv.getContext('2d');
 	g.imageSmoothingEnabled = false;
-	Pixelfart.fit(cv, { mode: 'integer' });
+	PF.fit(cv, { mode: 'integer' });
 
 	// ---------- palet: schattig, pastel op paars ----------
 	const C = {
@@ -100,7 +157,7 @@
 	let charge = 0, drainT = 0, overT = 0, sentScore = false, t = 0, camY = TH - VIEW;
 	let msg = '', msgT = 0, newRecord = false;
 	let basketAnim = 0, bowlAnim = 0;
-	let top5 = Pixelfart.store.get('top5', []);
+	let top5 = PF.store.get('top5', []);
 	const REPLAYS = [150000, 400000, 800000, 1500000, 3000000];
 
 	function reset() {
@@ -133,7 +190,7 @@
 	const laneBall = () => balls.find((b) => b.st === 'lane');
 
 	addEventListener('keydown', (e) => {
-		if (e.code === 'Escape') { Pixelfart.back(); return; }
+		if (e.code === 'Escape') { PF.back(); return; }
 		if ([...KEY_L, ...KEY_R, ...KEY_P, 'ArrowUp'].includes(e.code)) e.preventDefault();
 		if (e.repeat) return;
 		touchMode = false; audio(); keys.add(e.code);
@@ -171,8 +228,8 @@
 		launchSound(charge); charge = 0;
 	}
 
-	Pixelfart.onPause(() => { keys.clear(); pointers.clear(); if (ac) ac.suspend(); });
-	Pixelfart.onResume(() => { if (ac) ac.resume(); });
+	PF.onPause(() => { keys.clear(); pointers.clear(); if (ac) ac.suspend(); });
+	PF.onResume(() => { if (ac) ac.resume(); });
 
 	// ---------- geluid ----------
 	let ac = null;
@@ -382,11 +439,11 @@
 
 	function gameOver() {
 		state = 'over'; overT = 0;
-		if (!sentScore) { sentScore = true; Pixelfart.score(score); }   // één keer per potje
+		if (!sentScore) { sentScore = true; PF.score(score); }   // één keer per potje
 		if (score > 0) {
 			newRecord = !top5.length || score > top5[0];
 			top5 = [...top5, score].sort((a, b) => b - a).slice(0, 5);
-			Pixelfart.store.set('top5', top5);
+			PF.store.set('top5', top5);
 		}
 	}
 
@@ -475,7 +532,7 @@
 	function bitmap(ctx, rows, x, y, colors) {
 		rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const c = colors[row[i]]; if (c) { ctx.fillStyle = c; ctx.fillRect(x + i, y + j, 1, 1); } } });
 	}
-	const text = (s, x, y, c = C.wit, font = BIG, align = 'left', ctx = g) => { ctx.font = font; ctx.fillStyle = c; ctx.textAlign = align; ctx.textBaseline = 'top'; Pixelfart.text(ctx, s, x, y); };
+	const text = (s, x, y, c = C.wit, font = BIG, align = 'left', ctx = g) => { ctx.font = font; ctx.fillStyle = c; ctx.textAlign = align; ctx.textBaseline = 'top'; PF.text(ctx, s, x, y); };
 
 	// ---------- kittens ----------
 	const KITTEN = [
@@ -692,9 +749,9 @@
 	if (location.hash === '#test') window.__flip = () => ({ state, phase, balls: balls.map((b) => ({ st: b.st, x: b.x, y: b.y, vx: b.vx, vy: b.vy })), score, lives, mult, multiball, camY });
 
 	// ---------- start ----------
-	Pixelfart.fonts(['Press Start 2P', 'Tiny5']).then(() => {
+	PF.fonts(['Press Start 2P', 'Tiny5']).then(() => {
 		drawTable();
-		Pixelfart.loop(update, { fps: 60, draw });
+		PF.loop(update, { fps: 60, draw });
 	});
 })();
 </script>

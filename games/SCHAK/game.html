@@ -1,7 +1,28 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<!-- Pixelfart · Schaken 2.0 · © 2026 Bert · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Schaken 2.0</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script type="application/json" id="pixelfart">
+{
+	"title": "Schaken 2.0",
+	"code": "SCHAK",
+	"version": "1.0.0",
+	"description": "Schaken, maar dan als oorlog op het bord. Zet tanks, turrets en saboteurs slim in en vernietig het vijandelijke konvooi.",
+	"categories": [
+		"Puzzel",
+		"2 spelers",
+		"Strategie"
+	],
+	"age": "ALL",
+	"author": "Bert"
+}
+</script>
+<style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
+</head>
+<body>
 <style>
 /* Layout: oorlogstafel. Bord links, arsenaal en gevechtslog rechts; op telefoon onder elkaar. */
 :root{
@@ -11,9 +32,9 @@
   --last:rgba(214,170,40,.5); --hint:rgba(28,34,22,.4);
   --pw:#fbf9ee; --pw-line:#1b2014; --pb:#2a3120; --pb-line:#eef1dc;
   --btn-bg:#1c2216; --btn-fg:#f3f5ec;
-  --font-display:'Black Ops One', Impact, 'Arial Black', sans-serif;
-  --font-body:'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono:'Share Tech Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display:'Jersey 10', sans-serif;
+  --font-body:'Pixelify Sans', system-ui, sans-serif;
+  --font-mono:'VT323', ui-monospace, monospace;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -205,6 +226,57 @@ select{font:500 .95rem var(--font-body); color:var(--fg); background:var(--bg); 
 </div>
 
 <script>
+// Pixelfart-platformbrug: op pixelfart.nl de echte SDK, los geopend deze eenvoudige vervanging.
+const PF = window.Pixelfart || (() => {
+  const onP = [], onR = [];
+  document.addEventListener('visibilitychange', () => (document.hidden ? onP : onR).forEach((f) => f()));
+  const note = (t) => { // testmelding bovenin; alleen los geopend, nooit op de site
+    let n = document.getElementById('pf-test');
+    if (!n) {
+      n = document.createElement('div'); n.id = 'pf-test'; n.title = 'Klik om te verbergen';
+      n.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;padding:4px 8px;background:#ffcf4a;color:#000;'
+        + 'font:12px/1.4 monospace;text-align:center;cursor:pointer';
+      n.onclick = () => n.remove(); document.body.appendChild(n);
+    }
+    n.textContent = t;
+  };
+  const intro = () => note('TESTVERSIE · Topscores en pixelfonts werken pas als de game op pixelfart.nl staat. '
+    + 'Klaar? Stuur dit HTML-bestand naar Pixelfart. (klik om te verbergen)');
+  if (document.body) intro(); else addEventListener('DOMContentLoaded', intro);
+  return {
+    inSite: false,
+    get paused() { return document.hidden; },
+    fit(cv, o = {}) {
+      const go = () => {
+        let s = Math.min(innerWidth / cv.width, innerHeight / cv.height);
+        if (o.mode === 'integer' && s >= 1) s = Math.floor(s);
+        cv.style.width = Math.floor(cv.width * s) + 'px'; cv.style.height = Math.floor(cv.height * s) + 'px';
+      };
+      cv.style.imageRendering = 'pixelated'; addEventListener('resize', go); go(); return go;
+    },
+    loop(update, o = {}) {
+      let last = 0, raf = 0, on = true; const gap = 1000 / (o.fps || 60) - 1;
+      const frame = (t) => {
+        raf = 0; if (!on || document.hidden) return; raf = requestAnimationFrame(frame);
+        if (last && t - last < gap) return;
+        const dt = last ? Math.min((t - last) / 1000, 0.1) : 0; last = t; update(dt); if (o.draw) o.draw();
+      };
+      const go = () => { if (!raf && on && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } };
+      onR.push(go); go();
+      return { stop() { on = false; cancelAnimationFrame(raf); raf = 0; }, start() { on = true; go(); } };
+    },
+    onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
+    fonts: () => Promise.resolve(),
+    text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
+    score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
+    back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
+    store: {
+      get(k, d) { try { const v = localStorage.getItem('pf:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+      set(k, v) { try { localStorage.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} },
+    },
+  };
+})();
+
 (function(){
 'use strict';
 
@@ -673,3 +745,5 @@ render();
 </script>
 
 </body></html>
+</body>
+</html>

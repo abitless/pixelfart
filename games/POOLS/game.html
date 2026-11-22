@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- Pixelfart · Pixelpool · © 2026 JOZ · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
 <!-- Pixelfart · Pixel Pool · © 2026 Pixelfart · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
 <html lang="nl">
 <head>
@@ -7,15 +8,20 @@
 <title>Pixel Pool</title>
 <script type="application/json" id="pixelfart">
 {
-  "title": "Pixel Pool",
-  "code": "POOLS",
-  "version": "1.1.0",
-  "changelog": "Computer-tegenstander heeft nu drie niveaus: makkelijk, gemiddeld en moeilijk.",
-  "description": "Speel pool tegen de computer of met z'n tweeën. Of probeer alleen alle ballen in zo min mogelijk slagen in de gaten te krijgen!",
-  "categories": ["Arcade", "2 spelers", "Strategie"],
-  "age": "ALL",
-  "author": "Pixelfart",
-  "score": { "order": "asc", "label": "slagen" }
+	"title": "Pixelpool",
+	"code": "POOLS",
+	"version": "1.1.0",
+	"description": "Speel pool tegen de computer of met z'n tweeën. Of probeer alleen alle ballen in zo min mogelijk slagen in de gaten te krijgen!",
+	"categories": [
+		"2 spelers",
+		"Rustig"
+	],
+	"age": "ALL",
+	"author": "JOZ",
+	"score": {
+		"order": "asc",
+		"label": "slagen"
+	}
 }
 </script>
 <style>
@@ -27,61 +33,57 @@
 <body>
 <canvas id="game" width="320" height="180"></canvas>
 <script>
-/* Standalone-vangnet. Op play.pixelfart.nl bestaat Pixelfart al (pixelfart.js, met de pixelfonts):
-   dan doet dit blok niets en wordt de echte SDK gebruikt. Ontbreekt pixelfart.js, dan draait het spel
-   zelfstandig met deze minimale versie en probeert hij pixelfart-fonts.css naast het bestand te laden. */
-(function () {
-  if (window.Pixelfart) return;
-  var pauseFns = [], resumeFns = [], store = null;
-  try { store = window.localStorage; } catch (e) { store = null; }
-  var P = window.Pixelfart = {
-    inSite: false, paused: false, standalone: true,
-    fit: function (cv, o) {
-      var integer = !o || o.mode !== 'contain';
-      function f() {
-        var k = Math.min(innerWidth / cv.width, innerHeight / cv.height);
-        if (integer) k = Math.max(1, Math.floor(k));
-        cv.style.width = Math.floor(cv.width * k) + 'px'; cv.style.height = Math.floor(cv.height * k) + 'px';
-      }
-      f(); addEventListener('resize', f);
-    },
-    loop: function (update, o) {
-      o = o || {}; var run = true, last = performance.now(), min = o.fps ? 1000 / o.fps - 1 : 0;
-      function tick(now) {
-        if (!run) return;
-        requestAnimationFrame(tick);
-        if (document.hidden || P.paused || now - last < min) return;
-        var dt = Math.min(0.1, (now - last) / 1000); last = now;
-        update(dt); if (o.draw) o.draw();
-      }
-      requestAnimationFrame(tick);
-      return { stop: function () { run = false; }, start: function () { if (!run) { run = true; last = performance.now(); requestAnimationFrame(tick); } } };
-    },
-    fonts: function (names) {
-      return new Promise(function (resolve) {
-        var done = false; function fin() { if (!done) { done = true; resolve(); } }
-        setTimeout(fin, 1500);
-        try {
-          var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'pixelfart-fonts.css';
-          l.onerror = fin; document.head.appendChild(l);
-          l.onload = function () { Promise.all(names.map(function (n) { return document.fonts.load('8px "' + n + '"'); })).then(fin, fin); };
-        } catch (e) { fin(); }
-      });
-    },
-    text: function (ctx, s, x, y) { ctx.fillText(s, Math.round(x), Math.round(y)); },
-    score: function () {}, back: function () {},
-    onPause: function (fn) { pauseFns.push(fn); }, onResume: function (fn) { resumeFns.push(fn); },
-    store: {
-      get: function (k, d) { try { var v = store && store.getItem('pf:' + k); return v === null || v === undefined ? d : JSON.parse(v); } catch (e) { return d; } },
-      set: function (k, v) { try { if (store) store.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} }
+// Pixelfart-platformbrug: op pixelfart.nl de echte SDK, los geopend deze eenvoudige vervanging.
+const PF = window.Pixelfart || (() => {
+  const onP = [], onR = [];
+  document.addEventListener('visibilitychange', () => (document.hidden ? onP : onR).forEach((f) => f()));
+  const note = (t) => { // testmelding bovenin; alleen los geopend, nooit op de site
+    let n = document.getElementById('pf-test');
+    if (!n) {
+      n = document.createElement('div'); n.id = 'pf-test'; n.title = 'Klik om te verbergen';
+      n.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;padding:4px 8px;background:#ffcf4a;color:#000;'
+        + 'font:12px/1.4 monospace;text-align:center;cursor:pointer';
+      n.onclick = () => n.remove(); document.body.appendChild(n);
     }
+    n.textContent = t;
   };
-  document.addEventListener('visibilitychange', function () {
-    (document.hidden ? pauseFns : resumeFns).forEach(function (f) { try { f(); } catch (e) {} });
-  });
+  const intro = () => note('TESTVERSIE · Topscores en pixelfonts werken pas als de game op pixelfart.nl staat. '
+    + 'Klaar? Stuur dit HTML-bestand naar Pixelfart. (klik om te verbergen)');
+  if (document.body) intro(); else addEventListener('DOMContentLoaded', intro);
+  return {
+    inSite: false,
+    get paused() { return document.hidden; },
+    fit(cv, o = {}) {
+      const go = () => {
+        let s = Math.min(innerWidth / cv.width, innerHeight / cv.height);
+        if (o.mode === 'integer' && s >= 1) s = Math.floor(s);
+        cv.style.width = Math.floor(cv.width * s) + 'px'; cv.style.height = Math.floor(cv.height * s) + 'px';
+      };
+      cv.style.imageRendering = 'pixelated'; addEventListener('resize', go); go(); return go;
+    },
+    loop(update, o = {}) {
+      let last = 0, raf = 0, on = true; const gap = 1000 / (o.fps || 60) - 1;
+      const frame = (t) => {
+        raf = 0; if (!on || document.hidden) return; raf = requestAnimationFrame(frame);
+        if (last && t - last < gap) return;
+        const dt = last ? Math.min((t - last) / 1000, 0.1) : 0; last = t; update(dt); if (o.draw) o.draw();
+      };
+      const go = () => { if (!raf && on && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } };
+      onR.push(go); go();
+      return { stop() { on = false; cancelAnimationFrame(raf); raf = 0; }, start() { on = true; go(); } };
+    },
+    onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
+    fonts: () => Promise.resolve(),
+    text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
+    score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
+    back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
+    store: {
+      get(k, d) { try { const v = localStorage.getItem('pf:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+      set(k, v) { try { localStorage.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} },
+    },
+  };
 })();
-</script>
-<script>
+
 (function () {
 'use strict';
 
@@ -96,7 +98,7 @@ var W = 320, H = 180;
 var cv = document.getElementById('game');
 var ctx = cv.getContext('2d');
 ctx.imageSmoothingEnabled = false;
-Pixelfart.fit(cv, { mode: 'integer' });
+PF.fit(cv, { mode: 'integer' });
 
 /* ---------- palet ---------- */
 var C = {
@@ -195,7 +197,7 @@ var balls = [], group = [null, null], cur = 0, strokes = 0, inHand = false;
 var shot = null, aim = { angle: 0, power: 0, drag: false }, placing = false;
 var banner = null, over = null, cpu = null, time = 0, scoreSent = false;
 var names = ['SPELER 1', 'SPELER 2'];
-var best = Number(Pixelfart.store.get('best', 0)) || 0;
+var best = Number(PF.store.get('best', 0)) || 0;
 var keys = {}, charging = false;
 /* computer-niveaus: 0 makkelijk, 1 gemiddeld, 2 moeilijk */
 var LEVELS = [
@@ -203,7 +205,7 @@ var LEVELS = [
   { name: 'GEMIDDELD', sd: 0.028, fsd: 0.04, psd: 0.08, maxC: 6, miss: 0.2, sloppy: false, smart: true, step: 12, extra: false },
   { name: 'MOEILIJK', sd: 0.004, fsd: 0.01, psd: 0.015, maxC: 30, miss: 0, sloppy: false, smart: true, step: 8, extra: true }
 ];
-var level = Number(Pixelfart.store.get('level', 1));
+var level = Number(PF.store.get('level', 1));
 if (!(level >= 0 && level <= 2)) level = 1;
 function cpuLevel() { return (TEST && TEST.levels) ? TEST.levels[cur] : level; }
 var TEST = (typeof __POOL_TEST !== 'undefined') ? __POOL_TEST : null;
@@ -345,8 +347,8 @@ function resolveSolo() {
 
 function finishSolo() {
   var rec = false;
-  if (!best || strokes < best) { best = strokes; rec = true; Pixelfart.store.set('best', best); }
-  if (!scoreSent) { scoreSent = true; Pixelfart.score(strokes); }
+  if (!best || strokes < best) { best = strokes; rec = true; PF.store.set('best', best); }
+  if (!scoreSent) { scoreSent = true; PF.score(strokes); }
   over = { solo: true, rec: rec }; state = 'over'; sfxWin();
 }
 
@@ -525,8 +527,8 @@ function playSounds(q) {
   }
   q.length = 0;
 }
-if (Pixelfart.onPause) Pixelfart.onPause(function () { if (actx && actx.suspend) actx.suspend(); });
-if (Pixelfart.onResume) Pixelfart.onResume(function () { if (actx && actx.resume) actx.resume(); });
+if (PF.onPause) PF.onPause(function () { if (actx && actx.suspend) actx.suspend(); });
+if (PF.onResume) PF.onResume(function () { if (actx && actx.resume) actx.resume(); });
 
 /* ---------- sprites ---------- */
 var MASK = ['..XXXX..', '.XXXXXX.', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.', '..XXXX..'];
@@ -575,7 +577,7 @@ function disc(cx, cy, r, c) {
 function T(s, x, y, col, font, align) {
   ctx.font = font || F_HUD; ctx.fillStyle = col || C.white;
   ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
-  Pixelfart.text(ctx, s, Math.round(x), Math.round(y));
+  PF.text(ctx, s, Math.round(x), Math.round(y));
 }
 function tw(s, font) { ctx.font = font || F_HUD; return ctx.measureText(s).width; }
 
@@ -723,7 +725,7 @@ function getButtons() {
   } else if (state === 'level') {
     LEVELS.forEach(function (l, i) {
       b.push({ x: 70, y: 66 + i * 24, w: 180, h: 20, label: l.name, big: true, idx: i,
-        act: function () { level = i; Pixelfart.store.set('level', i); newGame('cpu'); } });
+        act: function () { level = i; PF.store.set('level', i); newGame('cpu'); } });
     });
     b.push({ x: 110, y: 142, w: 100, h: 16, label: 'TERUG', big: true, idx: 3, act: function () { state = 'menu'; sel = 1; } });
   } else if (state === 'pause') {
@@ -915,7 +917,7 @@ window.addEventListener('keydown', function (e) {
     if (k === 'ArrowUp') sel = (sel + nb - 1) % nb;
     else if (k === 'ArrowDown') sel = (sel + 1) % nb;
     else if (k === 'Enter' || k === ' ') { var b = getButtons()[sel]; if (b) b.act(); }
-    else if (k === 'Escape') { if (state === 'level') { state = 'menu'; sel = 1; } else if (Pixelfart.inSite) Pixelfart.back(); }
+    else if (k === 'Escape') { if (state === 'level') { state = 'menu'; sel = 1; } else if (PF.inSite) PF.back(); }
     return;
   }
   if (k === 'Escape' || k === 'p' || k === 'P') { if (state === 'pause') resumeGame(); else pauseGame(); return; }
@@ -938,7 +940,7 @@ window.addEventListener('blur', function () { keys = {}; charging = false; aim.d
 var started = false;
 function start() {
   if (started) return; started = true;
-  Pixelfart.loop(update, { draw: draw });
+  PF.loop(update, { draw: draw });
 }
 if (TEST) {
   TEST.api = {
@@ -949,7 +951,7 @@ if (TEST) {
     validPlace: validPlace, setLevel: function (l) { level = l; }
   };
 }
-Promise.resolve(Pixelfart.fonts(['Press Start 2P', 'Silkscreen'])).then(start, start);
+Promise.resolve(PF.fonts(['Press Start 2P', 'Silkscreen'])).then(start, start);
 })();
 </script>
 </body>

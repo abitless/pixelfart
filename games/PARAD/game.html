@@ -1,32 +1,36 @@
-<!doctype html><html><head><meta charset=utf8>
+<!doctype html>
+<!-- Pixelfart · Paradrop · © 2026 Pixelfart · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paradrop</title>
 <script type="application/json" id="pixelfart">
 {
- "title": "Paradrop",
- "code": "PARAD",
- "version": "1.1.0",
- "description": "Vlieg boven vijandelijke bases, drop je para's en spring daarna zelf. Neem de basis in en laat je ophalen door de helikopter.",
- "categories": [
-  "Actie",
-  "Avontuur"
- ],
- "age": "ALL",
- "author": "",
- "changelog": "Topscores: de eindscore gaat naar de topscorelijst op de site (Pixelfart SDK).",
- "score": {
-  "order": "desc",
-  "label": "punten"
- }
+	"title": "Paradrop",
+	"code": "PARAD",
+	"version": "1.1.0",
+	"description": "Vlieg boven vijandelijke bases, drop je para's en spring daarna zelf. Neem de basis in en laat je ophalen door de helikopter.",
+	"categories": [
+		"Actie",
+		"Avontuur"
+	],
+	"age": "ALL",
+	"score": {
+		"order": "desc",
+		"label": "punten"
+	}
 }
-</script><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>Paradrop</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap">
+</script>
+<style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
+</head>
+<body>
 <style>
 /* Layout: één kolom, 16:9 pixelcanvas met overlay, daaronder aanraakknoppen en toetsenhulp */
 :root{
   --ink:#0f1411; --panel:#182018; --line:#2d3a2c; --text:#e3ead6; --mute:#8d9b86;
   --amber:#f2b43c; --red:#d2483a; --blue:#4b9be0; --olive:#7a8a3c;
-  --px:'Press Start 2P',ui-monospace,monospace; --body:'Barlow Condensed',system-ui,sans-serif;
+  --px:'Press Start 2P',ui-monospace,monospace; --body:'Pixelify Sans',system-ui,sans-serif;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -87,6 +91,57 @@ button.primary{background:var(--amber);color:#1a1405;border-color:var(--amber)}
 <p class="keys">Pijltjes of WASD: vliegen, sturen en lopen · Spatie: para droppen, zelf springen, schieten · M: geluid aan/uit</p>
 
 <script>
+// Pixelfart-platformbrug: op pixelfart.nl de echte SDK, los geopend deze eenvoudige vervanging.
+const PF = window.Pixelfart || (() => {
+  const onP = [], onR = [];
+  document.addEventListener('visibilitychange', () => (document.hidden ? onP : onR).forEach((f) => f()));
+  const note = (t) => { // testmelding bovenin; alleen los geopend, nooit op de site
+    let n = document.getElementById('pf-test');
+    if (!n) {
+      n = document.createElement('div'); n.id = 'pf-test'; n.title = 'Klik om te verbergen';
+      n.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;padding:4px 8px;background:#ffcf4a;color:#000;'
+        + 'font:12px/1.4 monospace;text-align:center;cursor:pointer';
+      n.onclick = () => n.remove(); document.body.appendChild(n);
+    }
+    n.textContent = t;
+  };
+  const intro = () => note('TESTVERSIE · Topscores en pixelfonts werken pas als de game op pixelfart.nl staat. '
+    + 'Klaar? Stuur dit HTML-bestand naar Pixelfart. (klik om te verbergen)');
+  if (document.body) intro(); else addEventListener('DOMContentLoaded', intro);
+  return {
+    inSite: false,
+    get paused() { return document.hidden; },
+    fit(cv, o = {}) {
+      const go = () => {
+        let s = Math.min(innerWidth / cv.width, innerHeight / cv.height);
+        if (o.mode === 'integer' && s >= 1) s = Math.floor(s);
+        cv.style.width = Math.floor(cv.width * s) + 'px'; cv.style.height = Math.floor(cv.height * s) + 'px';
+      };
+      cv.style.imageRendering = 'pixelated'; addEventListener('resize', go); go(); return go;
+    },
+    loop(update, o = {}) {
+      let last = 0, raf = 0, on = true; const gap = 1000 / (o.fps || 60) - 1;
+      const frame = (t) => {
+        raf = 0; if (!on || document.hidden) return; raf = requestAnimationFrame(frame);
+        if (last && t - last < gap) return;
+        const dt = last ? Math.min((t - last) / 1000, 0.1) : 0; last = t; update(dt); if (o.draw) o.draw();
+      };
+      const go = () => { if (!raf && on && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } };
+      onR.push(go); go();
+      return { stop() { on = false; cancelAnimationFrame(raf); raf = 0; }, start() { on = true; go(); } };
+    },
+    onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
+    fonts: () => Promise.resolve(),
+    text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
+    score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
+    back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
+    store: {
+      get(k, d) { try { const v = localStorage.getItem('pf:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+      set(k, v) { try { localStorage.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} },
+    },
+  };
+})();
+
 (()=>{
 const W=480,H=270,GY=214;
 const $=id=>document.getElementById(id);
@@ -511,7 +566,7 @@ function finish(kind){
   const alive=G.paras.filter(p=>p.state==='landed').length;
   if(kind==='done'&&all){
     const pts=caps*500+alive*100+300+G.me.hp*50;
-    score+=pts;window.Pixelfart&&Pixelfart.score(score);
+    score+=pts;PF.score(score);
     if(score>best){best=score;try{localStorage.setItem('paradrop-best',String(best))}catch(e){}}
     sfx.win();
     showCard(`<h2 class="good">MISSIE GESLAAGD</h2>
@@ -927,7 +982,7 @@ function sniperFinish(win){
   G.phase='end';const S=G.sn;
   if(win){
     const pts=S.kills*100+S.head*100+S.hp*50;
-    score+=pts;window.Pixelfart&&Pixelfart.score(score);
+    score+=pts;PF.score(score);
     if(score>best){best=score;try{localStorage.setItem('paradrop-best',String(best))}catch(e){}}
     sfx.win();
     showCard(`<h2 class="good">DOELEN UITGESCHAKELD</h2>
@@ -1055,3 +1110,5 @@ window.__pd={get G(){return G},K,press(){fireEdge=true},go(m){mission=m;CF=cfg(m
 </script>
 
 </body></html>
+</body>
+</html>
