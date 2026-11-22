@@ -9,7 +9,7 @@
 {
 	"title": "Schaken 2.0",
 	"code": "SCHAK",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Schaken, maar dan als oorlog op het bord. Zet tanks, turrets en saboteurs slim in en vernietig het vijandelijke konvooi.",
 	"categories": [
 		"Puzzel",
@@ -18,156 +18,145 @@
 	],
 	"age": "ALL",
 	"author": "Bert",
-	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, niveaus Makkelijk, Gemiddeld en Moeilijk (keuze onthouden), alleen pixelfonts."
+	"changelog": "Helemaal in pixelstijl: pixeltekeningen voor alle eenheden, pixelbord, pixelfonts en effecten van blokjes."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
 </head>
 <body>
 <style>
-/* Layout: oorlogstafel. Bord links, arsenaal en gevechtslog rechts; op telefoon onder elkaar. */
+/* Pixelstijl: een oorlogstafel van pixels. Bord links, panelen rechts; op telefoon onder elkaar.
+   Harde randen, geen ronde hoeken, geen verlopen of gloed. Fonts: Press Start 2P (koppen), Pixelify Sans, VT323. */
 :root{
-  --bg:#e6e9dc; --panel:#f3f5ec; --fg:#1c2216; --muted:#5b644e; --line:#c3c9b2;
-  --sq-l:#cfd4ad; --sq-d:#8a9663;
-  --accent:#c8501a; --brass:#9a7a1f; --danger:#d23b2a;
-  --last:rgba(214,170,40,.5); --hint:rgba(28,34,22,.4);
-  --pw:#fbf9ee; --pw-line:#1b2014; --pb:#2a3120; --pb-line:#eef1dc;
-  --btn-bg:#1c2216; --btn-fg:#f3f5ec;
-  --font-display:'Jersey 10', sans-serif;
-  --font-body:'Pixelify Sans', system-ui, sans-serif;
-  --font-mono:'VT323', ui-monospace, monospace;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#12150d; --panel:#1b1f14; --fg:#e7ebd7; --muted:#9aa388; --line:#323925;
-    --sq-l:#8a9468; --sq-d:#4b5733;
-    --accent:#ff7a3d; --brass:#d6b04a; --danger:#ff5a47;
-    --last:rgba(230,190,60,.42); --hint:rgba(255,255,230,.5);
-    --btn-bg:#e7ebd7; --btn-fg:#12150d;
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#12150d; --panel:#1b1f14; --fg:#e7ebd7; --muted:#9aa388; --line:#323925;
-  --sq-l:#8a9468; --sq-d:#4b5733;
-  --accent:#ff7a3d; --brass:#d6b04a; --danger:#ff5a47;
-  --last:rgba(230,190,60,.42); --hint:rgba(255,255,230,.5);
-  --btn-bg:#e7ebd7; --btn-fg:#12150d;
+  --bg:#000; --panel:#11140c; --fg:#f2f2f2; --muted:#bdbdbd; --dim:#8a8a8a; --line:#3e4a2a;
+  --sq-l:#9aa86a; --sq-d:#5c6b3c; --last-l:#c9c070; --last-d:#8f8a3e;
+  --accent:#ff9a4a; --yellow:#ffcf4a; --danger:#ff5c8a; --green:#5dde7a;
+  --pw:#f2f2f2; --pw-line:#1a1a1a; --pb:#2a2a2a; --pb-line:#f2f2f2;
+  --pix:'Press Start 2P', monospace;
+  --txt:'Pixelify Sans', monospace;
+  --mono:'VT323', monospace;
   color-scheme:dark;
 }
-
 *{box-sizing:border-box}
 body{
   margin:0; background:var(--bg); color:var(--fg);
-  font:16px/1.45 var(--font-body);
-  padding-block:22px 36px;
+  font:16px/1.5 var(--txt); -webkit-font-smoothing:none;
+  padding-block:20px 32px;
   padding-left:max(16px, env(safe-area-inset-left, 0px));
   padding-right:max(16px, env(safe-area-inset-right, 0px));
 }
 .wrap{max-width:1060px; margin:0 auto}
-h1{font:400 clamp(2.4rem,8vw,3.8rem)/1 var(--font-display); letter-spacing:.02em; margin:0; text-wrap:balance}
+h1{font:400 24px/1.2 var(--pix); margin:0; color:var(--fg)}
 h1 span{color:var(--accent)}
-.tag{margin:.5rem 0 0; color:var(--muted); max-width:52ch}
+.tag{margin:10px 0 0; color:var(--muted); max-width:52ch}
 
-.layout{display:grid; gap:22px; margin-top:22px; grid-template-columns:minmax(0,1fr)}
+.layout{display:grid; gap:24px; margin-top:20px; grid-template-columns:minmax(0,1fr)}
 @media (min-width:880px){ .layout{grid-template-columns:minmax(0,1fr) 340px; align-items:start} }
-.stage{min-width:0; width:100%; max-width:690px; margin:0 auto}
-.side{display:grid; gap:14px; min-width:0}
+.stage{min-width:0; width:100%; max-width:640px; margin:0 auto}
+.side{display:grid; gap:16px; min-width:0}
 
-.statusbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; min-height:2.4rem}
-.chip{display:inline-flex; align-items:center; gap:9px; padding:6px 14px; border:1px solid var(--line); background:var(--panel); border-radius:999px; font-weight:600}
-.dot{width:13px; height:13px; border-radius:50%; border:2px solid var(--pw-line)}
+.statusbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; min-height:36px}
+.chip{display:inline-flex; align-items:center; gap:10px; padding:8px 12px; background:var(--panel); box-shadow:0 0 0 4px var(--line); margin:4px; font:400 8px/1.4 var(--pix)}
+.dot{width:12px; height:12px; box-shadow:0 0 0 2px var(--pw-line)}
 .dot.w{background:var(--pw)}
-.dot.b{background:var(--pb); border-color:var(--pb-line)}
-.alert{color:var(--danger); font-weight:700; text-transform:uppercase; letter-spacing:.1em}
+.dot.b{background:var(--pb); box-shadow:0 0 0 2px var(--pb-line)}
+.alert{color:var(--danger); font:400 8px/1.4 var(--pix); animation:blink .5s steps(1) infinite}
+@keyframes blink{50%{opacity:.25}}
 
-.boardbox{position:relative; margin:3px}
+.boardbox{position:relative; margin:4px}
 .board{
   position:relative; display:grid; grid-template-columns:repeat(8,1fr); grid-auto-rows:1fr;
   aspect-ratio:1/1; width:100%; container-type:inline-size;
-  box-shadow:0 0 0 3px var(--fg); border-radius:2px; overflow:hidden; user-select:none; -webkit-user-select:none;
+  box-shadow:0 0 0 4px var(--fg), 8px 8px 0 4px var(--line); user-select:none; -webkit-user-select:none;
 }
 .sq{
   position:relative; appearance:none; border:0; margin:0; padding:0; display:block; width:100%; height:100%;
   min-width:0; min-height:0; font:inherit; color:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent;
 }
-.sq.l{background-color:var(--sq-l)}
-.sq.d{background-color:var(--sq-d)}
-.sq.last{background-image:linear-gradient(var(--last),var(--last))}
-.sq.chk{background-image:radial-gradient(circle, var(--danger) 0, rgba(210,59,42,0) 72%)}
-.sq.sel{box-shadow:inset 0 0 0 .8cqw var(--accent)}
-.sq.hint::before{content:""; position:absolute; left:50%; top:50%; width:3.8cqw; height:3.8cqw; margin:-1.9cqw 0 0 -1.9cqw; border-radius:50%; background:var(--hint)}
-.sq.hint.cap::before{width:10.8cqw; height:10.8cqw; margin:-5.4cqw 0 0 -5.4cqw; background:transparent; border:.9cqw solid var(--accent)}
-.sq.hint.rep::before{border-color:var(--brass)}
-.sq:focus-visible{outline:.7cqw solid var(--brass); outline-offset:-.7cqw; z-index:2}
-.coord{position:absolute; font:400 1.9cqw/1 var(--font-mono); opacity:.75; pointer-events:none}
-.coord.rk{left:.7cqw; top:.6cqw}
-.coord.fl{left:.7cqw; bottom:.6cqw}
+.sq.l{background:var(--sq-l)}
+.sq.d{background:var(--sq-d)}
+.sq.l.last{background:var(--last-l)}
+.sq.d.last{background:var(--last-d)}
+.sq.chk{box-shadow:inset 0 0 0 1.2cqw var(--danger)}
+.sq.chk .piece{animation:blink .5s steps(1) infinite}
+.sq.sel{box-shadow:inset 0 0 0 1.2cqw var(--yellow)}
+/* stip = lopen of vliegen, kader = aanval of actie: allebei vierkant */
+.sq.hint::before{content:""; position:absolute; left:50%; top:50%; width:3cqw; height:3cqw; margin:-1.5cqw 0 0 -1.5cqw; background:#1a1a1a}
+.sq.hint.cap::before{width:auto; height:auto; inset:1cqw; margin:0; opacity:1; background:transparent; box-shadow:inset 0 0 0 1cqw var(--accent)}
+.sq.hint.rep::before{box-shadow:inset 0 0 0 1cqw var(--green)}
+.sq:focus-visible{outline:1cqw solid var(--yellow); outline-offset:-1cqw; z-index:2}
+.coord{position:absolute; font:400 3.2cqw/1 var(--mono); color:#000; opacity:.6; pointer-events:none}
+.coord.rk{left:.8cqw; top:.4cqw}
+.coord.fl{right:.8cqw; bottom:.2cqw}
 
 .piece{position:absolute; inset:0; display:grid; place-items:center; pointer-events:none}
-.piece.w, .tm-w{--tf:var(--pw); --tl:var(--pw-line)}
+.piece.w, .tm-w, .lg{--tf:var(--pw); --tl:var(--pw-line)}
 .piece.b, .tm-b{--tf:var(--pb); --tl:var(--pb-line)}
-.ico{width:78%; height:78%; fill:var(--tf); stroke:var(--tl); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; overflow:visible}
-.piece.sab .ico{opacity:.5}
-.spark{position:absolute; right:.8cqw; top:.8cqw; width:5.6cqw; line-height:0}
+.ico, .ti, .lg{display:block}
+.ico .o, .ti .o, .lg .o{fill:var(--tf)}
+.ico .x, .ti .x, .lg .x{fill:var(--tl)}
+.ico{width:75%; height:75%}
+.piece.sab .ico{opacity:.45}
+.spark{position:absolute; right:.6cqw; top:.6cqw; width:4.5cqw; line-height:0}
 .spark svg{width:100%; height:auto; display:block}
-.piece.pop .ico{animation:pop .28s ease-out}
-@keyframes pop{from{transform:scale(1.3)} to{transform:scale(1)}}
-.piece.dying{animation:die .3s ease-in forwards}
-@keyframes die{to{opacity:0; transform:scale(.55) rotate(14deg)}}
+.piece.pop .ico{animation:pop .3s steps(3) both}
+@keyframes pop{from{transform:translateY(-1.5cqw)} to{transform:none}}
+.piece.dying{animation:die .3s steps(3) forwards}
+@keyframes die{to{opacity:0}}
 
+/* effecten: blokjes, geen gloed */
 .fx{position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:5}
 .f{position:absolute; left:0; top:0; pointer-events:none; will-change:transform,opacity}
-.bullet{background:linear-gradient(90deg,#fff3a8,#ffb92e); border-radius:99px; box-shadow:0 0 6px 2px rgba(255,180,40,.8); transform-origin:50% 50%}
-.flash{border-radius:50%; background:radial-gradient(circle,#fffbd0 0,#ffc23a 45%,rgba(255,150,30,0) 72%)}
-.ring{border:3px solid var(--accent); border-radius:50%}
-.rocket{background:linear-gradient(90deg,#ff9a2e 0 22%,#56633d 22% 78%,#c8501a 78%); border-radius:3px 99px 99px 3px; transform-origin:50% 50%}
-.puff{background:radial-gradient(circle,rgba(230,230,220,.9),rgba(160,160,150,0) 70%); border-radius:50%}
-.boom{background:radial-gradient(circle,#fff6c4 0,#ffb13a 28%,#e2531a 55%,rgba(226,83,26,0) 70%); border-radius:50%}
-.slash{background:#fff; box-shadow:0 0 8px 2px rgba(255,60,40,.85); border-radius:99px; transform-origin:50% 50%}
-.word{font-family:var(--font-display); color:#fff; white-space:nowrap; text-shadow:0 2px 0 #000,0 0 10px var(--accent),0 0 3px #000}
+.bullet{background:var(--yellow); box-shadow:0 0 0 2px #000}
+.flash{background:#fff3a8; box-shadow:inset 0 0 0 4px var(--yellow)}
+.ring{box-shadow:inset 0 0 0 4px var(--accent)}
+.rocket{background:var(--accent); box-shadow:0 0 0 2px #000}
+.puff{background:var(--dim)}
+.boom{background:var(--yellow); box-shadow:inset 0 0 0 12px var(--accent), inset 0 0 0 20px var(--danger)}
+.slash{background:#fff; box-shadow:0 0 0 2px var(--danger)}
+.word{font-family:var(--pix); color:#fff; white-space:nowrap; text-shadow:2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000}
 
-.over{position:absolute; inset:0; display:grid; place-items:center; background:rgba(10,12,6,.62); z-index:8; padding:16px}
-.ocard{background:var(--panel); color:var(--fg); border:2px solid var(--fg); border-radius:10px; padding:20px 22px; text-align:center; max-width:300px}
-.ocard h3{font:400 1.9rem/1.05 var(--font-display); margin:0 0 8px; color:var(--accent)}
-.ocard p{margin:0 0 14px}
+.over{position:absolute; inset:0; display:grid; place-items:center; background:#000c; z-index:8; padding:16px}
+.ocard{background:var(--panel); color:var(--fg); box-shadow:0 0 0 4px var(--yellow), 8px 8px 0 4px #5a4a1a; padding:20px; text-align:center; max-width:300px}
+.ocard h3{font:400 16px/1.3 var(--pix); margin:0 0 12px; color:var(--yellow)}
+.ocard p{margin:0 0 16px}
 
-.trays{display:grid; gap:6px; margin-top:12px}
-.tray{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:2rem; color:var(--muted); font-size:.88rem}
-.tray b{color:var(--fg); font-weight:600; min-width:9.5rem}
-.ti{width:1.8rem; height:1.8rem; fill:var(--tf); stroke:var(--tl); stroke-width:2; stroke-linejoin:round}
+.trays{display:grid; gap:6px; margin-top:20px}
+.tray{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-height:32px; color:var(--dim); font:400 20px/1 var(--mono)}
+.tray b{color:var(--muted); font:400 8px/1.4 var(--pix); min-width:150px}
+.ti{width:32px; height:32px}
 
-.panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px}
-h2{margin:0 0 10px; font:600 .78rem/1 var(--font-body); letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
-.seg{display:grid; grid-template-columns:1fr 1fr; border:1px solid var(--line); border-radius:8px; overflow:hidden}
-.seg button{appearance:none; border:0; background:transparent; color:var(--fg); font:600 .92rem var(--font-body); padding:9px 6px; cursor:pointer}
-.seg button+button{border-left:1px solid var(--line)}
-.seg button[aria-pressed="true"]{background:var(--btn-bg); color:var(--btn-fg)}
-.row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px}
-select{font:500 .95rem var(--font-body); color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:7px 10px}
-.btn{appearance:none; border:0; cursor:pointer; background:var(--accent); color:#fff; font:600 1rem var(--font-body); padding:10px 16px; border-radius:8px; width:100%; margin-top:12px}
+.panel{background:var(--panel); box-shadow:0 0 0 4px var(--line); margin:4px; padding:16px}
+h2{margin:0 0 14px; font:400 8px/1.4 var(--pix); color:var(--yellow)}
+.seg{display:grid; grid-template-columns:repeat(var(--n,2),1fr); gap:8px}
+.seg button{appearance:none; border:0; margin:0; background:#000; color:var(--fg); box-shadow:0 0 0 3px var(--line); font:400 8px/1.4 var(--pix); padding:10px 4px; cursor:pointer}
+.seg button:hover{box-shadow:0 0 0 3px var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--fg); color:#000; box-shadow:0 0 0 3px var(--fg)}
+.lvl{margin-top:16px}
+.lvl > span{display:block; margin-bottom:8px; font:400 8px/1.4 var(--pix); color:var(--muted)}
+.btn{appearance:none; border:0; cursor:pointer; background:var(--accent); color:#000; font:400 10px/1.2 var(--pix); padding:14px 16px; width:100%; margin-top:18px; box-shadow:4px 4px 0 0 #7a3c12}
+.btn:active{transform:translate(4px,4px); box-shadow:none}
 .ocard .btn{margin-top:0}
-.btn:hover{filter:brightness(1.07)}
-.btn:focus-visible, .seg button:focus-visible, select:focus-visible{outline:3px solid var(--brass); outline-offset:2px}
+.btn:focus-visible, .seg button:focus-visible{outline:4px solid var(--yellow); outline-offset:3px}
 
-.arm{display:grid; grid-template-columns:36px 1fr; align-items:start; gap:10px; padding:8px 0; border-top:1px solid var(--line)}
+.arm{display:grid; grid-template-columns:40px 1fr; align-items:start; gap:12px; padding:10px 0; border-top:2px solid var(--line)}
 .arm:first-of-type{border-top:0}
-.lg{width:34px; height:34px; fill:var(--pw); stroke:var(--pw-line); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; overflow:visible}
-.arm .nm{font-weight:600; line-height:1.2}
-.arm .wp{color:var(--muted); font-size:.88rem; line-height:1.35}
-.note{margin:10px 0 0; font-size:.86rem; color:var(--muted)}
+.lg{width:32px; height:32px}
+.arm .nm{font:400 8px/1.6 var(--pix); color:var(--fg)}
+.arm .wp{color:var(--muted); line-height:1.4}
+.note{margin:12px 0 0; color:var(--dim)}
 
-.log{list-style:none; margin:0; padding:0; max-height:240px; overflow:auto; font:400 .86rem/1.35 var(--font-mono)}
-.log li{padding:7px 0; border-top:1px solid var(--line)}
+.log{list-style:none; margin:0; padding:0; max-height:240px; overflow:auto; font:400 20px/1.1 var(--mono); scrollbar-color:var(--line) #000}
+.log li{padding:6px 0; border-top:2px solid var(--line); color:var(--muted)}
 .log li:first-child{border-top:0; color:var(--fg)}
-.log li .mv{color:var(--muted); white-space:nowrap}
-.log li.check{color:var(--danger); font-weight:600}
-.log .empty{color:var(--muted); border:0}
+.log li .mv{color:var(--dim); white-space:nowrap}
+.log li.check{color:var(--danger)}
+.log .empty{color:var(--dim); border:0}
 </style>
 
 <div class="wrap">
   <header>
-    <h1>Schaken <span>2.0</span></h1>
+    <h1>SCHAKEN <span>2.0</span></h1>
     <p class="tag">Een oorlog op het schaakbord. Vernietig het vijandelijke konvooi om te winnen.</p>
   </header>
 
@@ -201,13 +190,13 @@ select{font:500 .95rem var(--font-body); color:var(--fg); background:var(--bg); 
           <button type="button" id="mCpu" aria-pressed="true">Tegen computer</button>
           <button type="button" id="mTwo" aria-pressed="false">Twee spelers</button>
         </div>
-        <div class="row" id="lvlRow">
-          <label for="level">Niveau</label>
-          <select id="level">
-            <option value="1">Makkelijk</option>
-            <option value="2">Gemiddeld</option>
-            <option value="3">Moeilijk</option>
-          </select>
+        <div class="lvl" id="lvlRow">
+          <span id="lvlLabel">Niveau</span>
+          <div class="seg" id="level" role="group" aria-labelledby="lvlLabel" style="--n:3">
+            <button type="button" data-v="1" aria-pressed="true">Makkelijk</button>
+            <button type="button" data-v="2" aria-pressed="false">Gemiddeld</button>
+            <button type="button" data-v="3" aria-pressed="false">Moeilijk</button>
+          </div>
         </div>
         <button type="button" class="btn" id="newBtn">Nieuw spel</button>
       </div>
@@ -215,7 +204,7 @@ select{font:500 .95rem var(--font-body); color:var(--fg); background:var(--bg); 
       <div class="panel">
         <h2>Eenheden</h2>
         <div id="legend"></div>
-        <p class="note">Je speelt wit en begint. Per beurt doe je een actie met een eenheid. Tik een eenheid aan, dan zie je de mogelijkheden: stip is lopen of vliegen, ring is een aanval of actie. Verlies je je konvooi, dan verlies je het spel.</p>
+        <p class="note">Je speelt wit en begint. Per beurt doe je een actie met een eenheid. Tik een eenheid aan, dan zie je de mogelijkheden: blokje is lopen of vliegen, kader is een aanval of actie. Verlies je je konvooi, dan verlies je het spel.</p>
       </div>
 
       <div class="panel">
@@ -461,16 +450,134 @@ var INFO={
   b:'Glijdt schuin. Saboteert turrets tot 2 vakken ver en schakelt tanks uit door erop te springen.',
   p:'Tank. Zet 1 stap in elke richting of schiet tot 2 vakken ver.'
 };
-var ICO={
-  r:'<path d="M7 34 L10 23 H30 L33 34 Z"/><path d="M11.5 23 A8.5 8.5 0 0 1 28.5 23 Z"/><rect x="20" y="12.5" width="16" height="5" rx="1.5" transform="rotate(-14 20 15)"/>',
-  p:'<rect x="4" y="24" width="32" height="9" rx="4.5"/><rect x="10" y="16" width="17" height="8" rx="2"/><rect x="26" y="18.5" width="11" height="3.2" rx="1"/>',
-  q:'<rect x="2.5" y="23" width="35" height="11" rx="5"/><rect x="8" y="13.5" width="21" height="9.5" rx="2"/><rect x="28" y="15" width="10" height="2.8" rx="1"/><rect x="28" y="19" width="10" height="2.8" rx="1"/><circle cx="18.5" cy="18.2" r="2"/>',
-  n:'<path d="M20 3 L24 15 L37 23 V27.5 L24 23.5 L23 32 L28 35 V37.5 L20 35.5 L12 37.5 V35 L17 32 L16 23.5 L3 27.5 V23 L16 15 Z"/>',
-  b:'<circle cx="20" cy="14" r="6.5"/><rect x="10" y="9" width="20" height="3.2" rx="1.6"/><path d="M8 36 Q8 22 20 22 Q32 22 32 36 Z"/>',
-  k:'<rect x="3" y="12" width="21" height="15" rx="2"/><path d="M24 17 H31 L37 23 V27 H24 Z"/><circle cx="11" cy="29.5" r="4.2"/><circle cx="30" cy="29.5" r="4.2"/>'
+var SPR={
+  p:[ // tank
+    '................',
+    '................',
+    '................',
+    '................',
+    '.....xxxxxx.....',
+    '....xooooooxxxxx',
+    '....xooxxoooooox',
+    '....xooooooxxxxx',
+    '..xxxxxxxxxxxx..',
+    '.xoooooooooooox.',
+    'xooxooxooxooxoox',
+    'xoooooooooooooox',
+    '.xxxxxxxxxxxxxx.',
+    '................',
+    '................',
+    '................'],
+  q:[ // mammoet: zware tank met dubbele loop
+    '................',
+    '................',
+    '...xxxxxxxxx....',
+    '..xooooooooox...',
+    '..xooxxooooooxxx',
+    '..xooxxoooooooox',
+    '..xooooooooooxxx',
+    '..xoooooooooooox',
+    '..xxxxxxxxxxxxxx',
+    '.xoooooooooooox.',
+    'xoooooooooooooox',
+    'xooxooxooxooxoox',
+    'xoooooooooooooox',
+    '.xxxxxxxxxxxxxx.',
+    '................',
+    '................'],
+  r:[ // turret: vaste geschutskoepel
+    '................',
+    '..............x.',
+    '.............xox',
+    '............xox.',
+    '...........xox..',
+    '.....xxxxxxox...',
+    '....xoooooox....',
+    '...xooxxoooox...',
+    '...xoooooooox...',
+    '..xxxxxxxxxxxx..',
+    '..xoooooooooox..',
+    '.xooxooxooxooox.',
+    '.xoooooooooooox.',
+    'xoooooooooooooox',
+    'xxxxxxxxxxxxxxxx',
+    '................'],
+  n:[ // bommenwerper, van boven
+    '.......xx.......',
+    '......xoox......',
+    '......xoox......',
+    '......xoox......',
+    '....xxxooxxx....',
+    '..xxooooooooxx..',
+    '.xoooooooooooox.',
+    'xoooooxooxooooox',
+    '.xxxxxxooxxxxxx.',
+    '......xoox......',
+    '......xoox......',
+    '.....xxooxx.....',
+    '...xxooooooxx...',
+    '...xoooooooox...',
+    '....xxxxxxxx....',
+    '................'],
+  b:[ // spion met hoed
+    '................',
+    '......xxxx......',
+    '.....xoooox.....',
+    '.....xoooox.....',
+    '...xxxxxxxxxx...',
+    '....xoooooox....',
+    '....xoxooxox....',
+    '....xoooooox....',
+    '.....xxxxxx.....',
+    '...xxooooooxx...',
+    '..xoooooooooox..',
+    '.xoooxooooxooox.',
+    '.xoooooooooooox.',
+    '.xoooooooooooox.',
+    '.xxxxxxxxxxxxxx.',
+    '................'],
+  k:[ // konvooi: vrachtwagen
+    '................',
+    '................',
+    '................',
+    '.xxxxxxxxxx.....',
+    '.xoooooooox.....',
+    '.xoooooooxxxxx..',
+    '.xoooooooxooxox.',
+    '.xoooooooxooxxox',
+    '.xoooooooxoooxox',
+    '.xooooooooooooox',
+    '.xxxxxxxxxxxxxxx',
+    '..xxx.....xxx...',
+    '..xox.....xox...',
+    '..xxx.....xxx...',
+    '................',
+    '................']
 };
-var SPARK='<span class="spark"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 1 L4 11 H9 L8 19 L16 8 H11 Z" fill="#ffd23a" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg></span>';
-function svg(t,cls){ return '<svg class="'+cls+'" viewBox="0 0 40 40" aria-hidden="true">'+ICO[t]+'</svg>'; }
+// Sabotage: bliksem van pixels (y = geel, x = zwart)
+var BOLT=[
+  '..xxxx',
+  '..xyyx',
+  '.xyyx.',
+  'xyyyyx',
+  'xxyyx.',
+  '.xyx..',
+  '.xx...'];
+function runs(rows,ch){
+  var d='';
+  rows.forEach(function(row,y){
+    var x=0;
+    while(x<row.length){
+      if(row[x]===ch){ var s=x; while(x<row.length&&row[x]===ch) x++; d+='M'+s+' '+y+'h'+(x-s)+'v1h-'+(x-s)+'z'; }
+      else x++;
+    }
+  });
+  return d;
+}
+var ICO={};
+Object.keys(SPR).forEach(function(t){ ICO[t]='<path class="o" d="'+runs(SPR[t],'o')+'"/><path class="x" d="'+runs(SPR[t],'x')+'"/>'; });
+var SPARK='<span class="spark"><svg viewBox="0 0 6 7" shape-rendering="crispEdges" aria-hidden="true"><path fill="#ffcf4a" d="'+runs(BOLT,'y')+'"/><path fill="#000" d="'+runs(BOLT,'x')+'"/></svg></span>';
+function svg(t,cls,label){ return '<svg class="'+cls+'" viewBox="0 0 16 16" shape-rendering="crispEdges"'+(label?' role="img" aria-label="'+label+'"':' aria-hidden="true"')+'>'+ICO[t]+'</svg>'; }
 function cap1(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
 
 function $(s){ return document.querySelector(s); }
@@ -506,7 +613,7 @@ function fresh(mode,level){
 }
 var LEVEL_NAME=['','Makkelijk','Gemiddeld','Moeilijk'];
 var startLevel=+PF.store.get('niveau',1); if(!(startLevel>=1&&startLevel<=3)) startLevel=1; // eerste keer Makkelijk, daarna de laatste keuze
-S=fresh('cpu',startLevel); $('#level').value=String(startLevel);
+S=fresh('cpu',startLevel); showLevel();
 
 function humanTurn(){ return !S.over && !S.busy && (S.mode==='two' || S.turn==='w'); }
 
@@ -564,7 +671,7 @@ function renderStatus(){
 function trayHtml(list,col){
   list=list.slice().sort(function(a,b){ return VAL[b]-VAL[a]; });
   if(!list.length) return '<span>nog niets</span>';
-  return list.map(function(t){ return '<svg class="ti tm-'+col+'" viewBox="0 0 40 40" aria-label="'+NAMES[t]+'">'+ICO[t]+'</svg>'; }).join('');
+  return list.map(function(t){ return svg(t,'ti tm-'+col,NAMES[t]); }).join('');
 }
 function renderTrays(){
   $('#trayW').innerHTML=trayHtml(S.capW,'b');
@@ -596,7 +703,9 @@ function mk(cls,css){
   fxEl.appendChild(d); return d;
 }
 function run(el,kf,opt){
-  var a=el.animate(kf,Object.assign({fill:'forwards'},opt));
+  opt=Object.assign({fill:'forwards'},opt);
+  if(!opt.easing||opt.easing!=='linear') opt.easing='steps('+Math.max(3,Math.round((opt.duration||300)/70))+')'; // pixelig: in stapjes
+  var a=el.animate(kf,opt);
   var done=function(){ el.remove(); };
   a.finished.then(done,done);
   return a.finished.catch(function(){});
@@ -606,10 +715,10 @@ function ang(a,b){ return Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI; }
 
 async function bullet(a,b,delay){
   if(delay) await sleep(delay);
-  var len=Math.hypot(b.x-a.x,b.y-a.y), an=ang(a,b), w=a.s*.22, h=a.s*.07;
-  var el=mk('bullet',{width:w+'px',height:h+'px',left:(-w/2)+'px',top:(-h/2)+'px'});
+  var len=Math.hypot(b.x-a.x,b.y-a.y), w=Math.round(a.s*.12);
+  var el=mk('bullet',{width:w+'px',height:w+'px',left:(-w/2)+'px',top:(-w/2)+'px'});
   var dur=Math.max(120,len/a.s*55);
-  await run(el,[{transform:tr(a.x,a.y,'rotate('+an+'deg)')},{transform:tr(b.x,b.y,'rotate('+an+'deg)')}],{duration:dur,easing:'linear'});
+  await run(el,[{transform:tr(a.x,a.y)},{transform:tr(b.x,b.y)}],{duration:dur,easing:'linear'});
 }
 function muzzle(a){
   var sz=a.s*.34, el=mk('flash',{width:sz+'px',height:sz+'px',left:(-sz/2)+'px',top:(-sz/2)+'px'});
@@ -623,7 +732,7 @@ function hit(b,word){
   run(w,[{transform:tr(x,b.y,'translate(-50%,-50%)'),opacity:1},{transform:tr(x,b.y-b.s*.9,'translate(-50%,-50%)'),opacity:0}],{duration:850,easing:'ease-out'});
 }
 async function rocket(a,b){
-  var len=Math.hypot(b.x-a.x,b.y-a.y), an=ang(a,b), w=a.s*.5, h=a.s*.16;
+  var len=Math.hypot(b.x-a.x,b.y-a.y), w=Math.round(a.s*.22), h=w;
   var dur=350+len/a.s*55;
   var el=mk('rocket',{width:w+'px',height:h+'px',left:(-w/2)+'px',top:(-h/2)+'px'});
   var n=Math.floor(dur/55);
@@ -632,7 +741,7 @@ async function rocket(a,b){
     var p=mk('puff',{width:sz+'px',height:sz+'px',left:(-sz/2)+'px',top:(-sz/2)+'px'});
     run(p,[{transform:tr(px,py,'scale(.4)'),opacity:.9},{transform:tr(px,py,'scale(1.4)'),opacity:0}],{duration:420});
   },dur*k/n); })(k); }
-  await run(el,[{transform:tr(a.x,a.y,'rotate('+an+'deg)')},{transform:tr(b.x,b.y,'rotate('+an+'deg)')}],{duration:dur,easing:'linear'});
+  await run(el,[{transform:tr(a.x,a.y)},{transform:tr(b.x,b.y)}],{duration:dur,easing:'linear'});
 }
 function explosion(b,mult){
   var sz=b.s*2.2*mult, el=mk('boom',{width:sz+'px',height:sz+'px',left:(-sz/2)+'px',top:(-sz/2)+'px'});
@@ -646,13 +755,14 @@ function shake(){
   boardEl.animate([{transform:'translate(0,0)'},{transform:'translate(-6px,3px)'},{transform:'translate(5px,-4px)'},{transform:'translate(-3px,2px)'},{transform:'translate(0,0)'}],{duration:320});
 }
 async function slash(b){
-  var w=b.s*1.05, mkOne=function(deg,delay){
+  var u=Math.max(3,Math.round(b.s*.1)), steps=[-3,-2,-1,0,1,2,3];
+  var dot=function(dx,dy,delay){
     return sleep(delay).then(function(){
-      var el=mk('slash',{width:w+'px',height:'4px',left:(-w/2)+'px',top:'-2px'});
-      return run(el,[{transform:tr(b.x,b.y,'rotate('+deg+'deg) scaleX(0)'),opacity:1},{transform:tr(b.x,b.y,'rotate('+deg+'deg) scaleX(1)'),opacity:1,offset:.35},{transform:tr(b.x,b.y,'rotate('+deg+'deg) scaleX(1)'),opacity:0}],{duration:300});
+      var el=mk('slash',{width:u+'px',height:u+'px',left:(-u/2)+'px',top:(-u/2)+'px'});
+      return run(el,[{transform:tr(b.x+dx*u,b.y+dy*u),opacity:1},{transform:tr(b.x+dx*u,b.y+dy*u),opacity:1,offset:.6},{transform:tr(b.x+dx*u,b.y+dy*u),opacity:0}],{duration:320});
     });
   };
-  await Promise.all([mkOne(-38,0),mkOne(38,120)]);
+  await Promise.all(steps.map(function(k,i){ return dot(k,k,i*25); }).concat(steps.map(function(k,i){ return dot(k,-k,120+i*25); })));
 }
 async function playAct(m){
   var t=S.board[m.f][1], a=geo(m.f), b=geo(m.t);
@@ -675,7 +785,7 @@ function pushLog(html,check){ S.log.unshift({html:html,check:!!check}); if(S.log
 function actText(m,mover,vt){
   var a=mover[1];
   function who(p){ return DET[p[1]]+' '+ADJ[p[0]]+' '+NAMES[p[1]]; }
-  var A=cap1(who(mover)), arrow='×', body;
+  var A=cap1(who(mover)), arrow='x', body;
   if(m.k==='move') return null;
   if(m.k==='shoot'){
     var v=vt[0];
@@ -683,8 +793,8 @@ function actText(m,mover,vt){
     else if(a==='r') body='schiet '+who(v)+' aan flarden';
     else body=v[1]==='r'?'sloopt '+who(v):'schiet '+who(v)+' aan flarden met het kanon';
   } else if(m.k==='kill') body='schakelt '+who(vt[0])+' uit';
-  else if(m.k==='bomb'){ body='bombardeert '+vt.map(who).join(' en '); arrow='↓'; }
-  else if(m.k==='sab'){ body='saboteert '+who(S.board[m.t])+'. Die is nu uitgeschakeld'; arrow='⚙'; }
+  else if(m.k==='bomb'){ body='bombardeert '+vt.map(who).join(' en '); arrow='>'; }
+  else if(m.k==='sab'){ body='saboteert '+who(S.board[m.t])+'. Die is nu uitgeschakeld'; arrow='>'; }
   else { body='repareert '+who(S.board[m.t]); arrow='+'; }
   return A+' '+body+'. <span class="mv">'+sqName(m.f)+arrow+sqName(m.t)+'</span>';
 }
@@ -741,7 +851,8 @@ function setMode(m){
 }
 $('#mCpu').addEventListener('click',function(){ setMode('cpu'); });
 $('#mTwo').addEventListener('click',function(){ setMode('two'); });
-$('#level').addEventListener('change',function(e){ S.level=+e.target.value; PF.store.set('niveau',S.level); });
+function showLevel(){ [].forEach.call($('#level').children,function(b){ b.setAttribute('aria-pressed',String(+b.dataset.v===S.level)); }); }
+$('#level').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; S.level=+b.dataset.v; PF.store.set('niveau',S.level); showLevel(); });
 
 render();
 })();
