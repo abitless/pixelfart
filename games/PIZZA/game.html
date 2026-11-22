@@ -9,14 +9,14 @@
 {
 	"title": "Hete Pizza",
 	"code": "PIZZA",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Bezorg pizza's op je scooter door de stad. Hoe warmer de pizza aankomt, hoe hoger de fooi. Daarmee koop je een snellere scooter.",
 	"categories": [
 		"Snel",
 		"Rustig"
 	],
 	"age": "ALL",
-	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
+	"changelog": "Helemaal in pixelstijl: dikke pixelranden en harde schaduwen, pixelfonts op scherpe maten."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -161,6 +161,40 @@ button:focus-visible { outline: 3px solid var(--cold); outline-offset: 3px; }
   .road canvas { width: 130px; height: 130px; }
 }
 @media (prefers-reduced-motion: reduce) { .btn, .pad button { transition: none; } }
+/* ---- Pixelstijl (Pixelfart): dikke harde randen, harde schaduw, pixelfonts op scherpe maten ---- */
+:root{--font-bon:'VT323', monospace}
+.logo{font-size:24px; text-shadow:4px 4px 0 var(--sauce)}
+@media (max-width:520px){.logo{font-size:16px; text-shadow:2px 2px 0 var(--sauce)}}
+.chip{font-size:8px; box-shadow:0 0 0 4px var(--line); margin:4px}
+.panel,.slip,.gauges{box-shadow:0 0 0 4px var(--line), 8px 8px 0 4px #0b0a10; margin:4px 12px 12px 4px}
+.up{box-shadow:0 0 0 4px var(--line), 6px 6px 0 4px #0b0a10; margin:4px 10px 10px 4px}
+.road,.stage{box-shadow:0 0 0 4px var(--line); margin:4px}
+h2{font-size:16px}
+.btn{font-size:8px; box-shadow:4px 4px 0 0 var(--cheese-dk); margin:0 4px 4px 0}
+.btn:hover:not(:disabled){filter:none; background:#ffd766}
+.btn:active:not(:disabled){transform:translate(4px,4px); box-shadow:none}
+.btn:disabled{box-shadow:4px 4px 0 0 var(--ink)}
+.btn.ghost{box-shadow:0 0 0 4px var(--line), 6px 6px 0 4px var(--ink)}
+.btn.ghost:active:not(:disabled){transform:translate(4px,4px); box-shadow:0 0 0 4px var(--line)}
+.btn.small{font-size:8px}
+.stats,.slip,.gauges,.kbd,.up .fx{font-size:8px}
+.slip .who,.keys,.keyhelp,.up .blurb{font-size:16px}
+.up h3{font-family:var(--font-display); font-size:8px; line-height:1.6; color:var(--cheese)}
+.kbd{box-shadow:0 0 0 3px var(--line)}
+.bar{box-shadow:0 0 0 3px var(--line)}
+.pips i{box-shadow:0 0 0 3px var(--line)}
+.speed{font-size:8px; background:var(--ink)}
+.hint{font-size:8px}
+.pad button{box-shadow:0 0 0 4px var(--line), 6px 6px 0 4px var(--ink)}
+.pad button.on{box-shadow:0 0 0 4px var(--cheese-dk); transform:translate(4px,4px)}
+/* bonnetje: pixelfont, geen schuine stempel */
+.bon{font-size:20px; line-height:1.1; box-shadow:8px 8px 0 0 #0b0a10}
+.bon-sub,.bon-small,.bon-msg{font-size:18px}
+.bon-line{font-size:22px; font-weight:400}
+.bon-total span{font-size:8px}
+.bon-total strong{font-size:24px}
+.bon-head{font-size:16px}
+.stamp{transform:none; border-width:4px; font-size:8px}
 </style>
 
 <div class="wrap">

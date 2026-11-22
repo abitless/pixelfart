@@ -9,7 +9,7 @@
 {
 	"title": "Blusteam",
 	"code": "BLUST",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Er is brand! Rij met je brandweerwagen naar het gebouw, red de slachtoffers en blus de vlammen. Verdien geld voor een sterkere wagen, want elke brand is groter.",
 	"categories": [
 		"Snel",
@@ -17,7 +17,7 @@
 		"Avontuur"
 	],
 	"age": "ALL",
-	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, alleen pixelfonts."
+	"changelog": "Helemaal in pixelstijl: dikke pixelranden en harde schaduwen, pixelfonts op scherpe maten."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -85,6 +85,28 @@ canvas{display:block; width:100%; height:auto; aspect-ratio:16/9; image-renderin
 .pad .btn.spray{flex:2 1 0; background:var(--water); box-shadow:0 4px 0 #1f7fae}
 .help{margin:0; color:var(--muted); font-size:14px; max-width:80ch}
 @media (prefers-reduced-motion:reduce){.btn:active{transform:none}}
+/* ---- Pixelstijl (Pixelfart): dikke harde randen, harde schaduw, pixelfonts op scherpe maten ---- */
+h1{font-size:24px; text-shadow:4px 4px 0 var(--truck)}
+@media (max-width:520px){h1{font-size:16px; text-shadow:2px 2px 0 var(--truck)}}
+.chip{font-size:16px; border:0; box-shadow:0 0 0 4px var(--line); margin:4px}
+.next,.card,.panel{border:0; box-shadow:0 0 0 4px var(--line), 8px 8px 0 4px #060a12; margin:4px 12px 12px 4px}
+.grid{gap:8px}
+.next .k,.meter span,.stat{font-size:8px; letter-spacing:0}
+.next strong{font-size:22px}
+.card h3{font-size:8px; line-height:1.6; color:var(--flame)}
+.card .eff,.panel .row,.help{font-size:16px}
+.intro{font-size:16px}
+.pips i{width:16px; height:16px; box-shadow:inset 0 0 0 2px #080d17}
+.btn{font-size:8px; box-shadow:4px 4px 0 0 #a87400; margin:0 4px 4px 0}
+.btn:active{transform:translate(4px,4px); box-shadow:none}
+.btn:disabled{box-shadow:4px 4px 0 0 #0a101c}
+.btn.go{font-size:16px; box-shadow:4px 4px 0 0 #8f1d17}
+.btn.go:active{transform:translate(4px,4px); box-shadow:none}
+.pad .btn.spray{box-shadow:4px 4px 0 0 #1f7fae}
+.panel h2{font-size:16px}
+.bar{border:0; box-shadow:0 0 0 4px var(--line); margin:4px}
+canvas{border:0; box-shadow:0 0 0 4px var(--line); margin:4px; width:calc(100% - 8px)}
+.panel .row.total{border-top:4px solid var(--line)}
 </style>
 
 <main class="wrap">
