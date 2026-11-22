@@ -6,7 +6,7 @@
         "Avontuur"
     ],
     "published": "2026-11-15",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Graaf steeds dieper naar erts, verkoop het bij de winkel en koop een beter houweel. Hoe diep durf jij te gaan?",
     "author": "",
     "age": "ALL",
@@ -18,6 +18,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, alleen pixelfonts."
+        },
         {
             "version": "1.0.0",
             "date": "2026-11-15",

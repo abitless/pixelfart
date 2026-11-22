@@ -6,7 +6,7 @@
         "Strategie"
     ],
     "published": "2026-11-15",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Laat trucks erts halen, bouw een leger en vernietig de vijandelijke basis. Speel tegen de computer of met z'n tweeën op hetzelfde scherm.",
     "author": "",
     "age": "ALL",
@@ -18,6 +18,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, niveaus Makkelijk, Gemiddeld en Moeilijk (keuze onthouden), alleen pixelfonts."
+        },
         {
             "version": "1.0.0",
             "date": "2026-11-15",

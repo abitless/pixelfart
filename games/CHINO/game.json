@@ -6,7 +6,7 @@
         "Avontuur"
     ],
     "published": "2026-11-01",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Vlieg je Chinook over de bergen naar drie vijandelijke basissen. Land op het gras, stap uit met je elitetroepen, haal het doel binnen en vlieg veilig terug.",
     "author": "",
     "age": "ALL",
@@ -18,6 +18,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, alleen pixelfonts."
+        },
         {
             "version": "1.0.0",
             "date": "2026-11-01",

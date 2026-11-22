@@ -8,7 +8,7 @@
         "Actie"
     ],
     "published": "2026-10-25",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Je schip vuurt vanzelf. Ontwijk de roze kogels en pak capsules: P voor sterkere wapens, S voor een schild. Hoeveel golven haal jij?",
     "author": "",
     "age": "ALL",
@@ -23,6 +23,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.2.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, alleen pixelfonts."
+        },
         {
             "version": "1.1.0",
             "date": "2026-11-17",

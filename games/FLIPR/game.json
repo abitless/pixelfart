@@ -6,7 +6,7 @@
         "Retro"
     ],
     "published": "2026-11-18",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Een flipperkast vol kittens die met je bolletje wol willen spelen. Flipper met linker en rechter Shift en speel door tot je ballen op zijn.",
     "author": "NAT",
     "age": "ALL",
@@ -21,6 +21,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.2.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden; rechterflipper niet meer op M (M is nu geluid), alleen pixelfonts."
+        },
         {
             "version": "1.1.0",
             "date": "2026-11-18",

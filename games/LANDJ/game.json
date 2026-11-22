@@ -6,7 +6,7 @@
         "Strategie"
     ],
     "published": "2026-11-19",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Verover land en verdedig wat je hebt! Stuur je soldaten slim rond en laat de dobbelstenen beslissen. Tegen de computer of met z'n tweeën.",
     "author": "NAT",
     "age": "ALL",
@@ -21,6 +21,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
+        },
         {
             "version": "1.0.0",
             "date": "2026-11-19",

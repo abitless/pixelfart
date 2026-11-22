@@ -6,7 +6,7 @@
         "Actie"
     ],
     "published": "2026-10-31",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Je fregat patrouilleert bij zonsondergang. Schiet vliegtuigen uit de lucht en gooi dieptebommen op onderzeeërs.",
     "author": "",
     "age": "ALL",
@@ -21,6 +21,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.2.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
+        },
         {
             "version": "1.1.0",
             "date": "2026-11-17",

@@ -5,7 +5,7 @@
         "Actie"
     ],
     "published": "2026-10-25",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Jij bent de boordschutter met onbeperkt vuur. Vlieg, schiet alles uit de lucht en vang de pakketjes.",
     "author": "",
     "age": "ALL",
@@ -20,6 +20,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.2.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
+        },
         {
             "version": "1.1.0",
             "date": "2026-11-17",

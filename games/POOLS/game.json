@@ -6,7 +6,7 @@
         "Rustig"
     ],
     "published": "2026-11-22",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Speel pool tegen de computer of met z'n tweeën. Of probeer alleen alle ballen in zo min mogelijk slagen in de gaten te krijgen!",
     "author": "JOZ",
     "age": "ALL",
@@ -21,6 +21,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.2.0",
+            "date": "2026-11-22",
+            "notes": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
+        },
         {
             "version": "1.1.0",
             "date": "2026-11-22",
