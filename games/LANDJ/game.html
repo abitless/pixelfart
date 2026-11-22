@@ -1,0 +1,1134 @@
+<!doctype html>
+<!-- Pixelfart · Landjepik · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Landjepik</title>
+<script type="application/json" id="pixelfart">
+{
+	"title": "Landjepik",
+	"code": "LANDJ",
+	"version": "1.0.0",
+	"description": "Verover land en verdedig wat je hebt! Stuur je soldaten slim rond en laat de dobbelstenen beslissen. Tegen de computer of met z'n tweeën.",
+	"categories": ["Strategie", "2 spelers", "Rustig"],
+	"age": "8+",
+	"author": "NAT",
+	"score": { "order": "desc", "label": "punten" }
+}
+</script>
+<style>
+	html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+	body { display: grid; place-items: center; }
+	canvas { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="game" width="320" height="180" aria-label="Landjepik, een strategiespel om land te veroveren"></canvas>
+<script>
+(() => {
+	'use strict';
+	// ---------- scherm ----------
+	const W = 320, H = 180, TS = 8, MW = 40, MH = 18, MY = 16, BY = 160;
+	const STEPS = 3, MAXR = 20, START_UNITS = 4;
+	const cv = document.getElementById('game');
+	const g = cv.getContext('2d');
+	g.imageSmoothingEnabled = false;
+	Pixelfart.fit(cv, { mode: 'integer' });
+	// Op kleine schermen (telefoon) liever zo groot mogelijk dan 1× klein.
+	function refit() {
+		const s = Math.min(innerWidth / W, innerHeight / H);
+		if (s < 2) { cv.style.width = Math.floor(W * s) + 'px'; cv.style.height = Math.floor(H * s) + 'px'; }
+	}
+	addEventListener('resize', refit); refit();
+
+	// ---------- kleuren en fonts ----------
+	const C = {
+		zwart: '#000000', wit: '#f2f2f2', lgrijs: '#bdbdbd', grijs: '#8a8a8a', lijn: '#6a6a6a', dgrijs: '#2a2a2a',
+		groen: '#5dde7a', geel: '#ffcf4a', oranje: '#ff9a4a', paars: '#c9a6ff', blauw: '#6ec9ff',
+		zee: '#13264a', golf: '#24457a', zand: '#d9c78a', grens: '#101010', nBase: '#3f6b3a', nSpeck: '#4e7f46',
+	};
+	const TEAM = [
+		{ naam: 'ROOD', licht: '#ff5c8a', base: '#9a2f48', speck: '#b03a56', donker: '#4a1020' },
+		{ naam: 'BLAUW', licht: '#6ec9ff', base: '#2d5d92', speck: '#386fab', donker: '#0e2a4a' },
+	];
+	const F_TITLE = '16px "Press Start 2P"', F_BIG = '8px "Press Start 2P"', F_HUD = '8px Silkscreen', F_SM = '8px Tiny5';
+	function txt(s, x, y, c, f = F_HUD, al = 'left') {
+		g.font = f; g.fillStyle = c; g.textAlign = al; g.textBaseline = 'top';
+		Pixelfart.text(g, s, Math.round(x), Math.round(y));
+	}
+	function tw(s, f) { g.font = f; return Math.ceil(g.measureText(s).width); }
+	function makePat(color) {
+		const c = document.createElement('canvas'); c.width = c.height = 2;
+		const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, 1, 1); x.fillRect(1, 1, 1, 1);
+		return g.createPattern(c, 'repeat');
+	}
+	const P = { wit: makePat(C.wit), geel: makePat(C.geel), groen: makePat(C.groen), dim: makePat(C.zwart) };
+
+	// ---------- geluid (Web Audio, pas na eerste tik) ----------
+	let ac = null;
+	function audio() {
+		if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
+		if (ac && ac.state === 'suspended' && !Pixelfart.paused) ac.resume();
+	}
+	function tone(f, d, type = 'square', v = 0.04, when = 0, slide = 0) {
+		if (!ac || SIM) return;
+		const t = ac.currentTime + when, o = ac.createOscillator(), gn = ac.createGain();
+		o.type = type; o.frequency.setValueAtTime(f, t);
+		if (slide) o.frequency.linearRampToValueAtTime(f + slide, t + d);
+		gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
+		o.connect(gn); gn.connect(ac.destination); o.start(t); o.stop(t + d + 0.02);
+	}
+	const sfx = {
+		click: () => tone(660, 0.05),
+		place: () => tone(520 + Math.random() * 60, 0.05, 'square', 0.03),
+		move: () => tone(330, 0.09, 'triangle', 0.08, 0, 80),
+		take: () => { tone(523, 0.08); tone(784, 0.1, 'square', 0.04, 0.08); },
+		dice: () => { for (let i = 0; i < 4; i++) tone(180 + Math.random() * 320, 0.03, 'square', 0.025, i * 0.06); },
+		hit: () => tone(160, 0.12, 'sawtooth', 0.035, 0, -70),
+		win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.1, 'square', 0.04, i * 0.09)),
+		lose: () => [392, 330, 262].forEach((f, i) => tone(f, 0.14, 'triangle', 0.08, i * 0.12)),
+		err: () => tone(110, 0.12, 'square', 0.04),
+	};
+	Pixelfart.onPause(() => { if (ac) ac.suspend(); });
+	Pixelfart.onResume(() => { if (ac) ac.resume(); });
+
+	// ---------- kansen bij dobbelen (exact uitgerekend) ----------
+	// OUT[a][d] = lijst {la, ld, p}: verliezen aanvaller/verdediger in één worp met a en d stenen.
+	const OUT = [];
+	for (let a = 1; a <= 3; a++) {
+		OUT[a] = [];
+		for (let d = 1; d <= 2; d++) {
+			const cnt = {}; let tot = 0;
+			const n = a + d, faces = new Array(n);
+			const rec = (k) => {
+				if (k === n) {
+					const A = faces.slice(0, a).sort((x, y) => y - x), D = faces.slice(a).sort((x, y) => y - x);
+					let la = 0, ld = 0;
+					for (let i = 0; i < Math.min(a, d); i++) { if (A[i] > D[i]) ld++; else la++; }
+					cnt[la + ',' + ld] = (cnt[la + ',' + ld] || 0) + 1; tot++;
+					return;
+				}
+				for (let f = 1; f <= 6; f++) { faces[k] = f; rec(k + 1); }
+			};
+			rec(0);
+			OUT[a][d] = Object.keys(cnt).map((key) => { const [la, ld] = key.split(',').map(Number); return { la, ld, p: cnt[key] / tot }; });
+		}
+	}
+	const MAXU = 100;
+	const WP = [], EA = [], ED = [];   // winkans, verwachte overlevers aanvaller, verwachte rest verdediger
+	for (let a = 0; a < MAXU; a++) {
+		WP[a] = []; EA[a] = []; ED[a] = [];
+		for (let d = 0; d < MAXU; d++) {
+			if (d === 0) { WP[a][d] = a > 0 ? 1 : 0; EA[a][d] = a; ED[a][d] = 0; continue; }
+			if (a === 0) { WP[a][d] = 0; EA[a][d] = 0; ED[a][d] = d; continue; }
+			let w = 0, ea = 0, ed = 0;
+			for (const o of OUT[Math.min(3, a)][Math.min(2, d)]) {
+				const na = a - o.la, nd = d - o.ld;
+				w += o.p * WP[na][nd]; ea += o.p * EA[na][nd]; ed += o.p * ED[na][nd];
+			}
+			WP[a][d] = w; EA[a][d] = ea; ED[a][d] = ed;
+		}
+	}
+	const cap = (n) => Math.max(0, Math.min(MAXU - 1, n));
+
+	// ---------- kaart maken (puntsymmetrisch: eerlijk voor beide kanten) ----------
+	function mulberry32(a) {
+		return function () {
+			a |= 0; a = (a + 0x6D2B79F5) | 0;
+			let t = Math.imul(a ^ (a >>> 15), 1 | a);
+			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+	}
+	const N = MW * MH;
+	const idx = (x, y) => y * MW + x;
+	const mirT = (i) => { const x = i % MW, y = (i / MW) | 0; return idx(MW - 1 - x, MH - 1 - y); };
+	function nbrs(i) {
+		const x = i % MW, y = (i / MW) | 0, r = [];
+		if (x > 0) r.push(i - 1); if (x < MW - 1) r.push(i + 1);
+		if (y > 0) r.push(i - MW); if (y < MH - 1) r.push(i + MW);
+		return r;
+	}
+	function genMap(seed) {
+		for (let a = 0; a < 200; a++) { const m = tryGen((seed + a * 7919) >>> 0); if (m) return m; }
+		throw new Error('geen kaart');
+	}
+	function tryGen(seed) {
+		const rnd = mulberry32(seed);
+		const GX = 9, GY = 5, grid = [];
+		for (let i = 0; i < GX * GY; i++) grid.push(rnd());
+		const nz = (x, y) => {
+			const fx = x / (MW - 1) * (GX - 1), fy = y / (MH - 1) * (GY - 1);
+			const x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(GX - 1, x0 + 1), y1 = Math.min(GY - 1, y0 + 1);
+			const tx = fx - x0, ty = fy - y0;
+			const a = grid[y0 * GX + x0], b = grid[y0 * GX + x1], c = grid[y1 * GX + x0], d = grid[y1 * GX + x1];
+			return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+		};
+		const land = new Uint8Array(N);
+		for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+			const n = (nz(x, y) + nz(MW - 1 - x, MH - 1 - y)) / 2;
+			const dx = (x - (MW - 1) / 2) / (MW / 2), dy = (y - (MH - 1) / 2) / (MH / 2);
+			const e = Math.pow(Math.abs(dx), 2.4) + Math.pow(Math.abs(dy), 2.4);
+			if (e + (n - 0.5) * 1.2 < 0.8) land[idx(x, y)] = 1;
+		}
+		const lakes = 1 + ((rnd() * 3) | 0);
+		for (let k = 0; k < lakes; k++) {
+			const lx = 4 + rnd() * 13, ly = 2 + rnd() * (MH - 5), r = 0.9 + rnd() * 1.3;
+			for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+				if (Math.hypot(x - lx, (y - ly) * 1.2) < r) { const i = idx(x, y); land[i] = 0; land[mirT(i)] = 0; }
+			}
+		}
+		// alleen het grootste stuk land houden
+		const comp = new Int16Array(N).fill(-1);
+		let best = -1, bestSize = 0, cid = 0;
+		for (let i = 0; i < N; i++) {
+			if (!land[i] || comp[i] >= 0) continue;
+			let size = 0; const st = [i]; comp[i] = cid;
+			while (st.length) { const c = st.pop(); size++; for (const n of nbrs(c)) if (land[n] && comp[n] < 0) { comp[n] = cid; st.push(n); } }
+			if (size > bestSize) { bestSize = size; best = cid; }
+			cid++;
+		}
+		let landCount = 0;
+		for (let i = 0; i < N; i++) { if (land[i] && comp[i] !== best) land[i] = 0; if (land[i]) landCount++; }
+		if (landCount < 380) return null;
+		for (let i = 0; i < N; i++) if (land[i] !== land[mirT(i)]) return null;
+
+		// zaadpunten voor de gebieden, steeds in paren (punt + spiegelpunt)
+		const landList = []; for (let i = 0; i < N; i++) if (land[i]) landList.push(i);
+		const seeds = [];
+		for (let tries = 0; seeds.length < 22 && tries < 5000; tries++) {
+			const i = landList[(rnd() * landList.length) | 0];
+			const x = i % MW, y = (i / MW) | 0;
+			if (x >= MW / 2) continue;
+			const m = mirT(i);
+			if (Math.hypot(x - (m % MW), y - ((m / MW) | 0)) < 4.4) continue;
+			let ok = true;
+			for (const s of seeds) if (Math.hypot(x - (s % MW), y - ((s / MW) | 0)) < 4.4) { ok = false; break; }
+			if (ok) seeds.push(i, m);
+		}
+		if (seeds.length < 18) return null;
+
+		// gebieden laten groeien (kortste pad met ruis): altijd aaneengesloten
+		const rt = new Float32Array(N); for (let i = 0; i < N; i++) rt[i] = rnd();
+		const wt = (i) => 1 + (rt[i] + rt[mirT(i)]) * 0.8;
+		const dist = new Float64Array(N).fill(Infinity), lab = new Int16Array(N).fill(-1), done = new Uint8Array(N);
+		seeds.forEach((s, k) => { dist[s] = 0; lab[s] = k; });
+		for (;;) {
+			let m = -1, md = Infinity;
+			for (let i = 0; i < N; i++) if (land[i] && !done[i] && dist[i] < md) { md = dist[i]; m = i; }
+			if (m < 0) break;
+			done[m] = 1;
+			for (const n of nbrs(m)) if (land[n] && !done[n]) {
+				const nd = md + (wt(m) + wt(n)) / 2;
+				if (nd < dist[n]) { dist[n] = nd; lab[n] = lab[m]; }
+			}
+		}
+		// te kleine gebieden samenvoegen
+		const K = seeds.length;
+		for (;;) {
+			const size = new Array(K).fill(0);
+			for (let i = 0; i < N; i++) if (lab[i] >= 0) size[lab[i]]++;
+			let sm = -1;
+			for (let k = 0; k < K; k++) if (size[k] > 0 && size[k] < 12 && (sm < 0 || size[k] < size[sm])) sm = k;
+			if (sm < 0) break;
+			const nb = new Set();
+			for (let i = 0; i < N; i++) if (lab[i] === sm) for (const n of nbrs(i)) if (lab[n] >= 0 && lab[n] !== sm) nb.add(lab[n]);
+			let tgt = -1;
+			for (const k of nb) if (tgt < 0 || size[k] < size[tgt]) tgt = k;
+			if (tgt < 0) return null;
+			for (let i = 0; i < N; i++) if (lab[i] === sm) lab[i] = tgt;
+		}
+		const remap = new Map(), tiles = new Int16Array(N).fill(-1);
+		for (let i = 0; i < N; i++) if (lab[i] >= 0) { if (!remap.has(lab[i])) remap.set(lab[i], remap.size); tiles[i] = remap.get(lab[i]); }
+		const R = [];
+		for (let r = 0; r < remap.size; r++) R.push({ id: r, tiles: [], adj: new Set(), adjArr: [], cx: 0, cy: 0, bx: 0, by: 0, owner: -1, units: 0, castle: false });
+		for (let i = 0; i < N; i++) {
+			const r = tiles[i]; if (r < 0) continue;
+			R[r].tiles.push(i);
+			for (const n of nbrs(i)) if (tiles[n] >= 0 && tiles[n] !== r) R[r].adj.add(tiles[n]);
+		}
+		if (R.length < 14) return null;
+		for (const r of R) {
+			r.adjArr = [...r.adj].map((k) => R[k]);
+			for (const t of r.tiles) { r.cx += t % MW; r.cy += (t / MW) | 0; }
+			r.cx /= r.tiles.length; r.cy /= r.tiles.length;
+			let bt = r.tiles[0], bs = Infinity;
+			for (const t of r.tiles) {
+				const x = t % MW, y = (t / MW) | 0;
+				const inR = (xx, yy) => xx >= 0 && yy >= 0 && xx < MW && yy < MH && tiles[idx(xx, yy)] === r.id;
+				const s = Math.hypot(x - r.cx, y - r.cy) + (inR(x - 1, y) ? 0 : 1.5) + (inR(x + 1, y) ? 0 : 1.5) + (inR(x, y - 1) ? 0 : 0.5) + (inR(x, y + 1) ? 0 : 0.5);
+				if (s < bs) { bs = s; bt = t; }
+			}
+			r.bx = (bt % MW) * TS + 4; r.by = MY + ((bt / MW) | 0) * TS + 4;
+		}
+		const mir = R.map((r) => tiles[mirT(r.tiles[0])]);
+		for (const r of R) if (mir[r.id] === r.id || mir[mir[r.id]] !== r.id) return null;
+
+		// startgebieden: hoofdstad links + twee buren, gespiegeld voor blauw
+		let cap0 = R[0];
+		for (const r of R) if (r.cx < cap0.cx) cap0 = r;
+		const cap1 = R[mir[cap0.id]];
+		const nbs = cap0.adjArr.slice().sort((a, b) => a.cx - b.cx).slice(0, 2);
+		if (nbs.length < 2) return null;
+		const s0 = [cap0, ...nbs], s1 = s0.map((r) => R[mir[r.id]]);
+		for (const a of s0) for (const b of s1) if (a === b || a.adj.has(b.id)) return null;
+		for (const r of s0) { r.owner = 0; r.units = START_UNITS; }
+		for (const r of s1) { r.owner = 1; r.units = START_UNITS; }
+		cap0.castle = cap1.castle = true;
+		const d0 = bfs([cap0], R), d1 = bfs([cap1], R);
+		const cands = R.filter((r) => r.owner < 0 && d0[r.id] >= 2 && d1[r.id] >= 2 && d0[r.id] < d1[r.id]);
+		for (let i = cands.length - 1; i > 0; i--) { const j = (rnd() * (i + 1)) | 0; [cands[i], cands[j]] = [cands[j], cands[i]]; }
+		let picked = 0;
+		for (const c of cands) {
+			if (picked >= 2) break;
+			if (c.adjArr.some((n) => n.castle)) continue;
+			c.castle = true; R[mir[c.id]].castle = true; picked++;
+		}
+		const deco = new Uint8Array(N * 3); for (let i = 0; i < deco.length; i++) deco[i] = (rnd() * 256) | 0;
+		return { tiles, regions: R, deco };
+	}
+	function bfs(from, R = regions) {
+		const d = new Array(R.length).fill(99), q = [];
+		for (const r of from) { d[r.id] = 0; q.push(r); }
+		while (q.length) { const r = q.shift(); for (const n of r.adjArr) if (d[n.id] > d[r.id] + 1) { d[n.id] = d[r.id] + 1; q.push(n); } }
+		return d;
+	}
+
+	// ---------- toestand ----------
+	let MAP = null, regions = [];
+	let scene = 'title';        // title | level | rules | game | over
+	let mode = 1, level = 1;    // mode 1 = tegen computer, 2 = twee spelers
+	let aiLevel = [-1, 1];      // -1 = mens
+	let turn = 0, starter = 0, round = 1, phase = 'place', placeLeft = 0, placeHist = [], steps = STEPS;
+	let sel = null, pick = null, battle = null, banner = null, aiShow = null, msg = null, roll = null, over = null;
+	let ai = null, aiWait = 0, quitAsk = false, rulesPage = 0;
+	let T = 0, mapDirty = true, cursorR = 0, lastInput = 'ptr', menuFocus = 0;
+	let fx = [];
+	let SIM = false, simResult = null;
+	let rec = Pixelfart.store.get('rec', [0, 0, 0]);
+
+	const isAI = (p) => aiLevel[p] >= 0;
+	const own = (p) => regions.filter((r) => r.owner === p);
+	const landOf = (p) => own(p).length;
+	const unitsOf = (p) => own(p).reduce((s, r) => s + r.units, 0);
+	const castlesOf = (p) => own(p).filter((r) => r.castle).length;
+	const reinf = (p) => 2 + Math.floor(landOf(p) / 3) + castlesOf(p);
+	const teamName = (p) => mode === 1 ? (p === 0 ? 'JIJ' : 'COMPUTER') : TEAM[p].naam;
+	const flash = (text) => { msg = { text, t: 1.8 }; sfx.err(); };
+
+	function newGame(m, lvl) {
+		mode = m; level = lvl;
+		aiLevel = m === 1 ? [-1, lvl] : [-1, -1];
+		MAP = genMap((Math.random() * 4294967296) >>> 0); regions = MAP.regions; mapDirty = true;
+		round = 1; sel = pick = battle = banner = aiShow = msg = over = null; ai = null; quitAsk = false; fx = [];
+		let a, b; do { a = 1 + ((Math.random() * 6) | 0); b = 1 + ((Math.random() * 6) | 0); } while (a === b);
+		roll = { t: 0, a, b };
+		starter = a > b ? 0 : 1;
+		phase = 'roll'; scene = 'game'; turn = starter;
+		cursorR = own(0)[0].id;
+		sfx.dice();
+	}
+	function startTurn(p) {
+		if (landOf(p) === 0) { finish(1 - p, 'alles'); return; }
+		turn = p; sel = pick = aiShow = null; steps = STEPS; placeLeft = reinf(p); placeHist = []; phase = 'place';
+		banner = { t: 1.2 };
+		if (own(p).length && !(regions[cursorR] && regions[cursorR].owner === p)) cursorR = own(p)[0].id;
+		if (isAI(p)) { ai = aiTurn(p); aiWait = 0; } else ai = null;
+	}
+	function endTurn() {
+		if (scene !== 'game') return;
+		sel = pick = aiShow = null;
+		const n = 1 - turn;
+		if (n === starter) {
+			round++;
+			if (round > MAXR) {
+				const a = landOf(0), b = landOf(1), ua = unitsOf(0), ub = unitsOf(1);
+				finish(a > b ? 0 : b > a ? 1 : ua > ub ? 0 : ub > ua ? 1 : -1, 'rondes');
+				return;
+			}
+		}
+		startTurn(n);
+	}
+	function checkWin() { if (landOf(1 - turn) === 0) finish(turn, 'alles'); }
+	function finish(w, why) {
+		if (SIM) { simResult = w; return; }
+		scene = 'over'; ai = null; battle = null; pick = null; sel = null; aiShow = null; menuFocus = 0;
+		over = { w, why, score: null, newRec: false };
+		if (mode === 1) {
+			const land = landOf(0);
+			let sc;
+			if (w === 0) sc = Math.round((100 + land * 10 + (MAXR - Math.min(round, MAXR)) * 5) * (level + 1));
+			else if (w < 0) sc = land * 5 * (level + 1);
+			else sc = land * 2 * (level + 1);
+			over.score = sc;
+			if (sc > rec[level]) { rec[level] = sc; over.newRec = true; Pixelfart.store.set('rec', rec); }
+			Pixelfart.score(sc);   // één keer per potje
+		}
+		if (w === 0 || (mode === 2 && w >= 0)) sfx.win(); else sfx.lose();
+	}
+
+	// ---------- zetten ----------
+	function placeUnit(r) {
+		r.units = cap(r.units + 1); placeLeft--; placeHist.push(r);
+		addFx(r.bx, r.by - 8, '+1', TEAM[r.owner].licht);
+		sfx.place();
+		if (placeLeft <= 0 && !isAI(turn)) { phase = 'orders'; msg = { text: 'Nu mag je ' + STEPS + ' stappen zetten!', t: 1.8 }; }
+	}
+	function undoPlace() {
+		const r = placeHist.pop(); if (!r) return;
+		r.units--; placeLeft++; sfx.click();
+	}
+	function canTarget(s, t, p) {
+		if (!s.adj.has(t.id) || s.units < 1) return null;
+		if (t.owner === p) return 'move';
+		if (t.units === 0) return 'take';
+		if (s.units > t.units) return 'attack';
+		return 'weak';
+	}
+	function doOrder(s, t, n, kind) {
+		steps--;
+		const p = turn;
+		if (kind === 'move') {
+			s.units -= n; t.units = cap(t.units + n); sfx.move();
+		} else if (kind === 'take') {
+			s.units -= n; t.owner = p; t.units = n; mapDirty = true; sfx.take();
+			addFx(t.bx, t.by - 8, 'VEROVERD', C.geel);
+			checkWin();
+		} else {
+			s.units -= n;
+			battle = { s, t, p, att: n, def: t.units, phase: 'roll', timer: 0.5, dA: [], dD: [], showA: [], showD: [], lossA: 0, lossD: 0, result: null, ai: isAI(p), fast: false };
+			if (SIM) { while (!battle.result) { rollRound(battle); battleOver(battle); } battle = null; checkWin(); }
+			else sfx.dice();
+		}
+	}
+	const dice = (n) => { const r = []; for (let i = 0; i < n; i++) r.push(1 + ((Math.random() * 6) | 0)); return r.sort((a, b) => b - a); };
+	function rollRound(b) {
+		const na = Math.min(3, b.att), nd = Math.min(2, b.def);
+		b.dA = dice(na); b.dD = dice(nd); b.lossA = 0; b.lossD = 0;
+		for (let i = 0; i < Math.min(na, nd); i++) { if (b.dA[i] > b.dD[i]) b.lossD++; else b.lossA++; }
+		b.att -= b.lossA; b.def -= b.lossD; b.t.units = b.def;
+	}
+	function battleOver(b) {
+		if (b.def === 0) { b.t.owner = b.p; b.t.units = b.att; b.result = 'win'; mapDirty = true; }
+		else if (b.att === 0) b.result = 'lose';
+		return b.result;
+	}
+	function retreat() {
+		const b = battle;
+		if (!b || b.phase === 'end' || b.def === 0 || b.att === 0) return;
+		b.s.units = cap(b.s.units + b.att); b.result = 'retreat'; b.phase = 'end'; b.timer = 0.8; sfx.click();
+	}
+	function updateBattle(dt) {
+		const b = battle;
+		b.timer -= dt * (b.fast ? 3 : 1);
+		if (b.phase === 'roll') {
+			b.showA = dice(Math.min(3, b.att)); b.showD = dice(Math.min(2, b.def));
+			if (b.timer <= 0) {
+				rollRound(b);
+				if (b.lossA) addFx(b.s.bx, b.s.by - 8, '-' + b.lossA, TEAM[b.p].licht);
+				if (b.lossD) addFx(b.t.bx, b.t.by - 8, '-' + b.lossD, TEAM[1 - b.p].licht);
+				sfx.hit();
+				b.phase = 'show'; b.timer = b.ai ? 0.6 : 0.8;
+			}
+		} else if (b.phase === 'show') {
+			if (b.timer <= 0) {
+				const r = battleOver(b);
+				if (r) {
+					b.phase = 'end'; b.timer = 1.2;
+					const good = (r === 'win') === !isAI(b.p) || mode === 2 && r === 'win';
+					if (good) sfx.win(); else sfx.lose();
+				} else { b.phase = 'roll'; b.timer = 0.4; sfx.dice(); }
+			}
+		} else if (b.timer <= 0) { battle = null; checkWin(); }
+	}
+	function addFx(x, y, text, col) { if (!SIM) fx.push({ x, y, text, col, t: 0 }); }
+
+	// ---------- computer-tegenstander ----------
+	function threat(r, p) {
+		let sum = 0, mx = 0;
+		for (const e of r.adjArr) if (e.owner === 1 - p) { sum += e.units; mx = Math.max(mx, e.units); }
+		return mx + 0.5 * (sum - mx);
+	}
+	function landVal(t, p) {
+		let v = 8 + (t.castle ? 10 : 0);
+		if (t.owner === 1 - p) v += 4;
+		for (const n of t.adjArr) if (n.owner === p) v += 0.8;
+		return v;
+	}
+	function aiPlace(p) {
+		const L = aiLevel[p], o = 1 - p, mine = own(p);
+		if (L >= 2) return aiSearchPlace(p);
+		const useful = mine.filter((r) => r.adjArr.some((n) => n.owner !== p));
+		if (L === 0 && Math.random() < 0.6) {
+			const list = useful.length ? useful : mine;
+			return list[(Math.random() * list.length) | 0];
+		}
+		let best = null, bs = -1e9;
+		for (const r of mine) {
+			const en = r.adjArr.filter((n) => n.owner === o), neu = r.adjArr.filter((n) => n.owner < 0);
+			let s;
+			if (en.length) {
+				s = 2 + (threat(r, p) - r.units) + (r.castle ? 3 : 0);
+				let pot = 0;
+				for (const e of en) pot = Math.max(pot, landVal(e, p) / (Math.max(0, e.units - r.units) + 2));
+				s += pot * 0.6;
+			} else if (neu.length) s = 1 - r.units * 0.5 + neu.length * 0.3;
+			else s = -10 - r.units;
+			s += (Math.random() - 0.5) * (L === 1 ? 1.5 : 0.3);
+			if (s > bs) { bs = s; best = r; }
+		}
+		return best;
+	}
+	function aiBestAction(p) {
+		const L = aiLevel[p], o = 1 - p;
+		if (L >= 2) return aiSearch(p);
+		const thr = [0.3, 0.5, 0.58][L], noise = [10, 2.5, 0][L];
+		const dist = bfs(own(o));
+		let best = null;
+		const consider = (a) => { a.v += (Math.random() - 0.5) * noise; if (!best || a.v > best.v) best = a; };
+		for (const s of own(p)) {
+			if (s.units < 1) continue;
+			const enN = s.adjArr.filter((n) => n.owner === o);
+			const thrS = threat(s, p);
+			const keepMove = enN.length ? Math.min(s.units, Math.max(1, Math.ceil(thrS * 0.7))) : 0;
+			const spare = s.units - keepMove;
+			for (const t of s.adjArr) {
+				if (t.owner < 0) {
+					const tEn = t.adjArr.some((n) => n.owner === o);
+					const n = spare >= 1 ? (tEn ? spare : 1) : (s.units >= 2 ? 1 : 0);
+					if (!n) continue;
+					let v = landVal(t, p) - (spare < 1 ? 3 : 0) + (tEn ? n * 0.3 : 0);
+					if (tEn && n < threat(t, p)) v -= 3;
+					consider({ s, t, n, kind: 'take', v });
+				} else if (t.owner === o) {
+					if (t.units === 0) {
+						consider({ s, t, n: Math.max(1, spare), kind: 'take', v: landVal(t, p) + 6 });
+						continue;
+					}
+					const others = enN.some((e) => e !== t);
+					const n = s.units - (others ? 1 : 0);
+					if (n <= t.units) continue;
+					const pw = WP[cap(n)][cap(t.units)];
+					if (pw < thr) continue;
+					const surv = EA[cap(n)][cap(t.units)], defLeft = ED[cap(n)][cap(t.units)];
+					let v = pw * (landVal(t, p) + 4) + (t.units - defLeft) * 1.2 - (n - surv) * 1.0 - (1 - pw) * 4;
+					if (L === 2 && s.castle && thrS > s.units - n) v -= 4;
+					consider({ s, t, n, kind: 'attack', v });
+				} else {
+					if (spare < 1) continue;
+					const needT = t.adjArr.some((n) => n.owner === o) ? threat(t, p) - t.units : 0;
+					let v = -1, n = spare;
+					if (dist[t.id] < dist[s.id]) v = 1.5 + spare * 0.35 + Math.max(0, needT) * 0.6;
+					else if (needT > 0 && !enN.length) v = needT * 0.6;
+					else if (needT > 0 && thrS - s.units < -2) { n = Math.min(spare, Math.ceil(needT)); v = needT * 0.5; }
+					if (v > 0) consider({ s, t, n, kind: 'move', v });
+				}
+			}
+		}
+		return best && best.v > 0.8 ? best : null;
+	}
+	// Moeilijk: bekijk elke mogelijke zet en reken uit hoe goed de kaart er daarna (gemiddeld) voor staat.
+	const EW = { land: 5, castle: 4, units: 1, ownRisk: 0.4, oppRisk: 0.25, take: 0, thr: 0.4, val: 6, cval: 8 };
+	function evalState(p) {
+		const o = 1 - p;
+		let v = EW.land * (landOf(p) - landOf(o)) + EW.castle * (castlesOf(p) - castlesOf(o)) + EW.units * (unitsOf(p) - unitsOf(o));
+		for (const r of regions) {
+			if (r.owner < 0) continue;
+			const mine = r.owner === p, enemy = mine ? o : p;
+			let worst = 0;
+			for (const e of r.adjArr) if (e.owner === enemy) {
+				const risk = r.units === 0 ? 1 : e.units > r.units ? WP[cap(e.units)][cap(r.units)] : 0;
+				worst = Math.max(worst, risk);
+			}
+			if (!worst) continue;
+			const val = EW.val + (r.castle ? EW.cval : 0);
+			// eigen land in gevaar weegt zwaar (de ander is eerst aan zet), kansen bij de ander minder
+			v += mine ? -worst * val * EW.ownRisk : worst * val * EW.oppRisk;
+		}
+		return v;
+	}
+	function aiSearch(p) {
+		const o = 1 - p, base = evalState(p);
+		let best = null;
+		for (const s of own(p)) {
+			if (s.units < 1) continue;
+			const su = s.units;
+			for (const t of s.adjArr) {
+				const kind = canTarget(s, t, p);
+				if (!kind || kind === 'weak') continue;
+				const min = kind === 'attack' ? t.units + 1 : 1;
+				const opts = new Set([min, Math.ceil(su / 2), su - 1, su].filter((n) => n >= min && n <= su));
+				for (const n of opts) {
+					const to = t.owner, tu = t.units;
+					let v;
+					if (kind === 'move') { s.units -= n; t.units += n; v = evalState(p); }
+					else if (kind === 'take') { s.units -= n; t.owner = p; t.units = n; v = evalState(p) + EW.take; }
+					else {
+						const pw = WP[cap(n)][cap(tu)];
+						if (pw < EW.thr) continue;
+						s.units -= n;
+						t.owner = p; t.units = Math.max(1, Math.round(EA[cap(n)][cap(tu)] / pw)); const vw = evalState(p);
+						t.owner = to; t.units = pw < 1 ? Math.max(1, Math.round(ED[cap(n)][cap(tu)] / (1 - pw))) : 1; const vl = evalState(p);
+						v = pw * vw + (1 - pw) * vl;
+					}
+					s.units = su; t.owner = to; t.units = tu;
+					v -= base;
+					if (!best || v > best.v) best = { s, t, n, kind, v };
+				}
+			}
+		}
+		return best && best.v > 0.3 ? best : null;
+	}
+	function aiSearchPlace(p) {
+		let best = null, bv = -Infinity;
+		for (const r of own(p)) { r.units++; const v = evalState(p); r.units--; if (v > bv) { bv = v; best = r; } }
+		return best;
+	}
+
+	function* aiTurn(p) {
+		yield 1.2;
+		banner = null;
+		while (placeLeft > 0) { placeUnit(aiPlace(p)); yield 0.16; }
+		phase = 'orders';
+		yield 0.4;
+		while (steps > 0 && scene === 'game') {
+			if (aiLevel[p] === 0 && Math.random() < 0.2) break;
+			const a = aiBestAction(p);
+			if (!a) break;
+			aiShow = a; yield 0.7; aiShow = null;
+			doOrder(a.s, a.t, a.n, a.kind);
+			while (battle) yield 0.05;
+			if (scene !== 'game') return;
+			yield 0.3;
+		}
+		if (scene === 'game') endTurn();
+	}
+
+	// ---------- test: computer tegen computer (alleen met ?debug) ----------
+	function simGame(la, lb) {
+		SIM = true; aiLevel = [la, lb]; mode = 0;
+		MAP = genMap((Math.random() * 4294967296) >>> 0); regions = MAP.regions;
+		starter = Math.random() < 0.5 ? 0 : 1; turn = starter; round = 1; simResult = null;
+		while (simResult === null) {
+			const p = turn;
+			placeLeft = reinf(p); placeHist = [];
+			while (placeLeft > 0) placeUnit(aiPlace(p));
+			steps = STEPS;
+			while (steps > 0 && simResult === null) {
+				if (aiLevel[p] === 0 && Math.random() < 0.2) break;
+				const a = aiBestAction(p); if (!a) break;
+				doOrder(a.s, a.t, a.n, a.kind);
+			}
+			if (simResult !== null) break;
+			const n = 1 - p;
+			if (n === starter && ++round > MAXR) {
+				const a = landOf(0), b = landOf(1);
+				simResult = a > b ? 0 : b > a ? 1 : -1; break;
+			}
+			if (landOf(n) === 0) { simResult = p; break; }
+			turn = n;
+		}
+		SIM = false;
+		return { w: simResult, round, land: [landOf(0), landOf(1)], starter };
+	}
+	if (/debug/.test(location.search)) {
+		window.LJP = {
+			sim(n, la, lb) { const r = { 0: 0, 1: 0, '-1': 0, rounds: 0 }; for (let i = 0; i < n; i++) { const s = simGame(la, lb); r[s.w]++; r.rounds += s.round / n; } scene = 'title'; newTitleMap(); return r; },
+			EW, end: (w) => finish(w, "alles"), state: () => ({ scene, turn, phase, steps, placeLeft, round, regions: regions.length }),
+		};
+	}
+
+	// ---------- invoer ----------
+	let btns = [];
+	function button(id, label, x, y, w, h = 13, o = {}) {
+		const focus = o.nav && lastInput === 'key' && btns.filter((b) => b.nav).length === menuFocus;
+		const blink = o.blink && Math.floor(T * 3) % 2 === 0;
+		g.fillStyle = focus || blink ? C.geel : (o.border || C.lgrijs); g.fillRect(x, y, w, h);
+		g.fillStyle = o.bg || C.dgrijs; g.fillRect(x + 1, y + 1, w - 2, h - 2);
+		txt(label, x + w / 2, y + (h - 8) / 2 + 1, focus || blink ? C.geel : (o.col || C.wit), o.font || F_HUD, 'center');
+		btns.push({ id, x, y, w, h, nav: !!o.nav });
+	}
+	function toGame(e) {
+		const r = cv.getBoundingClientRect();
+		return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+	}
+	function regionAt(x, y) {
+		const tx = Math.floor(x / TS), ty = Math.floor((y - MY) / TS);
+		if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return null;
+		const r = MAP.tiles[idx(tx, ty)];
+		return r >= 0 ? regions[r] : null;
+	}
+	cv.addEventListener('pointerdown', (e) => {
+		audio(); lastInput = 'ptr';
+		const { x, y } = toGame(e);
+		for (let i = btns.length - 1; i >= 0; i--) {
+			const b = btns[i];
+			if (x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) { onBtn(b.id); return; }
+		}
+		if (scene !== 'game' || quitAsk) return;
+		gameTap(y >= MY && y < BY ? regionAt(x, y) : undefined);
+	});
+	// Eén "tik" in het spel: r = gebied, null = water, undefined = buiten de kaart.
+	function gameTap(r) {
+		if (phase === 'roll') { if (roll.t > 1.2) firstTurn(); return; }
+		if (banner && !isAI(turn)) { banner = null; return; }
+		if (battle) { battle.fast = true; return; }
+		if (isAI(turn) || r === undefined) return;
+		if (r) cursorR = r.id;
+		tapRegion(r);
+	}
+	function tapRegion(r) {
+		if (phase === 'place') {
+			if (r && r.owner === turn) placeUnit(r);
+			else if (r) flash('Zet je soldaten op je eigen land.');
+			return;
+		}
+		if (pick) {
+			if (r === pick.t) { confirmPick(); return; }
+			pick = null;
+		}
+		if (steps <= 0) { flash('Je stappen zijn op. Tik op KLAAR.'); return; }
+		if (!r) { sel = null; return; }
+		if (sel) {
+			if (r === sel) { sel = null; return; }
+			const k = canTarget(sel, r, turn);
+			if (k === 'weak') { flash('Te weinig! Je hebt meer dan ' + r.units + ' soldaten nodig.'); return; }
+			if (k) { openPick(sel, r, k); return; }
+		}
+		if (r.owner === turn) {
+			if (r.units > 0) { sel = r; sfx.click(); } else flash('Hier staan geen soldaten.');
+		} else flash(sel ? 'Dat is geen buurland.' : 'Kies eerst een land van jezelf.');
+	}
+	function openPick(s, t, k) {
+		const min = k === 'attack' ? t.units + 1 : 1, max = s.units;
+		const n = k === 'attack' ? (s.units - 1 >= min ? s.units - 1 : s.units) : (s.units > 1 ? s.units - 1 : 1);
+		pick = { s, t, k, min, max, n }; sfx.click();
+	}
+	function confirmPick() {
+		const p = pick; pick = null; sel = null;
+		doOrder(p.s, p.t, p.n, p.k);
+	}
+	function firstTurn() { roll = null; startTurn(starter); }
+	function onBtn(id) {
+		sfx.click();
+		switch (id) {
+			case 'p1': scene = 'level'; menuFocus = 0; break;
+			case 'p2': newGame(2, 1); break;
+			case 'rules': scene = 'rules'; rulesPage = 0; menuFocus = 0; break;
+			case 'l0': case 'l1': case 'l2': newGame(1, +id[1]); break;
+			case 'back': scene = 'title'; menuFocus = 0; break;
+			case 'next': rulesPage++; menuFocus = 0; break;
+			case 'menu': quitAsk = true; menuFocus = 1; break;
+			case 'quitY': quitAsk = false; ai = null; battle = null; scene = 'title'; menuFocus = 0; newTitleMap(); break;
+			case 'quitN': quitAsk = false; break;
+			case 'again': newGame(mode, level); break;
+			case 'toMenu': scene = 'title'; menuFocus = 0; newTitleMap(); break;
+			case 'undo': undoPlace(); break;
+			case 'end': if (!battle && !pick && !isAI(turn) && phase === 'orders') endTurn(); break;
+			case 'minus': if (pick) pick.n = Math.max(pick.min, pick.n - 1); break;
+			case 'plus': if (pick) pick.n = Math.min(pick.max, pick.n + 1); break;
+			case 'all': if (pick) pick.n = pick.max; break;
+			case 'go': if (pick) confirmPick(); break;
+			case 'cancel': pick = null; break;
+			case 'stop': retreat(); break;
+		}
+	}
+	function moveCursor(dx, dy) {
+		const c = regions[cursorR]; let best = null, bc = Infinity;
+		for (const r of regions) {
+			if (r === c) continue;
+			const vx = r.bx - c.bx, vy = r.by - c.by, along = vx * dx + vy * dy;
+			if (along <= 0) continue;
+			const cost = along + Math.abs(vx * dy - vy * dx) * 2;
+			if (cost < bc) { bc = cost; best = r; }
+		}
+		if (best) cursorR = best.id;
+	}
+	addEventListener('keydown', (e) => {
+		audio(); lastInput = 'key';
+		const k = e.key;
+		if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace'].includes(k)) e.preventDefault();
+		const menuMode = scene !== 'game' || quitAsk;
+		if (menuMode) {
+			const nav = btns.filter((b) => b.nav);
+			if (k === 'ArrowUp' || k === 'ArrowLeft') menuFocus = (menuFocus + nav.length - 1) % Math.max(1, nav.length);
+			else if (k === 'ArrowDown' || k === 'ArrowRight') menuFocus = (menuFocus + 1) % Math.max(1, nav.length);
+			else if ((k === 'Enter' || k === ' ') && nav[menuFocus]) onBtn(nav[menuFocus].id);
+			else if (k === 'Escape') {
+				if (quitAsk) quitAsk = false;
+				else if (scene === 'title') Pixelfart.back();
+				else if (scene === 'over') onBtn('toMenu');
+				else { scene = 'title'; menuFocus = 0; }
+			}
+			return;
+		}
+		// in het spel
+		if (pick) {
+			if (k === 'ArrowLeft' || k === 'ArrowDown' || k === '-') onBtn('minus');
+			else if (k === 'ArrowRight' || k === 'ArrowUp' || k === '+' || k === '=') onBtn('plus');
+			else if (k === 'Enter' || k === ' ') confirmPick();
+			else if (k === 'Escape' || k === 'Backspace') pick = null;
+			return;
+		}
+		if (k === 'ArrowLeft') moveCursor(-1, 0);
+		else if (k === 'ArrowRight') moveCursor(1, 0);
+		else if (k === 'ArrowUp') moveCursor(0, -1);
+		else if (k === 'ArrowDown') moveCursor(0, 1);
+		else if (k === 'Enter' || k === ' ') {
+			if (phase === 'roll' || banner || battle || isAI(turn)) gameTap(null);
+			else tapRegion(regions[cursorR]);
+		} else if (k === 'k' || k === 'K') onBtn('end');
+		else if (k === 'Backspace' || k === 'u') { if (phase === 'place') undoPlace(); }
+		else if (k === 's' || k === 'S') { if (battle && !battle.ai) retreat(); }
+		else if (k === 'Escape') { if (sel) sel = null; else { quitAsk = true; menuFocus = 1; } }
+	});
+	Pixelfart.onPause(() => { /* loop staat vanzelf stil */ });
+
+	// ---------- update ----------
+	function update(dt) {
+		T += dt;
+		if (msg && (msg.t -= dt) <= 0) msg = null;
+		for (const f of fx) f.t += dt;
+		fx = fx.filter((f) => f.t < 1);
+		if (scene !== 'game' || quitAsk) return;
+		if (phase === 'roll') { roll.t += dt; if (roll.t > 3.2) firstTurn(); return; }
+		if (banner && (banner.t -= dt) <= 0) banner = null;
+		if (battle) updateBattle(dt);
+		if (ai) {
+			aiWait -= dt;
+			if (aiWait <= 0) {
+				const gen = ai, r = gen.next();
+				if (ai === gen) { if (r.done) ai = null; else aiWait = r.value; }
+			}
+		}
+	}
+
+	// ---------- tekenen ----------
+	const mapCv = document.createElement('canvas'); mapCv.width = W; mapCv.height = MH * TS;
+	const mg = mapCv.getContext('2d');
+	function renderMap() {
+		const { tiles, deco } = MAP;
+		for (let i = 0; i < N; i++) {
+			const x = (i % MW) * TS, y = ((i / MW) | 0) * TS, r = tiles[i];
+			if (r < 0) {
+				mg.fillStyle = C.zee; mg.fillRect(x, y, TS, TS);
+				if (deco[i * 3] % 4 === 0) { mg.fillStyle = C.golf; mg.fillRect(x + 1 + deco[i * 3 + 1] % 4, y + 2 + deco[i * 3 + 2] % 4, 3, 1); }
+				continue;
+			}
+			const R = regions[r], t = R.owner < 0 ? null : TEAM[R.owner];
+			mg.fillStyle = t ? t.base : C.nBase; mg.fillRect(x, y, TS, TS);
+			mg.fillStyle = t ? t.speck : C.nSpeck;
+			mg.fillRect(x + 1 + deco[i * 3 + 1] % 6, y + 1 + deco[i * 3 + 2] % 6, 1, 1);
+			if (deco[i * 3] % 3 === 0) { const sx = x + 1 + deco[i * 3] % 5, sy = y + 2 + (deco[i * 3 + 1] >> 4) % 4; mg.fillRect(sx, sy, 1, 2); mg.fillRect(sx + 2, sy, 1, 2); mg.fillRect(sx + 1, sy + 1, 1, 2); }
+			const nb = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+			for (const [dx, dy] of nb) {
+				const nx = (i % MW) + dx, ny = ((i / MW) | 0) + dy;
+				const n = nx < 0 || ny < 0 || nx >= MW || ny >= MH ? -1 : tiles[idx(nx, ny)];
+				if (n === r) continue;
+				mg.fillStyle = n < 0 ? C.zand : C.grens;
+				if (dx < 0) mg.fillRect(x, y, 1, TS); else if (dx > 0) mg.fillRect(x + TS - 1, y, 1, TS);
+				else if (dy < 0) mg.fillRect(x, y, TS, 1); else mg.fillRect(x, y + TS - 1, TS, 1);
+			}
+		}
+	}
+	function overlay(r, pat) {
+		g.fillStyle = pat;
+		for (const t of r.tiles) g.fillRect((t % MW) * TS, MY + ((t / MW) | 0) * TS, TS, TS);
+	}
+	function pixLine(x0, y0, x1, y1, c) {
+		const pts = [];
+		let dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1, dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1, err = dx + dy;
+		for (;;) {
+			pts.push([x0, y0]);
+			if (x0 === x1 && y0 === y1) break;
+			const e2 = 2 * err;
+			if (e2 >= dy) { err += dy; x0 += sx; }
+			if (e2 <= dx) { err += dx; y0 += sy; }
+		}
+		g.fillStyle = C.zwart;
+		for (const [x, y] of pts) g.fillRect(x - 1, y - 1, 3, 3);
+		g.fillStyle = c;
+		const off = Math.floor(T * 12);
+		pts.forEach(([x, y], i) => { if ((i + 1000 - off) % 4 < 2) g.fillRect(x, y, 1, 1); });
+	}
+	const CASTLE = ['1.1.1', '11111', '11111', '11.11', '11.11'];
+	function drawCastle(x, y, c) {
+		g.fillStyle = c;
+		CASTLE.forEach((row, j) => { for (let i = 0; i < 5; i++) if (row[i] === '1') g.fillRect(x + i, y + j, 1, 1); });
+	}
+	function badgeBox(r) {
+		const num = r.owner >= 0 ? String(r.units) : '';
+		const icon = r.castle ? 5 : 0;
+		const w = 4 + (num ? tw(num, F_SM) - 1 : 0) + icon + (icon && num ? 1 : 0);
+		return { num, icon, w, h: 9, x: r.bx - (w >> 1), y: r.by - 4 };
+	}
+	function drawBadge(r) {
+		if (r.owner < 0 && !r.castle) return;
+		const b = badgeBox(r);
+		g.fillStyle = r.owner >= 0 ? TEAM[r.owner].licht : C.lgrijs; g.fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2);
+		g.fillStyle = C.zwart; g.fillRect(b.x, b.y, b.w, b.h);
+		if (b.icon) drawCastle(b.x + 2, b.y + 2, C.geel);
+		if (b.num) txt(b.num, b.x + 2 + (b.icon ? 6 : 0), b.y + 1, r.units ? C.wit : C.grijs, F_SM);
+	}
+	const PIPS = { 1: [[5, 5]], 2: [[2, 2], [8, 8]], 3: [[2, 2], [5, 5], [8, 8]], 4: [[2, 2], [8, 2], [2, 8], [8, 8]], 5: [[2, 2], [8, 2], [5, 5], [2, 8], [8, 8]], 6: [[2, 2], [8, 2], [2, 5], [8, 5], [2, 8], [8, 8]] };
+	function drawDie(x, y, v, body, pip, dimmed) {
+		g.fillStyle = C.zwart; g.fillRect(x - 1, y - 1, 14, 14);
+		g.fillStyle = dimmed ? C.lijn : body; g.fillRect(x, y, 12, 12);
+		g.fillStyle = dimmed ? C.dgrijs : pip;
+		for (const [px, py] of PIPS[v]) g.fillRect(x + px, y + py, 2, 2);
+	}
+	function box(x, y, w, h, border) {
+		g.fillStyle = border; g.fillRect(x, y, w, h);
+		g.fillStyle = C.zwart; g.fillRect(x + 2, y + 2, w - 4, h - 4);
+	}
+
+	function draw() {
+		btns = [];
+		g.fillStyle = C.zwart; g.fillRect(0, 0, W, H);
+		if (scene === 'title') drawTitle();
+		else if (scene === 'level') drawLevel();
+		else if (scene === 'rules') drawRules();
+		else { drawGame(); if (scene === 'over') drawOver(); }
+	}
+	function drawMapBase(dim) {
+		if (mapDirty) { renderMap(); mapDirty = false; }
+		g.drawImage(mapCv, 0, MY);
+		if (dim) { g.fillStyle = P.dim; g.fillRect(0, MY, W, BY - MY); }
+	}
+	function drawTitle() {
+		drawMapBase(true);
+		for (const r of regions) drawBadge(r);
+		g.fillStyle = P.dim; g.fillRect(0, MY, W, BY - MY);
+		box(50, 22, 220, 132, C.geel);
+		txt('LANDJEPIK', W / 2, 32, C.geel, F_TITLE, 'center');
+		txt('verover land, verdedig wat je hebt', W / 2, 54, C.lgrijs, F_SM, 'center');
+		button('p1', 'TEGEN DE COMPUTER', 90, 70, 140, 15, { nav: true });
+		button('p2', '2 SPELERS', 90, 90, 140, 15, { nav: true });
+		button('rules', 'UITLEG', 90, 110, 140, 15, { nav: true });
+		const r = rec.some((v) => v > 0) ? 'record  makkelijk ' + rec[0] + '  normaal ' + rec[1] + '  moeilijk ' + rec[2] : 'tik of pijltjes + enter';
+		txt(r, W / 2, 136, C.grijs, F_SM, 'center');
+	}
+	function drawLevel() {
+		drawMapBase(true);
+		g.fillStyle = P.dim; g.fillRect(0, MY, W, BY - MY);
+		box(60, 22, 200, 132, C.blauw);
+		txt('HOE STERK?', W / 2, 32, C.blauw, F_BIG, 'center');
+		button('l0', 'MAKKELIJK', 100, 52, 120, 15, { nav: true, col: C.groen });
+		button('l1', 'NORMAAL', 100, 72, 120, 15, { nav: true, col: C.geel });
+		button('l2', 'MOEILIJK', 100, 92, 120, 15, { nav: true, col: TEAM[0].licht });
+		button('back', 'TERUG', 120, 122, 80, 15, { nav: true });
+	}
+	const RULES = [
+		[
+			['DOEL', C.geel],
+			['Verover land en houd het vast. Wie na ' + MAXR + ' rondes het meeste land heeft, wint. Pak je al het land van de ander? Dan win je meteen.', C.wit],
+			['', 0],
+			['JOUW BEURT', C.geel],
+			['1. Zet je nieuwe soldaten neer: tik op je eigen land. Je krijgt er 2, plus 1 per 3 landen, plus 1 per kasteel.', C.wit],
+			['2. Zet ' + STEPS + ' stappen. Een stap: tik op je land en dan op een buurland. Kies hoeveel soldaten meegaan.', C.wit],
+			['Dezelfde soldaten mogen meerdere stappen lopen.', C.lgrijs],
+		],
+		[
+			['VECHTEN', C.geel],
+			['Leeg land neem je zomaar in, ook land van de ander. Laat je eigen land dus niet leeg aan de grens!', C.wit],
+			['Bezet land val je aan met MEER soldaten dan er staan. Dan beslissen de dobbelstenen:', C.wit],
+			['De aanvaller gooit tot 3 stenen, de verdediger tot 2. Hoogste tegen hoogste: wie hoger gooit wint, gelijk is voor de verdediger. Wie verliest, raakt een soldaat kwijt.', C.wit],
+			['Er wordt doorgegooid tot een kant op is. Met STOP trek je terug.', C.lgrijs],
+			['', 0],
+			['toetsen: pijltjes = land kiezen, enter = tik, K = klaar, S = stop, esc = terug', C.grijs],
+		],
+	];
+	function wrap(s, w, f) {
+		const out = []; let line = '';
+		for (const word of s.split(' ')) {
+			const t = line ? line + ' ' + word : word;
+			if (tw(t, f) > w && line) { out.push(line); line = word; } else line = t;
+		}
+		out.push(line); return out;
+	}
+	function drawRules() {
+		box(4, 4, W - 8, H - 8, C.groen);
+		txt('UITLEG ' + (rulesPage + 1) + '/' + RULES.length, 12, 11, C.groen, F_BIG);
+		let y = 26;
+		for (const [s, c] of RULES[rulesPage]) {
+			if (!s) { y += 4; continue; }
+			for (const l of wrap(s, W - 26, F_SM)) { txt(l, 12, y, c, F_SM); y += 9; }
+			y += 2;
+		}
+		if (rulesPage < RULES.length - 1) button('next', 'VERDER', W - 84, H - 24, 70, 14, { nav: true });
+		button('back', 'TERUG', 14, H - 24, 70, 14, { nav: true });
+	}
+
+	function drawGame() {
+		drawMapBase(false);
+		const human = !isAI(turn) && phase !== 'roll';
+		const blink = Math.floor(T * 3) % 2 === 0;
+		if (battle) { overlay(battle.s, P.wit); overlay(battle.t, P.geel); }
+		else if (aiShow) { overlay(aiShow.s, P.wit); overlay(aiShow.t, aiShow.kind === 'attack' ? P.geel : P.groen); }
+		else if (human && phase === 'orders' && sel && scene === 'game') {
+			if (blink || pick) overlay(sel, P.wit);
+			for (const n of sel.adjArr) {
+				if (pick && n !== pick.t) continue;
+				const k = canTarget(sel, n, turn);
+				if (k === 'attack') overlay(n, P.geel); else if (k === 'move' || k === 'take') overlay(n, P.groen);
+			}
+		}
+		const arrow = battle ? battle : aiShow ? aiShow : pick;
+		if (arrow) pixLine(arrow.s.bx, arrow.s.by, arrow.t.bx, arrow.t.by, battle || arrow.kind === 'attack' || arrow.k === 'attack' ? C.geel : C.wit);
+		for (const r of regions) drawBadge(r);
+		if (scene === 'game' && lastInput === 'key' && human && !battle && blink) {
+			const r = regions[cursorR], b = r.owner < 0 && !r.castle ? { x: r.bx - 4, y: r.by - 4, w: 8, h: 9 } : badgeBox(r);
+			g.fillStyle = C.geel;
+			g.fillRect(b.x - 3, b.y - 3, b.w + 6, 1); g.fillRect(b.x - 3, b.y + b.h + 2, b.w + 6, 1);
+			g.fillRect(b.x - 3, b.y - 3, 1, b.h + 6); g.fillRect(b.x + b.w + 2, b.y - 3, 1, b.h + 6);
+		}
+		for (const f of fx) {
+			const y = Math.round(f.y - f.t * 10);
+			g.font = F_SM; const w = tw(f.text, F_SM);
+			g.fillStyle = C.zwart; g.fillRect(Math.round(f.x - w / 2) - 1, y - 1, w + 2, 9);
+			txt(f.text, f.x, y, f.col, F_SM, 'center');
+		}
+		drawHud();
+		if (scene !== 'game') return;
+		drawBottom();
+		if (battle) drawBattle();
+		if (phase === 'roll') drawRoll();
+		else if (banner) drawBanner();
+		if (quitAsk) {
+			btns = [];
+			box(80, 60, 160, 56, C.oranje);
+			txt('STOPPEN?', W / 2, 70, C.oranje, F_BIG, 'center');
+			txt('Dit potje is dan voorbij.', W / 2, 82, C.lgrijs, F_SM, 'center');
+			button('quitY', 'JA', 100, 96, 50, 13, { nav: true });
+			button('quitN', 'NEE', 170, 96, 50, 13, { nav: true });
+		}
+	}
+	function drawHud() {
+		g.fillStyle = C.zwart; g.fillRect(0, 0, W, MY - 1);
+		g.fillStyle = C.dgrijs; g.fillRect(0, MY - 1, W, 1);
+		const t = TEAM[turn];
+		if (phase !== 'roll' && scene === 'game') {
+			g.fillStyle = t.licht; g.fillRect(4, 4, 7, 7);
+			const name = teamName(turn);
+			txt(name, 15, 4, t.licht);
+			const info = phase === 'place' ? 'PLAATS ' + placeLeft : 'STAPPEN ' + steps + '/' + STEPS;
+			txt(info, 15 + tw(name, F_HUD) + 6, 4, C.wit);
+		}
+		txt('RONDE ' + Math.min(round, MAXR) + '/' + MAXR, 178, 5, C.lgrijs, F_SM, 'center');
+		let x = 214;
+		for (let p = 0; p < 2; p++) {
+			g.fillStyle = TEAM[p].licht; g.fillRect(x, 5, 5, 5);
+			const s = String(landOf(p)); txt(s, x + 8, 5, C.wit, F_SM); x += 14 + tw(s, F_SM);
+		}
+		if (scene === 'game') button('menu', 'MENU', W - 34, 2, 31, 12);
+	}
+	function drawBottom() {
+		g.fillStyle = C.dgrijs; g.fillRect(0, BY, W, 1);
+		const human = !isAI(turn);
+		let help = '', col = C.lgrijs, bx = W - 4;
+		const rbtn = (id, label, o = {}) => { const w = tw(label, F_HUD) + 12; bx -= w; button(id, label, bx, BY + 4, w, 13, o); bx -= 4; };
+		if (phase === 'roll' || banner) help = '';
+		else if (battle) help = battle.ai || battle.phase === 'end' ? '' : 'Tik om sneller te gooien.';
+		else if (!human) help = phase === 'place' ? 'De computer zet soldaten neer...' : 'De computer is aan zet...';
+		else if (pick) {
+			const k = pick.k;
+			const label = k === 'attack' ? 'ZIJ ' + pick.t.units + ', JIJ:' : k === 'take' ? 'INNEMEN MET:' : 'VERPLAATS:';
+			txt(label, 4, BY + 7, k === 'attack' ? C.geel : C.groen, F_SM);
+			const lx = 6 + tw(label, F_SM);
+			button('minus', '-', lx, BY + 4, 15, 13);
+			txt(String(pick.n), lx + 30, BY + 7, C.wit, F_BIG, 'center');
+			button('plus', '+', lx + 45, BY + 4, 15, 13);
+			button('all', 'ALLE', lx + 64, BY + 4, 32, 13);
+			rbtn('cancel', 'X'); rbtn('go', k === 'attack' ? 'AANVAL!' : 'GA', { col: k === 'attack' ? C.geel : C.groen });
+			if (pick.n === pick.s.units && pick.s.adjArr.some((n) => n.owner === 1 - turn)) txt('leeg!', lx + 100, BY + 7, C.oranje, F_SM);
+			return;
+		} else if (phase === 'place') {
+			help = 'Tik op je land: +1 soldaat (nog ' + placeLeft + ')';
+			if (placeHist.length) rbtn('undo', 'TERUG');
+		} else {
+			help = steps <= 0 ? 'Je stappen zijn op. Tik op KLAAR.' : sel ? 'Kies een buurland. Geel = aanvallen.' : 'Kies een land met soldaten.';
+			rbtn('end', 'KLAAR', { blink: steps <= 0 });
+		}
+		if (msg) { help = msg.text; col = C.oranje; }
+		if (help) txt(help, 4, BY + 7, col, F_SM);
+	}
+	function drawBanner() {
+		const t = TEAM[turn];
+		box(90, 62, 140, 40, t.licht);
+		const title = mode === 1 ? (turn === 0 ? 'JOUW BEURT' : 'COMPUTER') : 'BEURT ' + t.naam;
+		txt(title, W / 2, 72, t.licht, F_BIG, 'center');
+		txt('+' + placeLeft + ' soldaten' + (round === 1 && turn === starter ? '' : ' - ronde ' + round), W / 2, 86, C.lgrijs, F_SM, 'center');
+	}
+	function drawRoll() {
+		box(70, 44, 180, 76, C.geel);
+		txt('WIE BEGINT?', W / 2, 53, C.geel, F_BIG, 'center');
+		const shuffle = roll.t < 1.0;
+		const a = shuffle ? 1 + ((T * 17) | 0) % 6 : roll.a, b = shuffle ? 1 + ((T * 23 + 3) | 0) % 6 : roll.b;
+		txt(teamName(0), 120, 68, TEAM[0].licht, F_SM, 'center');
+		txt(teamName(1), 200, 68, TEAM[1].licht, F_SM, 'center');
+		drawDie(114, 78, a, TEAM[0].licht, TEAM[0].donker, !shuffle && roll.a < roll.b);
+		drawDie(194, 78, b, TEAM[1].licht, TEAM[1].donker, !shuffle && roll.b < roll.a);
+		if (!shuffle) {
+			txt(teamName(starter) + (mode === 1 && starter === 0 ? ' BEGINT!' : ' BEGINT!'), W / 2, 96, TEAM[starter].licht, F_HUD, 'center');
+			if (roll.t > 1.2 && Math.floor(T * 2) % 2) txt('tik om te starten', W / 2, 108, C.grijs, F_SM, 'center');
+		}
+	}
+	function drawBattle() {
+		const b = battle, A = TEAM[b.p], D = TEAM[1 - b.p];
+		const w = 176, h = b.ai || b.phase === 'end' ? 72 : 88;
+		// paneel boven of onder, zodat de twee landen in beeld blijven
+		const mx = (b.s.bx + b.t.bx) / 2, my = (b.s.by + b.t.by) / 2;
+		const x = mx < W / 2 ? W - w - 4 : 4, y = my < (MY + BY) / 2 ? BY - 88 - 3 : MY + 3;
+		box(x, y, w, h, C.geel);
+		txt('AANVAL!', (x + w / 2), y + 7, C.geel, F_BIG, 'center');
+		txt(teamName(b.p), x + 44, y + 19, A.licht, F_SM, 'center');
+		txt(teamName(1 - b.p), x + w - 44, y + 19, D.licht, F_SM, 'center');
+		txt(String(b.att), x + 44, y + 29, C.wit, F_BIG, 'center');
+		txt(String(b.def), x + w - 44, y + 29, C.wit, F_BIG, 'center');
+		txt('tegen', (x + w / 2), y + 29, C.grijs, F_SM, 'center');
+		const rolling = b.phase === 'roll';
+		const dA = rolling ? b.showA : b.dA, dD = rolling ? b.showD : b.dD;
+		const k = Math.min(dA.length, dD.length);
+		dA.forEach((v, i) => {
+			const lost = !rolling && i < k && v <= dD[i];
+			drawDie(x + 8 + i * 15, y + 41, v, A.licht, A.donker, lost);
+		});
+		dD.forEach((v, i) => {
+			const lost = !rolling && i < k && dA[i] > v;
+			drawDie(x + w - 20 - (dD.length - 1 - i) * 15, y + 41, v, D.licht, D.donker, lost);
+		});
+		if (!rolling) {
+			if (b.lossA) txt('-' + b.lossA, x + 30, y + 57, A.licht, F_SM, 'center');
+			if (b.lossD) txt('-' + b.lossD, x + w - 28, y + 57, D.licht, F_SM, 'center');
+		}
+		if (b.phase === 'end') {
+			const s = b.result === 'win' ? 'VEROVERD!' : b.result === 'lose' ? 'AFGESLAGEN!' : 'TERUGGETROKKEN';
+			txt(s, (x + w / 2), y + 57, b.result === 'win' ? C.groen : C.oranje, F_HUD, 'center');
+		} else if (!b.ai) button('stop', 'STOP', (x + w / 2) - 22, y + h - 18, 44, 13);
+	}
+	function drawOver() {
+		btns = [];
+		const o = over;
+		const col = o.w < 0 ? C.wit : TEAM[o.w].licht;
+		box(60, 30, 200, 116, col);
+		const title = o.w < 0 ? 'GELIJKSPEL' : mode === 1 ? (o.w === 0 ? 'JIJ WINT!' : 'COMPUTER WINT') : TEAM[o.w].naam + ' WINT!';
+		txt(title, W / 2, 40, col, F_BIG, 'center');
+		txt(o.why === 'alles' ? 'Al het land veroverd!' : 'Na ' + MAXR + ' rondes telt het land.', W / 2, 54, C.lgrijs, F_SM, 'center');
+		txt(teamName(0) + ' ' + landOf(0) + ' land', 120, 68, TEAM[0].licht, F_SM, 'center');
+		txt(teamName(1) + ' ' + landOf(1) + ' land', 200, 68, TEAM[1].licht, F_SM, 'center');
+		if (o.score !== null) {
+			txt(o.score + ' punten', W / 2, 82, C.geel, F_BIG, 'center');
+			txt(o.newRec ? 'nieuw record!' : 'record ' + rec[level], W / 2, 94, o.newRec ? C.groen : C.grijs, F_SM, 'center');
+		}
+		button('again', 'NOG EEN KEER', 80, 112, 90, 15, { nav: true });
+		button('toMenu', 'MENU', 180, 112, 60, 15, { nav: true });
+	}
+
+	function newTitleMap() { MAP = genMap((Math.random() * 4294967296) >>> 0); regions = MAP.regions; mapDirty = true; }
+	newTitleMap();
+	Pixelfart.fonts(['Press Start 2P', 'Silkscreen', 'Tiny5']).then(() => Pixelfart.loop(update, { fps: 30, draw }));
+})();
+</script>
+</body>
+</html>

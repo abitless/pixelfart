@@ -1,0 +1,956 @@
+<!doctype html>
+<!-- Pixelfart · Pixel Pool · © 2026 Pixelfart · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pixel Pool</title>
+<script type="application/json" id="pixelfart">
+{
+  "title": "Pixel Pool",
+  "code": "POOLS",
+  "version": "1.1.0",
+  "changelog": "Computer-tegenstander heeft nu drie niveaus: makkelijk, gemiddeld en moeilijk.",
+  "description": "Speel pool tegen de computer of met z'n tweeën. Of probeer alleen alle ballen in zo min mogelijk slagen in de gaten te krijgen!",
+  "categories": ["Arcade", "2 spelers", "Strategie"],
+  "age": "ALL",
+  "author": "Pixelfart",
+  "score": { "order": "asc", "label": "slagen" }
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; }
+  body { display: grid; place-items: center; -webkit-user-select: none; user-select: none; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+</style>
+</head>
+<body>
+<canvas id="game" width="320" height="180"></canvas>
+<script>
+/* Standalone-vangnet. Op play.pixelfart.nl bestaat Pixelfart al (pixelfart.js, met de pixelfonts):
+   dan doet dit blok niets en wordt de echte SDK gebruikt. Ontbreekt pixelfart.js, dan draait het spel
+   zelfstandig met deze minimale versie en probeert hij pixelfart-fonts.css naast het bestand te laden. */
+(function () {
+  if (window.Pixelfart) return;
+  var pauseFns = [], resumeFns = [], store = null;
+  try { store = window.localStorage; } catch (e) { store = null; }
+  var P = window.Pixelfart = {
+    inSite: false, paused: false, standalone: true,
+    fit: function (cv, o) {
+      var integer = !o || o.mode !== 'contain';
+      function f() {
+        var k = Math.min(innerWidth / cv.width, innerHeight / cv.height);
+        if (integer) k = Math.max(1, Math.floor(k));
+        cv.style.width = Math.floor(cv.width * k) + 'px'; cv.style.height = Math.floor(cv.height * k) + 'px';
+      }
+      f(); addEventListener('resize', f);
+    },
+    loop: function (update, o) {
+      o = o || {}; var run = true, last = performance.now(), min = o.fps ? 1000 / o.fps - 1 : 0;
+      function tick(now) {
+        if (!run) return;
+        requestAnimationFrame(tick);
+        if (document.hidden || P.paused || now - last < min) return;
+        var dt = Math.min(0.1, (now - last) / 1000); last = now;
+        update(dt); if (o.draw) o.draw();
+      }
+      requestAnimationFrame(tick);
+      return { stop: function () { run = false; }, start: function () { if (!run) { run = true; last = performance.now(); requestAnimationFrame(tick); } } };
+    },
+    fonts: function (names) {
+      return new Promise(function (resolve) {
+        var done = false; function fin() { if (!done) { done = true; resolve(); } }
+        setTimeout(fin, 1500);
+        try {
+          var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'pixelfart-fonts.css';
+          l.onerror = fin; document.head.appendChild(l);
+          l.onload = function () { Promise.all(names.map(function (n) { return document.fonts.load('8px "' + n + '"'); })).then(fin, fin); };
+        } catch (e) { fin(); }
+      });
+    },
+    text: function (ctx, s, x, y) { ctx.fillText(s, Math.round(x), Math.round(y)); },
+    score: function () {}, back: function () {},
+    onPause: function (fn) { pauseFns.push(fn); }, onResume: function (fn) { resumeFns.push(fn); },
+    store: {
+      get: function (k, d) { try { var v = store && store.getItem('pf:' + k); return v === null || v === undefined ? d : JSON.parse(v); } catch (e) { return d; } },
+      set: function (k, v) { try { if (store) store.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} }
+    }
+  };
+  document.addEventListener('visibilitychange', function () {
+    (document.hidden ? pauseFns : resumeFns).forEach(function (f) { try { f(); } catch (e) {} });
+  });
+})();
+</script>
+<script>
+(function () {
+'use strict';
+
+/* ================================================================
+   Pixel Pool
+   - 1 speler: alle ballen erin in zo min mogelijk slagen
+   - Tegen de computer / 2 spelers: pool met hele (1-7) en halve (9-15)
+     ballen, zwarte 8 als laatste.
+   ================================================================ */
+
+var W = 320, H = 180;
+var cv = document.getElementById('game');
+var ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+Pixelfart.fit(cv, { mode: 'integer' });
+
+/* ---------- palet ---------- */
+var C = {
+  black: '#000000', white: '#f2f2f2', lgray: '#bdbdbd', gray: '#8a8a8a', line: '#6a6a6a', dgray: '#2a2a2a',
+  green: '#5dde7a', blue: '#6ec9ff', yellow: '#ffcf4a', pink: '#ff5c8a', purple: '#c9a6ff',
+  orange: '#ff9a4a', mint: '#9be3d0',
+  felt: '#2f8f4f', feltD: '#25703d', cush: '#1c5a31', shadow: '#1f6b3a',
+  wood: '#8a5a2e', woodL: '#b27a3e', woodD: '#5e3a1c', dia: '#e2c88f'
+};
+var BC = [null, '#ffcf4a', '#6ec9ff', '#ff5c8a', '#c9a6ff', '#ff9a4a', '#5dde7a', '#9be3d0', '#1a1a1a'];
+
+var F_HUD = '8px "Silkscreen", monospace';
+var F_P8 = '8px "Press Start 2P", monospace';
+var F_P16 = '16px "Press Start 2P", monospace';
+var F_P24 = '24px "Press Start 2P", monospace';
+
+/* ---------- tafel ---------- */
+var FX0 = 36, FY0 = 28, FX1 = 284, FY1 = 152;   // speelveld (vilt)
+var R = 4;                                      // balstraal
+var MX = (FX0 + FX1) / 2, MY = (FY0 + FY1) / 2;
+var POCKETS = [
+  { x: FX0 - 1, y: FY0 - 1, r: 9 }, { x: FX1 + 1, y: FY0 - 1, r: 9 },
+  { x: FX0 - 1, y: FY1 + 1, r: 9 }, { x: FX1 + 1, y: FY1 + 1, r: 9 },
+  { x: MX, y: FY0 - 3, r: 8.5 },    { x: MX, y: FY1 + 3, r: 8.5 }
+];
+var HEADX = FX0 + (FX1 - FX0) * 0.25;
+
+/* ---------- natuurkunde ---------- */
+var DT = 1 / 240;
+var E_BALL = 0.96, E_WALL = 0.78, DECEL = 48, KEXP = 0.25, STOPV = 4;
+
+function typeOf(id) { return id === 0 ? 'cue' : id === 8 ? 'eight' : id < 8 ? 'solid' : 'stripe'; }
+
+function step(bs, ev) {
+  var n = bs.length, i, j, b, o, pk, dx, dy;
+  for (i = 0; i < n; i++) { b = bs[i]; if (!b.on) continue; b.x += b.vx * DT; b.y += b.vy * DT; }
+  // zakken
+  for (i = 0; i < n; i++) {
+    b = bs[i]; if (!b.on) continue;
+    for (j = 0; j < POCKETS.length; j++) {
+      pk = POCKETS[j]; dx = b.x - pk.x; dy = b.y - pk.y;
+      if (dx * dx + dy * dy < pk.r * pk.r) {
+        b.on = false; b.vx = 0; b.vy = 0;
+        if (b.id === 0) ev.cue = true; else ev.pocketed.push(b.id);
+        if (ev.snd) ev.snd.push(['pot']);
+        break;
+      }
+    }
+  }
+  // banden
+  for (i = 0; i < n; i++) {
+    b = bs[i]; if (!b.on) continue;
+    if (b.x < FX0 + R) { b.x = FX0 + R; if (b.vx < 0) { if (ev.snd && -b.vx > 30) ev.snd.push(['wall']); b.vx = -b.vx * E_WALL; } }
+    else if (b.x > FX1 - R) { b.x = FX1 - R; if (b.vx > 0) { if (ev.snd && b.vx > 30) ev.snd.push(['wall']); b.vx = -b.vx * E_WALL; } }
+    if (b.y < FY0 + R) { b.y = FY0 + R; if (b.vy < 0) { if (ev.snd && -b.vy > 30) ev.snd.push(['wall']); b.vy = -b.vy * E_WALL; } }
+    else if (b.y > FY1 - R) { b.y = FY1 - R; if (b.vy > 0) { if (ev.snd && b.vy > 30) ev.snd.push(['wall']); b.vy = -b.vy * E_WALL; } }
+  }
+  // ballen onderling
+  var D2 = 4 * R * R;
+  for (i = 0; i < n; i++) {
+    b = bs[i]; if (!b.on) continue;
+    for (j = i + 1; j < n; j++) {
+      o = bs[j]; if (!o.on) continue;
+      dx = o.x - b.x; dy = o.y - b.y;
+      var d2 = dx * dx + dy * dy;
+      if (d2 >= D2 || d2 === 0) continue;
+      var d = Math.sqrt(d2), nx = dx / d, ny = dy / d, ov = (2 * R - d) / 2;
+      b.x -= nx * ov; b.y -= ny * ov; o.x += nx * ov; o.y += ny * ov;
+      var rv = (o.vx - b.vx) * nx + (o.vy - b.vy) * ny;
+      if (rv < 0) {
+        var J = -(1 + E_BALL) * rv / 2;
+        b.vx -= J * nx; b.vy -= J * ny; o.vx += J * nx; o.vy += J * ny;
+        if (ev.first === null && (b.id === 0 || o.id === 0)) ev.first = (b.id === 0 ? o.id : b.id);
+        if (ev.snd && -rv > 20) ev.snd.push(['hit', -rv]);
+      }
+    }
+  }
+  // wrijving
+  for (i = 0; i < n; i++) {
+    b = bs[i]; if (!b.on) continue;
+    var s = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+    if (s === 0) continue;
+    var s2 = s - (DECEL + KEXP * s) * DT;
+    if (s2 < STOPV) { b.vx = 0; b.vy = 0; } else { var f = s2 / s; b.vx *= f; b.vy *= f; }
+  }
+}
+
+function stopped(bs) {
+  for (var i = 0; i < bs.length; i++) if (bs[i].on && (bs[i].vx !== 0 || bs[i].vy !== 0)) return false;
+  return true;
+}
+
+/* ---------- toestand ---------- */
+var state = 'menu', prevState = 'aim', mode = 'solo', sel = 0;
+var balls = [], group = [null, null], cur = 0, strokes = 0, inHand = false;
+var shot = null, aim = { angle: 0, power: 0, drag: false }, placing = false;
+var banner = null, over = null, cpu = null, time = 0, scoreSent = false;
+var names = ['SPELER 1', 'SPELER 2'];
+var best = Number(Pixelfart.store.get('best', 0)) || 0;
+var keys = {}, charging = false;
+/* computer-niveaus: 0 makkelijk, 1 gemiddeld, 2 moeilijk */
+var LEVELS = [
+  { name: 'MAKKELIJK', sd: 0.05, fsd: 0.07, psd: 0.12, maxC: 3, miss: 0.35, sloppy: true, smart: false, step: 16, extra: false },
+  { name: 'GEMIDDELD', sd: 0.028, fsd: 0.04, psd: 0.08, maxC: 6, miss: 0.2, sloppy: false, smart: true, step: 12, extra: false },
+  { name: 'MOEILIJK', sd: 0.004, fsd: 0.01, psd: 0.015, maxC: 30, miss: 0, sloppy: false, smart: true, step: 8, extra: true }
+];
+var level = Number(Pixelfart.store.get('level', 1));
+if (!(level >= 0 && level <= 2)) level = 1;
+function cpuLevel() { return (TEST && TEST.levels) ? TEST.levels[cur] : level; }
+var TEST = (typeof __POOL_TEST !== 'undefined') ? __POOL_TEST : null;
+
+function isCpu() { return (mode === 'cpu' && cur === 1) || !!(TEST && TEST.both && mode !== 'solo'); }
+
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function gauss() { return (Math.random() + Math.random() + Math.random() - 1.5) * 2; }
+
+function makeRack() {
+  var ids = shuffle([1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15]);
+  var solids = ids.filter(function (i) { return i < 8; });
+  var stripes = ids.filter(function (i) { return i > 8; });
+  var slots = new Array(15);
+  slots[4] = 8; slots[10] = solids.pop(); slots[14] = stripes.pop();
+  var rest = shuffle(solids.concat(stripes)), i;
+  for (i = 0; i < 15; i++) if (slots[i] === undefined) slots[i] = rest.pop();
+  var arr = new Array(16);
+  arr[0] = { id: 0, x: HEADX, y: MY, vx: 0, vy: 0, on: true };
+  var ax = FX0 + (FX1 - FX0) * 0.72, s = 2 * R + 0.25, idx = 0;
+  for (var row = 0; row < 5; row++) {
+    for (var k = 0; k <= row; k++) {
+      var id = slots[idx++];
+      arr[id] = { id: id, x: ax + row * s * 0.866, y: MY + (k - row / 2) * s, vx: 0, vy: 0, on: true };
+    }
+  }
+  return arr;
+}
+
+function remaining(g) {
+  var n = 0;
+  for (var i = 1; i < 16; i++) if (balls[i].on && typeOf(i) === g) n++;
+  return n;
+}
+function clearedOf(p) { return !!(group[p] && remaining(group[p]) === 0); }
+function ballsLeft() { var n = 0; for (var i = 1; i < 16; i++) if (balls[i].on) n++; return n; }
+
+function newGame(m) {
+  mode = m; balls = makeRack(); group = [null, null]; cur = 0; strokes = 0; inHand = false;
+  over = null; shot = null; banner = null; cpu = null; scoreSent = false; placing = false;
+  names = (m === 'cpu') ? ['SPELER', 'COMPUTER'] : ['SPELER 1', 'SPELER 2'];
+  aim.angle = 0; aim.power = 0; aim.drag = false;
+  startTurn();
+}
+
+function validPlace(x, y) {
+  if (x < FX0 + R || x > FX1 - R || y < FY0 + R || y > FY1 - R) return false;
+  for (var i = 1; i < 16; i++) {
+    var b = balls[i]; if (!b.on) continue;
+    var dx = b.x - x, dy = b.y - y;
+    if (dx * dx + dy * dy < (2 * R + 0.5) * (2 * R + 0.5)) return false;
+  }
+  return true;
+}
+function defaultPlace() {
+  if (validPlace(HEADX, MY)) return { x: HEADX, y: MY };
+  for (var r = 6; r < 120; r += 6) for (var a = 0; a < 6.28; a += 0.4) {
+    var x = HEADX + Math.cos(a) * r, y = MY + Math.sin(a) * r;
+    if (validPlace(x, y)) return { x: x, y: y };
+  }
+  return { x: HEADX, y: MY };
+}
+
+function legalTargets(p) {
+  var list = [], me = group[p], cleared = clearedOf(p);
+  for (var i = 1; i < 16; i++) {
+    var b = balls[i]; if (!b.on) continue;
+    var t = typeOf(i);
+    if (mode === 'solo') list.push(b);
+    else if (me) { if (cleared ? t === 'eight' : t === me) list.push(b); }
+    else if (t !== 'eight') list.push(b);
+  }
+  return list;
+}
+
+function startTurn() {
+  aim.power = 0; aim.drag = false; cpu = null; charging = false; placing = false;
+  var c = balls[0];
+  if (inHand) {
+    var pos = defaultPlace();
+    c.x = pos.x; c.y = pos.y; c.vx = 0; c.vy = 0; c.on = true;
+    if (isCpu()) { cpuPlace(); inHand = false; state = 'aim'; cpuStart(); }
+    else state = 'place';
+    return;
+  }
+  state = 'aim';
+  if (isCpu()) { cpuStart(); return; }
+  var tg = legalTargets(cur), bd = 1e9;
+  for (var i = 0; i < tg.length; i++) {
+    var d = Math.hypot(tg[i].x - c.x, tg[i].y - c.y);
+    if (d < bd) { bd = d; aim.angle = Math.atan2(tg[i].y - c.y, tg[i].x - c.x); }
+  }
+}
+
+function shoot(a, p) {
+  var c = balls[0], v = 45 + p * 285;
+  c.vx = Math.cos(a) * v; c.vy = Math.sin(a) * v;
+  shot = { ev: { first: null, pocketed: [], cue: false, snd: [] }, p: cur, cleared: clearedOf(cur), acc: 0, t: 0 };
+  if (mode === 'solo') strokes++;
+  state = 'roll'; aim.power = 0; aim.drag = false; cpu = null;
+  beep(190, 0.09, 'square', 0.08, 0.5);
+}
+
+/* ---------- regels ---------- */
+function judge(ev, me, cleared) {
+  var r = { foul: false, reason: '', sunk8: ev.pocketed.indexOf(8) >= 0, own: false, assign: null, cont: false, win: false };
+  if (ev.cue) { r.foul = true; r.reason = 'KEUBAL IN HET GAT'; }
+  else if (ev.first === null) { r.foul = true; r.reason = 'GEEN BAL GERAAKT'; }
+  else {
+    var t = typeOf(ev.first);
+    if (me) { var need = cleared ? 'eight' : me; if (t !== need) { r.foul = true; r.reason = 'VERKEERDE BAL GERAAKT'; } }
+    else if (t === 'eight') { r.foul = true; r.reason = 'ZWARTE BAL EERST GERAAKT'; }
+  }
+  var i, id;
+  if (!r.foul && !r.sunk8) {
+    if (me) { for (i = 0; i < ev.pocketed.length; i++) if (typeOf(ev.pocketed[i]) === me) r.own = true; }
+    else {
+      for (i = 0; i < ev.pocketed.length; i++) { id = ev.pocketed[i]; if (id !== 8) { r.assign = typeOf(id); r.own = true; break; } }
+    }
+  }
+  r.cont = !r.foul && r.own;
+  if (r.sunk8) r.win = !r.foul && !!me && cleared;
+  return r;
+}
+
+function endRoll() {
+  for (var i = 0; i < 16; i++) { balls[i].vx = 0; balls[i].vy = 0; }
+  if (mode === 'solo') resolveSolo(); else resolveVs();
+}
+
+function resolveSolo() {
+  var ev = shot.ev;
+  if (ev.cue) strokes += 1;
+  if (ballsLeft() === 0) { finishSolo(); return; }
+  if (ev.cue) { inHand = true; showBanner(['KEUBAL IN HET GAT', '+1 STRAFSLAG'], 1.5, startTurn); }
+  else startTurn();
+}
+
+function finishSolo() {
+  var rec = false;
+  if (!best || strokes < best) { best = strokes; rec = true; Pixelfart.store.set('best', best); }
+  if (!scoreSent) { scoreSent = true; Pixelfart.score(strokes); }
+  over = { solo: true, rec: rec }; state = 'over'; sfxWin();
+}
+
+function resolveVs() {
+  var ev = shot.ev, p = cur, me = group[p];
+  var r = judge(ev, me, shot.cleared);
+  if (r.sunk8) {
+    var msg = r.win ? names[p] + ' MAAKT DE ZWARTE BAL' : (ev.cue ? 'KEUBAL EN ZWARTE BAL IN HET GAT' : 'ZWARTE BAL TE VROEG IN HET GAT');
+    endVs(r.win ? p : 1 - p, msg); return;
+  }
+  var lines = [];
+  if (r.assign) {
+    group[p] = r.assign; group[1 - p] = (r.assign === 'solid') ? 'stripe' : 'solid';
+    lines.push(names[p] + ': ' + (r.assign === 'solid' ? 'HELE' : 'HALVE') + ' BALLEN');
+  }
+  if (r.foul) {
+    cur = 1 - p; inHand = true;
+    lines.unshift(r.reason + '!');
+    lines.push(names[cur] + ' PLAATST DE BAL');
+  } else if (!r.cont) {
+    cur = 1 - p;
+    if (!lines.length) lines.push('BEURT: ' + names[cur]);
+  }
+  if (lines.length) showBanner(lines, lines.length > 1 ? 1.7 : 0.9, startTurn); else startTurn();
+}
+
+function endVs(winner, msg) {
+  over = { winner: winner, msg: msg }; state = 'over';
+  if (mode === 'cpu' && winner === 0) sfxWin(); else if (mode !== 'cpu') sfxWin(); else beep(160, 0.5, 'triangle', 0.08, 0.4);
+}
+
+function showBanner(lines, dur, next) { banner = { lines: lines, t: 0, dur: dur, next: next }; state = 'banner'; }
+function skipBanner() { if (!banner) return; var n = banner.next; banner = null; n(); }
+
+/* ---------- computer ---------- */
+function cloneBalls(bs) { return bs.map(function (b) { return { id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, on: b.on }; }); }
+
+function simulate(bs, angle, power) {
+  var s = cloneBalls(bs), c = s[0], v = 45 + power * 285;
+  c.on = true; c.vx = Math.cos(angle) * v; c.vy = Math.sin(angle) * v;
+  var ev = { first: null, pocketed: [], cue: false };
+  for (var i = 0; i < 3600; i++) { step(s, ev); if (stopped(s)) break; }
+  return { ev: ev, balls: s };
+}
+
+function segDist(px, py, ax, ay, bx, by) {
+  var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+  var t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+  t = clamp(t, 0, 1);
+  return Math.hypot(ax + dx * t - px, ay + dy * t - py);
+}
+
+function cpuCands(cx, cy, targets) {
+  var out = [];
+  targets.forEach(function (t) {
+    POCKETS.forEach(function (pk) {
+      var dx = pk.x - t.x, dy = pk.y - t.y, dp = Math.hypot(dx, dy);
+      if (dp < 1) return;
+      var ux = dx / dp, uy = dy / dp;
+      var gx = t.x - ux * 2 * R, gy = t.y - uy * 2 * R;
+      if (gx < FX0 + R || gx > FX1 - R || gy < FY0 + R || gy > FY1 - R) return;
+      var vx = gx - cx, vy = gy - cy, dc = Math.hypot(vx, vy);
+      if (dc < 0.5) return;
+      vx /= dc; vy /= dc;
+      var dot = vx * ux + vy * uy;
+      if (dot < 0.3) return;
+      var ok = true;
+      for (var i = 1; i < 16 && ok; i++) {
+        var o = balls[i]; if (!o.on || o === t) continue;
+        if (segDist(o.x, o.y, cx, cy, gx, gy) < 2 * R - 0.3) ok = false;
+        else if (segDist(o.x, o.y, t.x, t.y, pk.x, pk.y) < 2 * R - 0.3) ok = false;
+      }
+      if (!ok) return;
+      out.push({ angle: Math.atan2(vy, vx), dist: dc + dp, score: dot * 100 - (dc + dp) * 0.08, t: t });
+    });
+  });
+  out.sort(function (a, b) { return b.score - a.score; });
+  return out;
+}
+
+function powerFor(d) { var v = Math.sqrt(2 * DECEL * d * 1.6) + 60; return clamp((v - 45) / 285, 0.15, 1); }
+
+function cpuPlan() {
+  var L = LEVELS[cpuLevel()];
+  var cue = balls[0], me = group[cur], cleared = clearedOf(cur), targets = legalTargets(cur), plan = null;
+  var cands = (Math.random() < L.miss) ? [] : cpuCands(cue.x, cue.y, targets);
+  for (var i = 0; i < cands.length && i < L.maxC && !plan; i++) {
+    var c = cands[i], est = powerFor(c.dist);
+    var ps = [est, Math.min(1, est + 0.2), Math.max(0.1, est - 0.15), Math.min(1, est + 0.4)];
+    if (L.extra) ps.push(Math.min(1, est + 0.1), Math.max(0.1, est - 0.3), Math.min(1, est + 0.3));
+    for (var k = 0; k < ps.length; k++) {
+      var s = simulate(balls, c.angle, ps[k]), r = judge(s.ev, me, cleared);
+      if (r.win || (!r.foul && r.cont && !r.sunk8)) { plan = { angle: c.angle, power: ps[k], good: true }; break; }
+    }
+  }
+  if (!plan && L.sloppy) {
+    // makkelijk: gewoon ergens op een eigen bal schieten, zonder na te rekenen
+    var tg = targets[Math.floor(Math.random() * targets.length)];
+    if (tg) plan = { angle: Math.atan2(tg.y - cue.y, tg.x - cue.x), power: 0.25 + Math.random() * 0.4 };
+  }
+  if (!plan) {
+    var bestS = -1e9;
+    targets.slice().sort(function (a, b) {
+      return Math.hypot(a.x - cue.x, a.y - cue.y) - Math.hypot(b.x - cue.x, b.y - cue.y);
+    }).slice(0, L.extra ? 10 : 6).forEach(function (t) {
+      var a = Math.atan2(t.y - cue.y, t.x - cue.x);
+      [0.3, 0.5].forEach(function (pw) {
+        var s = simulate(balls, a, pw), r = judge(s.ev, me, cleared);
+        var sc = (r.foul ? -100 : 0) + (r.sunk8 && !r.win ? -200 : 0) + (r.cont ? 50 : 0) - Math.abs(pw - 0.3) * 5;
+        if (sc > bestS) { bestS = sc; plan = { angle: a, power: pw }; }
+      });
+    });
+  }
+  if (!plan) plan = { angle: Math.random() * 6.28, power: 0.3 };
+  var sd = plan.good ? L.sd : L.fsd;
+  plan.angle += gauss() * sd;
+  plan.power = clamp(plan.power * (1 + gauss() * L.psd), 0.08, 1);
+  return plan;
+}
+
+function cpuPlace() {
+  var L = LEVELS[cpuLevel()];
+  var targets = legalTargets(cur), bestSc = -1e9, bp = null, c = balls[0];
+  for (var x = FX0 + R + 6; x <= FX1 - R - 6; x += L.step) {
+    for (var y = FY0 + R + 6; y <= FY1 - R - 6; y += L.step) {
+      if (!validPlace(x, y)) continue;
+      var near = false;
+      for (var j = 0; j < POCKETS.length; j++) if (Math.hypot(POCKETS[j].x - x, POCKETS[j].y - y) < 16) near = true;
+      if (near) continue;
+      var sc;
+      if (L.smart) { var cs = cpuCands(x, y, targets); sc = (cs.length ? cs[0].score : -50) + Math.random() * 8; }
+      else sc = Math.random() * 100;
+      if (sc > bestSc) { bestSc = sc; bp = { x: x, y: y }; }
+    }
+  }
+  if (bp) { c.x = bp.x; c.y = bp.y; }
+  c.on = true; c.vx = 0; c.vy = 0;
+}
+
+function cpuStart() {
+  var plan = cpuPlan();
+  cpu = { t: 0, plan: plan };
+  aim.angle = plan.angle; aim.power = 0;
+}
+
+/* ---------- geluid ---------- */
+var actx = null;
+function initAudio() {
+  if (actx) { if (actx.state === 'suspended' && actx.resume) actx.resume(); return; }
+  try { var A = window.AudioContext || window.webkitAudioContext; if (A) actx = new A(); } catch (e) { actx = null; }
+}
+function beep(f, d, type, vol, slide) {
+  if (!actx) return;
+  try {
+    var t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + d);
+    g.gain.setValueAtTime(vol || 0.05, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + d);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + d + 0.02);
+  } catch (e) {}
+}
+function sfxWin() {
+  [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep(f, 0.16, 'square', 0.06); }, i * 120); });
+}
+function playSounds(q) {
+  var n = 0;
+  for (var i = 0; i < q.length && n < 3; i++) {
+    var s = q[i];
+    if (s[0] === 'hit') beep(420 + Math.min(300, s[1] * 2), 0.04, 'triangle', 0.06);
+    else if (s[0] === 'wall') beep(140, 0.05, 'square', 0.03);
+    else if (s[0] === 'pot') beep(330, 0.2, 'triangle', 0.08, 0.3);
+    n++;
+  }
+  q.length = 0;
+}
+if (Pixelfart.onPause) Pixelfart.onPause(function () { if (actx && actx.suspend) actx.suspend(); });
+if (Pixelfart.onResume) Pixelfart.onResume(function () { if (actx && actx.resume) actx.resume(); });
+
+/* ---------- sprites ---------- */
+var MASK = ['..XXXX..', '.XXXXXX.', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.', '..XXXX..'];
+var SPR = [], SHADOW = null, RING = null;
+function mk() { var c = document.createElement('canvas'); c.width = 8; c.height = 8; return c; }
+function buildSprites() {
+  var id, x, y;
+  for (id = 0; id < 16; id++) {
+    var c = mk(), g = c.getContext('2d');
+    for (y = 0; y < 8; y++) for (x = 0; x < 8; x++) {
+      if (MASK[y][x] !== 'X') continue;
+      var col;
+      if (id === 0) col = C.white;
+      else if (id === 8) col = BC[8];
+      else {
+        var base = BC[id > 8 ? id - 8 : id];
+        col = (id > 8 && (y < 2 || y > 5)) ? C.white : base;
+      }
+      g.fillStyle = col; g.fillRect(x, y, 1, 1);
+    }
+    if (id > 0) { g.fillStyle = C.white; g.fillRect(3, 3, 2, 2); }
+    else { g.fillStyle = C.lgray; g.fillRect(5, 5, 1, 1); g.fillRect(4, 6, 1, 1); g.fillRect(6, 4, 1, 1); }
+    SPR[id] = c;
+  }
+  SHADOW = mk(); var sg = SHADOW.getContext('2d'); sg.fillStyle = C.shadow;
+  for (y = 0; y < 8; y++) for (x = 0; x < 8; x++) if (MASK[y][x] === 'X') sg.fillRect(x, y, 1, 1);
+  RING = mk(); var rg = RING.getContext('2d'); rg.fillStyle = C.white;
+  for (y = 0; y < 8; y++) for (x = 0; x < 8; x++) {
+    if (MASK[y][x] !== 'X') continue;
+    var edge = false, nb = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (var k = 0; k < 4; k++) {
+      var xx = x + nb[k][0], yy = y + nb[k][1];
+      if (xx < 0 || yy < 0 || xx > 7 || yy > 7 || MASK[yy][xx] !== 'X') edge = true;
+    }
+    if (edge) rg.fillRect(x, y, 1, 1);
+  }
+}
+buildSprites();
+
+/* ---------- tekenen ---------- */
+function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }
+function disc(cx, cy, r, c) {
+  ctx.fillStyle = c;
+  for (var y = -r; y <= r; y++) { var w = Math.floor(Math.sqrt(r * r - y * y) + 0.5); ctx.fillRect(cx - w, cy + y, w * 2 + 1, 1); }
+}
+function T(s, x, y, col, font, align) {
+  ctx.font = font || F_HUD; ctx.fillStyle = col || C.white;
+  ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
+  Pixelfart.text(ctx, s, Math.round(x), Math.round(y));
+}
+function tw(s, font) { ctx.font = font || F_HUD; return ctx.measureText(s).width; }
+
+function drawTable() {
+  var w = FX1 - FX0, h = FY1 - FY0, i, x, y;
+  rect(FX0 - 10, FY0 - 10, w + 20, h + 20, C.wood);
+  rect(FX0 - 10, FY0 - 10, w + 20, 1, C.woodL); rect(FX0 - 10, FY0 - 10, 1, h + 20, C.woodL);
+  rect(FX0 - 10, FY1 + 9, w + 20, 1, C.woodD); rect(FX1 + 9, FY0 - 10, 1, h + 20, C.woodD);
+  rect(FX0 - 4, FY0 - 4, w + 8, h + 8, C.cush);
+  rect(FX0, FY0, w, h, C.felt);
+  // lichte baan op het vilt
+  for (x = FX0; x < FX1; x += 8) rect(x, FY0, 4, h, C.feltD);
+  rect(Math.round(HEADX), FY0, 1, h, C.cush);
+  rect(Math.round(FX0 + w * 0.72) - 1, Math.round(MY) - 1, 2, 2, C.cush);
+  // diamanten
+  for (i = 1; i < 8; i++) {
+    if (i === 4) continue;
+    x = Math.round(FX0 + w * i / 8);
+    rect(x - 1, FY0 - 8, 2, 2, C.dia); rect(x - 1, FY1 + 6, 2, 2, C.dia);
+  }
+  for (i = 1; i < 4; i++) {
+    y = Math.round(FY0 + h * i / 4);
+    rect(FX0 - 8, y - 1, 2, 2, C.dia); rect(FX1 + 6, y - 1, 2, 2, C.dia);
+  }
+  // zakken
+  disc(FX0 - 2, FY0 - 2, 7, C.black); disc(FX1 + 2, FY0 - 2, 7, C.black);
+  disc(FX0 - 2, FY1 + 2, 7, C.black); disc(FX1 + 2, FY1 + 2, 7, C.black);
+  disc(Math.round(MX), FY0 - 3, 6, C.black); disc(Math.round(MX), FY1 + 3, 6, C.black);
+}
+
+function drawBalls() {
+  var i, b;
+  for (i = 0; i < 16; i++) { b = balls[i]; if (b.on) ctx.drawImage(SHADOW, Math.round(b.x - R) + 1, Math.round(b.y - R) + 1); }
+  for (i = 1; i < 16; i++) { b = balls[i]; if (b.on) ctx.drawImage(SPR[i], Math.round(b.x - R), Math.round(b.y - R)); }
+  b = balls[0];
+  if (b.on) {
+    ctx.drawImage(SPR[0], Math.round(b.x - R), Math.round(b.y - R));
+    if (state === 'place' && !validPlace(b.x, b.y) && Math.floor(time * 6) % 2 === 0) ctx.drawImage(RING, Math.round(b.x - R), Math.round(b.y - R));
+  }
+}
+
+function rayCast(ox, oy, dx, dy) {
+  var best = 1e9, hit = null, i, t;
+  for (i = 1; i < 16; i++) {
+    var b = balls[i]; if (!b.on) continue;
+    var fx = ox - b.x, fy = oy - b.y, bb = fx * dx + fy * dy, cc = fx * fx + fy * fy - 4 * R * R;
+    var disc2 = bb * bb - cc;
+    if (disc2 >= 0) { t = -bb - Math.sqrt(disc2); if (t > 0 && t < best) { best = t; hit = b; } }
+  }
+  if (dx > 1e-6) { t = (FX1 - R - ox) / dx; if (t > 0 && t < best) { best = t; hit = null; } }
+  else if (dx < -1e-6) { t = (FX0 + R - ox) / dx; if (t > 0 && t < best) { best = t; hit = null; } }
+  if (dy > 1e-6) { t = (FY1 - R - oy) / dy; if (t > 0 && t < best) { best = t; hit = null; } }
+  else if (dy < -1e-6) { t = (FY0 + R - oy) / dy; if (t > 0 && t < best) { best = t; hit = null; } }
+  return { t: best, hit: hit };
+}
+
+function drawAim() {
+  var c = balls[0], a = aim.angle, dx = Math.cos(a), dy = Math.sin(a), d;
+  var rc = rayCast(c.x, c.y, dx, dy), len = Math.min(rc.t, 600);
+  ctx.fillStyle = C.white;
+  for (d = 8; d < len; d += 4) ctx.fillRect(Math.round(c.x + dx * d), Math.round(c.y + dy * d), 1, 1);
+  var gx = c.x + dx * rc.t, gy = c.y + dy * rc.t;
+  if (rc.t < 600) {
+    ctx.drawImage(RING, Math.round(gx - R), Math.round(gy - R));
+    if (rc.hit) {
+      var nx = (rc.hit.x - gx) / (2 * R), ny = (rc.hit.y - gy) / (2 * R);
+      ctx.fillStyle = C.yellow;
+      for (d = 7; d < 24; d += 3) ctx.fillRect(Math.round(rc.hit.x + nx * d), Math.round(rc.hit.y + ny * d), 1, 1);
+      var dn = dx * nx + dy * ny, tx = dx - dn * nx, ty = dy - dn * ny, tl = Math.hypot(tx, ty);
+      if (tl > 0.05) {
+        tx /= tl; ty /= tl; ctx.fillStyle = C.lgray;
+        for (d = 7; d < 18; d += 3) ctx.fillRect(Math.round(gx + tx * d), Math.round(gy + ty * d), 1, 1);
+      }
+    }
+  }
+}
+
+function drawCue() {
+  var c = balls[0], a = aim.angle, ca = Math.cos(a), sa = Math.sin(a), gap = R + 3 + aim.power * 30;
+  for (var i = 0; i < 64; i++) {
+    var d = gap + i;
+    ctx.fillStyle = i < 2 ? C.blue : (i < 5 ? C.white : (i < 46 ? '#d9a14e' : '#6b4423'));
+    ctx.fillRect(Math.round(c.x - ca * d), Math.round(c.y - sa * d), 2, 2);
+  }
+}
+
+function drawMini(x, y, id, on) {
+  if (on) {
+    var col = BC[id > 8 ? id - 8 : id];
+    rect(x + 1, y, 3, 5, col); rect(x, y + 1, 5, 3, col);
+    if (id > 8) rect(x, y + 2, 5, 1, C.white);
+    if (id === 8) rect(x + 2, y + 2, 1, 1, C.white);
+  } else rect(x + 1, y + 1, 3, 3, C.dgray);
+}
+
+function drawTray(p, atRight) {
+  var g = group[p]; if (!g) return;
+  var ids = [], i;
+  for (i = 1; i < 8; i++) ids.push(g === 'solid' ? i : i + 8);
+  if (clearedOf(p)) ids.push(8);
+  var total = ids.length * 6, nameW = tw(names[p]) + 8;
+  var x0 = atRight ? (W - 4 - nameW - total) : (4 + nameW);
+  for (i = 0; i < ids.length; i++) drawMini(x0 + i * 6, 5, ids[i], balls[ids[i]].on);
+}
+
+function hint() {
+  if (state === 'place') return ['KIES EEN PLEK VOOR DE WITTE BAL', 'PLAATS DE BAL'];
+  if (state === 'aim') return isCpu() ? ['COMPUTER DENKT NA...', 'DENKT...'] : ['SLEEP WEG VAN DE BAL, LAAT LOS', 'SLEEP & LAAT LOS'];
+  return null;
+}
+
+function drawHUD() {
+  if (mode === 'solo') {
+    T('SLAGEN ' + strokes, 6, 5, C.yellow, F_HUD, 'left');
+    T('POOL', W / 2, 5, C.pink, F_HUD, 'center');
+    T('NOG ' + ballsLeft(), W - 6, 5, C.white, F_HUD, 'right');
+  } else {
+    T(names[0], 4, 5, cur === 0 ? C.yellow : C.gray, F_HUD, 'left');
+    T(names[1], W - 4, 5, cur === 1 ? C.yellow : C.gray, F_HUD, 'right');
+    var w0 = tw(names[0]), w1 = tw(names[1]);
+    rect(4, 14, Math.round(w0), 1, cur === 0 ? C.yellow : C.dgray);
+    rect(W - 4 - Math.round(w1), 14, Math.round(w1), 1, cur === 1 ? C.yellow : C.dgray);
+    drawTray(0, false); drawTray(1, true);
+    if (!group[0]) T('OPEN TAFEL', W / 2, 5, C.lgray, F_HUD, 'center');
+  }
+  // onderbalk
+  if ((state === 'aim' && !isCpu()) || (state === 'aim' && cpu)) {
+    rect(6, 168, 96, 7, C.dgray); rect(7, 169, 94, 5, C.black);
+    var pw = Math.round(aim.power * 94);
+    var pc = aim.power < 0.4 ? C.green : (aim.power < 0.75 ? C.yellow : C.pink);
+    if (pw > 0) rect(7, 169, pw, 5, pc);
+  }
+  var h = hint();
+  if (h) { var s = tw(h[0]) <= 160 ? h[0] : h[1]; T(s, 190, 168, C.gray, F_HUD, 'center'); }
+}
+
+function getButtons() {
+  var b = [];
+  if (state === 'menu') {
+    var labs = [['1 SPELER', 'solo'], ['TEGEN COMPUTER', 'cpu'], ['2 SPELERS', 'two']];
+    labs.forEach(function (l, i) {
+      b.push({ x: 70, y: 84 + i * 24, w: 180, h: 20, label: l[0], big: true, idx: i,
+        act: function () { if (l[1] === 'cpu') { state = 'level'; sel = level; } else newGame(l[1]); } });
+    });
+  } else if (state === 'level') {
+    LEVELS.forEach(function (l, i) {
+      b.push({ x: 70, y: 66 + i * 24, w: 180, h: 20, label: l.name, big: true, idx: i,
+        act: function () { level = i; Pixelfart.store.set('level', i); newGame('cpu'); } });
+    });
+    b.push({ x: 110, y: 142, w: 100, h: 16, label: 'TERUG', big: true, idx: 3, act: function () { state = 'menu'; sel = 1; } });
+  } else if (state === 'pause') {
+    b.push({ x: 100, y: 76, w: 120, h: 18, label: 'DOORGAAN', big: true, act: resumeGame });
+    b.push({ x: 100, y: 100, w: 120, h: 18, label: 'STOPPEN', big: true, act: toMenu });
+  } else if (state === 'over') {
+    b.push({ x: 62, y: 108, w: 96, h: 20, label: 'OPNIEUW', big: true, act: function () { newGame(mode); } });
+    b.push({ x: 162, y: 108, w: 96, h: 20, label: 'MENU', big: true, act: toMenu });
+  } else {
+    b.push({ x: 278, y: 166, w: 40, h: 12, label: 'MENU', act: pauseGame });
+  }
+  return b;
+}
+
+function drawButton(b, selected) {
+  rect(b.x, b.y, b.w, b.h, selected ? C.yellow : C.line);
+  rect(b.x + 1, b.y + 1, b.w - 2, b.h - 2, C.dgray);
+  if (b.big) T(b.label, b.x + b.w / 2, b.y + Math.floor((b.h - 8) / 2) + 1, selected ? C.yellow : C.white, F_P8, 'center');
+  else T(b.label, b.x + b.w / 2, b.y + 2, selected ? C.yellow : C.lgray, F_HUD, 'center');
+}
+
+function drawPanel(x, y, w, h) {
+  rect(x - 1, y - 1, w + 2, h + 2, C.white); rect(x, y, w, h, C.black); rect(x + 2, y + 2, w - 4, h - 4, C.dgray);
+}
+
+function drawBannerBox() {
+  var lines = banner.lines, wmax = 0, i;
+  for (i = 0; i < lines.length; i++) wmax = Math.max(wmax, tw(lines[i]));
+  var bw = Math.round(wmax) + 24, bh = lines.length * 12 + 12;
+  var bx = Math.round((W - bw) / 2), by = Math.round(MY - bh / 2);
+  drawPanel(bx, by, bw, bh);
+  for (i = 0; i < lines.length; i++) T(lines[i], W / 2, by + 8 + i * 12, i === 0 ? C.yellow : C.white, F_HUD, 'center');
+}
+
+function drawMenu() {
+  T('POOL', W / 2 + 2, 16 + 2, C.pink, F_P24, 'center');
+  T('POOL', W / 2, 16, C.yellow, F_P24, 'center');
+  for (var i = 1; i < 16; i++) {
+    var bob = (Math.floor(time * 5 + i) % 4 < 2) ? 0 : 1;
+    ctx.drawImage(SPR[i], 55 + (i - 1) * 14, 52 + bob);
+  }
+  ctx.drawImage(SPR[0], 20, 52 + (Math.floor(time * 5) % 4 < 2 ? 0 : 1));
+  var bs = getButtons();
+  bs.forEach(function (b) { drawButton(b, b.idx === sel); });
+  if (best) T('RECORD 1 SPELER: ' + best + ' SLAGEN', W / 2, 152, C.gray, F_HUD, 'center');
+  T('MUIS, AANRAKEN OF PIJLTJES + SPATIE', W / 2, 166, C.line, F_HUD, 'center');
+}
+
+function drawLevel() {
+  T('KIES NIVEAU', W / 2, 24, C.yellow, F_P16, 'center');
+  T('TEGEN DE COMPUTER', W / 2, 48, C.lgray, F_HUD, 'center');
+  getButtons().forEach(function (b) { drawButton(b, b.idx === sel); });
+  T('PIJLTJES + ENTER, OF TIK OP EEN KNOP', W / 2, 166, C.line, F_HUD, 'center');
+}
+
+function drawOver() {
+  drawPanel(50, 40, 220, 96);
+  if (over.solo) {
+    T('KLAAR!', W / 2, 50, C.yellow, F_P16, 'center');
+    T('SLAGEN: ' + strokes, W / 2, 74, C.white, F_P8, 'center');
+    T(over.rec ? 'NIEUW RECORD!' : 'RECORD: ' + best, W / 2, 90, over.rec ? C.green : C.gray, F_HUD, 'center');
+  } else {
+    var lose = (mode === 'cpu' && over.winner === 1);
+    T(lose ? 'VERLOREN!' : 'GEWONNEN!', W / 2, 50, lose ? C.pink : C.green, F_P16, 'center');
+    T(names[over.winner] + ' WINT', W / 2, 74, C.white, F_P8, 'center');
+    T(over.msg, W / 2, 90, C.gray, F_HUD, 'center');
+  }
+  getButtons().forEach(function (b) { drawButton(b, false); });
+}
+
+function draw() {
+  rect(0, 0, W, H, C.black);
+  if (state === 'menu') { drawMenu(); return; }
+  if (state === 'level') { drawLevel(); return; }
+  drawTable();
+  drawBalls();
+  if (state === 'aim') { drawAim(); drawCue(); }
+  drawHUD();
+  getButtons().forEach(function (b) { if (state === 'aim' || state === 'place' || state === 'roll' || state === 'banner') drawButton(b, false); });
+  if (state === 'banner' && banner) drawBannerBox();
+  if (state === 'pause') { drawPanel(90, 56, 140, 72); T('PAUZE', W / 2, 62, C.yellow, F_P8, 'center'); getButtons().forEach(function (b) { drawButton(b, false); }); }
+  if (state === 'over') drawOver();
+}
+
+/* ---------- update ---------- */
+function update(dt) {
+  time += dt;
+  if (state === 'roll') {
+    shot.acc += dt; shot.t += dt;
+    var n = 0;
+    while (shot.acc >= DT && n < 24) { step(balls, shot.ev); shot.acc -= DT; n++; }
+    if (shot.ev.snd.length) playSounds(shot.ev.snd);
+    if (stopped(balls) || shot.t > 30) endRoll();
+  } else if (state === 'aim') {
+    if (isCpu()) {
+      if (cpu) {
+        cpu.t += dt; var pl = cpu.plan;
+        aim.angle = pl.angle;
+        aim.power = pl.power * clamp((cpu.t - 0.7) / 0.6, 0, 1);
+        if (cpu.t >= 1.5) shoot(pl.angle, pl.power);
+      }
+    } else if (!aim.drag) {
+      var rot = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+      if (rot) aim.angle += rot * dt * (keys.Shift ? 0.3 : 1.4);
+      if (charging && keys[' ']) aim.power = Math.min(1, aim.power + dt * 0.7);
+    }
+  } else if (state === 'place') {
+    var mx = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0), my = (keys.ArrowDown ? 1 : 0) - (keys.ArrowUp ? 1 : 0);
+    if ((mx || my) && !placing) {
+      var c = balls[0], sp = dt * (keys.Shift ? 20 : 70);
+      c.x = clamp(c.x + mx * sp, FX0 + R, FX1 - R); c.y = clamp(c.y + my * sp, FY0 + R, FY1 - R);
+    }
+  } else if (state === 'banner' && banner) {
+    banner.t += dt; if (banner.t >= banner.dur) skipBanner();
+  }
+}
+
+/* ---------- menu / pauze ---------- */
+function toMenu() { state = 'menu'; banner = null; over = null; }
+function pauseGame() { if (state === 'over' || state === 'menu' || state === 'level') return; prevState = state; state = 'pause'; aim.drag = false; placing = false; }
+function resumeGame() { state = prevState; }
+
+/* ---------- invoer ---------- */
+function toGame(e) {
+  var r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+}
+function hitButton(x, y) {
+  var bs = getButtons();
+  for (var i = 0; i < bs.length; i++) { var b = bs[i]; if (x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) return b; }
+  return null;
+}
+function updateDrag(x, y) {
+  var c = balls[0], dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
+  if (d > 3) aim.angle = Math.atan2(dy, dx);
+  aim.power = clamp((d - 6) / 64, 0, 1);
+}
+function movePlace(x, y) {
+  var c = balls[0];
+  c.x = clamp(x, FX0 + R, FX1 - R); c.y = clamp(y, FY0 + R, FY1 - R);
+}
+function confirmPlace() {
+  var c = balls[0];
+  if (!validPlace(c.x, c.y)) return;
+  inHand = false; state = 'aim';
+  var tg = legalTargets(cur), bd = 1e9;
+  for (var i = 0; i < tg.length; i++) {
+    var d = Math.hypot(tg[i].x - c.x, tg[i].y - c.y);
+    if (d < bd) { bd = d; aim.angle = Math.atan2(tg[i].y - c.y, tg[i].x - c.x); }
+  }
+}
+
+function onDown(x, y) {
+  var b = hitButton(x, y);
+  if (b) { b.act(); return; }
+  if (state === 'banner') { skipBanner(); return; }
+  if (state === 'aim' && !isCpu()) { aim.drag = true; updateDrag(x, y); }
+  else if (state === 'place') { placing = true; movePlace(x, y); }
+}
+function onMove(x, y) {
+  if (state === 'menu' || state === 'level') { var b = hitButton(x, y); if (b && b.idx !== undefined) sel = b.idx; return; }
+  if (aim.drag && state === 'aim') updateDrag(x, y);
+  else if (placing && state === 'place') movePlace(x, y);
+}
+function onUp() {
+  if (aim.drag) {
+    aim.drag = false;
+    if (state === 'aim' && aim.power > 0.05) shoot(aim.angle, aim.power); else aim.power = 0;
+  }
+  if (placing) { placing = false; if (state === 'place') confirmPlace(); }
+}
+
+cv.addEventListener('pointerdown', function (e) {
+  e.preventDefault(); initAudio();
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  var p = toGame(e); onDown(p.x, p.y);
+});
+cv.addEventListener('pointermove', function (e) { var p = toGame(e); onMove(p.x, p.y); });
+cv.addEventListener('pointerup', function (e) { e.preventDefault(); onUp(); });
+cv.addEventListener('pointercancel', function () { aim.drag = false; placing = false; aim.power = 0; });
+document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+window.addEventListener('keydown', function (e) {
+  var k = e.key; initAudio();
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].indexOf(k) >= 0) e.preventDefault();
+  var first = !keys[k]; keys[k] = true;
+  if (state === 'menu' || state === 'level') {
+    var nb = getButtons().length;
+    if (k === 'ArrowUp') sel = (sel + nb - 1) % nb;
+    else if (k === 'ArrowDown') sel = (sel + 1) % nb;
+    else if (k === 'Enter' || k === ' ') { var b = getButtons()[sel]; if (b) b.act(); }
+    else if (k === 'Escape') { if (state === 'level') { state = 'menu'; sel = 1; } else if (Pixelfart.inSite) Pixelfart.back(); }
+    return;
+  }
+  if (k === 'Escape' || k === 'p' || k === 'P') { if (state === 'pause') resumeGame(); else pauseGame(); return; }
+  if (state === 'pause') { if (k === 'Enter') resumeGame(); return; }
+  if (state === 'over') { if (k === 'Enter') newGame(mode); return; }
+  if (state === 'banner') { if (k === 'Enter' || k === ' ') skipBanner(); return; }
+  if (state === 'place' && (k === 'Enter' || k === ' ') && first) { confirmPlace(); return; }
+  if (state === 'aim' && !isCpu() && k === ' ' && first) { charging = true; aim.power = 0; }
+});
+window.addEventListener('keyup', function (e) {
+  var k = e.key; keys[k] = false;
+  if (k === ' ' && charging) {
+    charging = false;
+    if (state === 'aim' && !isCpu() && aim.power > 0.05) shoot(aim.angle, aim.power); else aim.power = 0;
+  }
+});
+window.addEventListener('blur', function () { keys = {}; charging = false; aim.drag = false; placing = false; });
+
+/* ---------- start ---------- */
+var started = false;
+function start() {
+  if (started) return; started = true;
+  Pixelfart.loop(update, { draw: draw });
+}
+if (TEST) {
+  TEST.api = {
+    newGame: newGame, update: update, step: step, simulate: simulate, judge: judge, makeRack: makeRack,
+    get: function () { return { state: state, balls: balls, group: group, cur: cur, strokes: strokes, over: over, mode: mode, inHand: inHand }; },
+    draw: draw, stopped: stopped, setBalls: function (b) { balls = b; }, shoot: shoot, startTurn: startTurn,
+    setCur: function (c) { cur = c; }, cpuPlan: cpuPlan, getButtons: getButtons, onDown: onDown, onUp: onUp, onMove: onMove, aim: aim,
+    validPlace: validPlace, setLevel: function (l) { level = l; }
+  };
+}
+Promise.resolve(Pixelfart.fonts(['Press Start 2P', 'Silkscreen'])).then(start, start);
+})();
+</script>
+</body>
+</html>

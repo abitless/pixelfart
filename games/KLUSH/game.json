@@ -3,7 +3,11 @@
     "code": "KLUSH",
     "categories": [
         "Arcade",
-        "Retro"
+        "Retro",
+        "Snel",
+        "Actie",
+        "Rustig",
+        "Avontuur"
     ],
     "published": "2026-11-15",
     "version": "1.0.0",

@@ -1,0 +1,30 @@
+{
+    "title": "Pixelpool",
+    "code": "POOLS",
+    "categories": [
+        "2 spelers",
+        "Rustig"
+    ],
+    "published": "2026-11-22",
+    "version": "1.1.0",
+    "description": "Speel pool tegen de computer of met z'n tweeën. Of probeer alleen alle ballen in zo min mogelijk slagen in de gaten te krijgen!",
+    "author": "JOZ",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": {
+        "order": "asc",
+        "label": "slagen"
+    },
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-22",
+            "notes": "Computer-tegenstander heeft nu drie niveaus: makkelijk, gemiddeld en moeilijk."
+        }
+    ]
+}

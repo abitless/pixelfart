@@ -1,0 +1,30 @@
+{
+    "title": "Landjepik",
+    "code": "LANDJ",
+    "categories": [
+        "2 spelers",
+        "Strategie"
+    ],
+    "published": "2026-11-19",
+    "version": "1.0.0",
+    "description": "Verover land en verdedig wat je hebt! Stuur je soldaten slim rond en laat de dobbelstenen beslissen. Tegen de computer of met z'n tweeën.",
+    "author": "NAT",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "file": "game.html",
+    "score": {
+        "order": "desc",
+        "label": "punten"
+    },
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "2026-11-19",
+            "notes": "Eerste versie."
+        }
+    ]
+}
