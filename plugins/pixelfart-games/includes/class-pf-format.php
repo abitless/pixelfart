@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
 
 class PF_Format {
 
-	const SDK_FILE = 'skill/pixelfart-game/pixelfart.js';
+	const SDK_FILE = 'sdk/pixelfart.js';
 
 	public static function init() {
 		add_filter( 'pixelfart_game_head', [ __CLASS__, 'sdk_tag' ] );
@@ -101,17 +101,23 @@ class PF_Format {
 		if ( preg_match( '#window\.open\s*\(|target=["\']_blank|top\.location|parent\.location#i', $code ) ) {
 			$out[] = [ 'warning', 'Nieuwe vensters openen of de site wegnavigeren kan niet. Gebruik Pixelfart.back() om terug te gaan.' ];
 		}
-		$fits = preg_match( '#Pixelfart\.fit\s*\(|addEventListener\s*\(\s*["\']resize|onresize|ResizeObserver|100d?vh|100d?vw|100%\s*;\s*height\s*:\s*100%#i', $code );
+		$fits = preg_match( '#(?:Pixelfart|PF)\.fit\s*\(|addEventListener\s*\(\s*["\']resize|onresize|ResizeObserver|100d?vh|100d?vw|100%\s*;\s*height\s*:\s*100%#i', $code );
 		if ( ! $fits ) {
 			$out[] = [ 'warning', 'De game lijkt zich niet aan te passen aan de schermgrootte. Volledig scherm blijft dan klein; gebruik Pixelfart.fit(canvas).' ];
 		}
-		if ( ! preg_match( '#Pixelfart\.(?:loop|onPause)\s*\(|visibilitychange#', $code ) && preg_match( '#requestAnimationFrame|setInterval#', $code ) ) {
+		if ( ! preg_match( '#(?:Pixelfart|PF)\.(?:loop|onPause)\s*\(|visibilitychange#', $code ) && preg_match( '#requestAnimationFrame|setInterval#', $code ) ) {
 			$out[] = [ 'info', 'Tip (energie): laat de game pauzeren als het tabblad niet zichtbaar is, bijv. met Pixelfart.loop() of Pixelfart.onPause().' ];
 		}
 		if ( preg_match( '#shadowBlur\s*=\s*[1-9]|create(?:Linear|Radial)Gradient|filter\s*[:=]\s*["\']?blur|border-radius\s*:\s*[1-9]#i', $code ) ) {
 			$out[] = [ 'info', 'Tip (pixelstijl): de game gebruikt gloed, verlopen, blur of ronde hoeken. Pixelfart-games hebben harde, scherpe pixels.' ];
 		}
-		if ( ! preg_match( '#Pixelfart\.score\s*\(#', $code ) ) {
+		if ( preg_match( '#AudioContext#', $code ) && ! preg_match( '#mute|muted|geluid\s*(?:uit|aan)#i', $code ) ) {
+			$out[] = [ 'warning', 'De game heeft geluid maar lijkt het niet uit te kunnen zetten. Geluid moet altijd uit kunnen (knop in beeld en toets M), standaard aan.' ];
+		}
+		if ( preg_match( '#<script\b[^>]*\bsrc=["\'](?:\./)?pixelfart(?:\.min)?\.js#i', $html ) ) {
+			$out[] = [ 'info', 'De game laadt zelf pixelfart.js. Dat is niet nodig (de site zet de SDK erin) en los werkt de game dan niet. Gebruik de platformbrug uit de skill.' ];
+		}
+		if ( ! preg_match( '#(?:Pixelfart|PF)\.score\s*\(#', $code ) ) {
 			$out[] = [ 'info', 'De game meldt geen score (Pixelfart.score). Er komt dan geen topscorelijst.' ];
 		}
 		return $out;

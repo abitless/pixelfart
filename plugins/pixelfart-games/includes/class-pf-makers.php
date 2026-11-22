@@ -1,6 +1,6 @@
 <?php
 /**
- * Games › Voor makers: het format in het kort en de skill (SKILL.md + SDK + voorbeeld) als zip om in Claude te laden.
+ * Games › Voor makers: het format in het kort en de skill (één SKILL.md) om in Claude te laden.
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -8,6 +8,7 @@ defined( 'ABSPATH' ) || exit;
 class PF_Makers {
 
 	const DIR = 'skill/pixelfart-game/';
+	const SDK = 'sdk/';
 
 	public static function init() {
 		add_action( 'admin_menu', [ __CLASS__, 'menu' ] );
@@ -21,33 +22,30 @@ class PF_Makers {
 
 	public static function page() {
 		$zip  = wp_nonce_url( admin_url( 'admin-post.php?action=pf_skill_zip' ), 'pf_skill' );
-		$file = fn( $f ) => wp_nonce_url( admin_url( 'admin-post.php?action=pf_skill_file&f=' . $f ), 'pf_skill' );
+		$md   = wp_nonce_url( admin_url( 'admin-post.php?action=pf_skill_file' ), 'pf_skill' );
 		?>
 		<div class="wrap">
 			<h1>Voor makers</h1>
-			<p style="max-width:720px">Games voor Pixelfart volgen een vast format: één HTML-bestand met een manifest en de Pixelfart SDK. Dan past de game zich aan elk scherm aan, pauzeert hij als niemand kijkt (scheelt stroom) en werken de topscores. Bij het uploaden controleert de site het format en vult het formulier zich vanzelf.</p>
+			<p style="max-width:720px">Games voor Pixelfart volgen een vast format: één los HTML-bestand met een manifest, zonder andere bestanden. Los geopend is de game gewoon speelbaar. Op de site zet Pixelfart er zelf de SDK en de pixelfonts bij: dan past de game zich aan elk scherm aan, pauzeert hij als niemand kijkt (scheelt stroom) en werken de topscores. Bij het uploaden controleert de site het format en vult het formulier zich vanzelf.</p>
 
 			<h2>Skill voor Claude</h2>
-			<p style="max-width:720px">De skill legt Claude het format uit. Daarna maakt Claude elke nieuwe game, of update van een game, meteen goed.</p>
+			<p style="max-width:720px">De skill is één tekstbestand dat Claude het format uitlegt. Daarna maakt Claude elke nieuwe game, of update van een game, meteen goed: los speelbaar, met geluid dat uit kan en drie niveaus als je tegen de computer speelt.</p>
 			<ul style="list-style:disc;padding-left:20px;max-width:720px">
-				<li><strong>Claude-app of claude.ai:</strong> Instellingen › Mogelijkheden › Skills › Skill uploaden, en kies de zip.</li>
-				<li><strong>Claude Code:</strong> pak de zip uit in <code>~/.claude/skills/</code> (dan staat er <code>~/.claude/skills/pixelfart-game/SKILL.md</code>).</li>
+				<li><strong>Claude-app of claude.ai:</strong> Instellingen › Mogelijkheden › Skills › Skill uploaden, en kies de zip (daarin zit alleen <code>SKILL.md</code>).</li>
+				<li><strong>Claude Code:</strong> zet <code>SKILL.md</code> in <code>~/.claude/skills/pixelfart-game/</code>.</li>
+				<li><strong>Andere AI of een mens:</strong> <code>SKILL.md</code> is gewoon leesbare tekst. Plak hem in het gesprek of lees hem zelf.</li>
 				<li>Vraag daarna gewoon: <em>"Maak een Pixelfart-game waarin…"</em> of <em>"Maak deze game klaar voor Pixelfart"</em>.</li>
 			</ul>
-			<p><a class="button button-primary" href="<?php echo esc_url( $zip ); ?>">Download skill (pixelfart-game.zip)</a></p>
-
-			<h2>Losse bestanden</h2>
-			<ul style="list-style:disc;padding-left:20px">
-				<li><a href="<?php echo esc_url( $file( 'SKILL.md' ) ); ?>">SKILL.md</a>: de volledige uitleg van het format</li>
-				<li><a href="<?php echo esc_url( $file( 'pixelfart.js' ) ); ?>">pixelfart.js</a>: de SDK (zet naast je game tijdens het testen)</li>
-				<li><a href="<?php echo esc_url( $file( 'template.html' ) ); ?>">template.html</a>: voorbeeldgame Pixelvanger</li>
-			</ul>
+			<p>
+				<a class="button button-primary" href="<?php echo esc_url( $md ); ?>">Download SKILL.md</a>
+				<a class="button" href="<?php echo esc_url( $zip ); ?>">Download als zip (voor claude.ai)</a>
+			</p>
 
 			<h2>Pixelfonts</h2>
-			<p style="max-width:720px">Games laden nooit iets van internet, ook geen fonts. Deze fonts staan op de site zelf en zitten in de skill. Een game gebruikt ze gewoon bij naam; <code>pixelfart.js</code> regelt de rest.</p>
-			<?php $furl = PIXELFART_URL . self::DIR; ?>
+			<p style="max-width:720px">Games laden nooit iets van internet, ook geen fonts. Deze fonts staan op de site zelf. Een game gebruikt ze gewoon bij naam, met een noodfont erachter (bijv. <code>8px "Press Start 2P", monospace</code>); op de site laadt de SDK ze.</p>
+			<?php $furl = PIXELFART_URL . self::SDK; ?>
 			<style>
-				<?php echo str_replace( 'url(fonts/', 'url(' . esc_url( $furl ) . 'fonts/', wp_strip_all_tags( (string) file_get_contents( PIXELFART_DIR . self::DIR . 'pixelfart-fonts.css' ) ) ); // phpcs:ignore ?>
+				<?php echo str_replace( 'url(fonts/', 'url(' . esc_url( $furl ) . 'fonts/', wp_strip_all_tags( (string) file_get_contents( PIXELFART_DIR . self::SDK . 'pixelfart-fonts.css' ) ) ); // phpcs:ignore ?>
 				.pf-fonts td { vertical-align: middle; }
 				.pf-fonts .sample { background: #000; color: #f2f2f2; padding: 10px 14px; -webkit-font-smoothing: none; white-space: nowrap; }
 			</style>
@@ -87,17 +85,14 @@ class PF_Makers {
 
 	public static function file() {
 		self::guard();
-		$f = sanitize_file_name( wp_unslash( $_GET['f'] ?? '' ) );
-		if ( ! in_array( $f, [ 'SKILL.md', 'pixelfart.js', 'template.html' ], true ) ) {
-			wp_die( 'Onbekend bestand.' );
-		}
 		nocache_headers();
-		header( 'Content-Type: text/plain; charset=utf-8' );
-		header( 'Content-Disposition: attachment; filename="' . $f . '"' );
-		readfile( PIXELFART_DIR . self::DIR . $f );
+		header( 'Content-Type: text/markdown; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="SKILL.md"' );
+		readfile( PIXELFART_DIR . self::DIR . 'SKILL.md' );
 		exit;
 	}
 
+	/** Zip met alleen pixelfart-game/SKILL.md: zo wil claude.ai een skill hebben. */
 	public static function zip() {
 		self::guard();
 		$tmp = wp_tempnam( 'pixelfart-game.zip' );
@@ -105,12 +100,7 @@ class PF_Makers {
 		if ( true !== $zip->open( $tmp, ZipArchive::OVERWRITE ) ) {
 			wp_die( 'Zip maken lukte niet.' );
 		}
-		foreach ( [ 'SKILL.md', 'pixelfart.js', 'pixelfart-fonts.css', 'template.html' ] as $f ) {
-			$zip->addFile( PIXELFART_DIR . self::DIR . $f, 'pixelfart-game/' . $f );
-		}
-		foreach ( glob( PIXELFART_DIR . self::DIR . 'fonts/*.{woff2,txt}', GLOB_BRACE ) ?: [] as $f ) {
-			$zip->addFile( $f, 'pixelfart-game/fonts/' . basename( $f ) );
-		}
+		$zip->addFile( PIXELFART_DIR . self::DIR . 'SKILL.md', 'pixelfart-game/SKILL.md' );
 		$zip->close();
 		nocache_headers();
 		header( 'Content-Type: application/zip' );

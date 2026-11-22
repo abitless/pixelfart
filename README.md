@@ -64,7 +64,8 @@ Dit is de map `wp-content` van de WordPress-site. Alleen wat we zelf maken staat
 |---|---|
 | `themes/pixelfart/` | Het thema: pixelstijl, de grijpmachine als menu, de spelerpagina. |
 | `plugins/pixelfart-games/` | Games, categorieën, topscores, reacties, ideeën en contact, nieuwsbrief, aankondigingen, doneren en de pixelmuur. Zie de README in die map. |
-| `plugins/pixelfart-games/skill/` | Het Pixelfart-format en de SDK voor wie zelf een game maakt. |
+| `plugins/pixelfart-games/skill/` | Het Pixelfart-format (één `SKILL.md`) voor wie zelf een game maakt. |
+| `plugins/pixelfart-games/sdk/` | De SDK en pixelfonts die de site bij elke game zet. |
 | `mu-plugins/bitless-code.php` | Automatische updates voor WordPress, plugins en thema's. |
 | `games/` | De broncode van alle games (zie hieronder). |
 

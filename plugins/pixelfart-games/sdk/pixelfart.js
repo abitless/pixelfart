@@ -1,9 +1,9 @@
 /*!
  * Pixelfart SDK 1.1 — klein hulpscript voor games op pixelfart.nl. Licentie: GPL-2.0-or-later.
  *
- * Zet naast je game (met pixelfart-fonts.css en de map fonts/) en laad bovenin <head>:
- *   <script src="pixelfart.js"></script>
- * Op de site wordt dit automatisch vervangen door de nieuwste versie.
+ * Een game laadt dit script niet zelf: de site zet het bovenin elke game (met de pixelfonts ernaast).
+ * Games zijn los ook speelbaar; ze gebruiken window.Pixelfart als het er is, en anders een eigen
+ * kleine vervanging (zie skill/pixelfart-game/SKILL.md).
  *
  *   Pixelfart.fit(canvas, { mode: 'integer' })   canvas schermvullend schalen, scherpe pixels
  *   Pixelfart.loop(update, { fps: 60 })          spel-loop; pauzeert vanzelf als je niet kijkt

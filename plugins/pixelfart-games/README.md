@@ -13,7 +13,7 @@ wp-content/uploads/pixelfart-games/
   <CODE>/thumb.png          pixelige thumbnail 4:3
   <CODE>/versions/*.html    eerdere versies (terugzetten in WP-admin)
   _fonts/                   vangnet: lokale kopie van andere fonts in oudere games
-  _sdk/pixelfart.js         Pixelfart SDK (bron: skill/pixelfart-game/pixelfart.js)
+  _sdk/pixelfart.js         Pixelfart SDK (bron: sdk/pixelfart.js)
   _sdk/pixelfart-fonts.css  de zes Pixelfart-pixelfonts (OFL), geladen door de SDK
   _sdk/fonts/               woff2-bestanden + licenties
   _tools/capture.html       maakt thumbnails op de game-origin
@@ -70,5 +70,6 @@ wp pixelfart mailtest <adres>    testmail sturen (controleert SMTP)
 
 ## Gameformat
 
-Zie `skill/pixelfart-game/SKILL.md`. Die map is ook een skill voor Claude: in WP-admin onder **Games › Voor makers**
-staat een downloadknop voor de zip.
+Zie `skill/pixelfart-game/SKILL.md`: één tekstbestand, en meteen een skill voor Claude (in WP-admin onder
+**Games › Voor makers** te downloaden). Een game is los speelbaar en heeft geen andere bestanden nodig; op de site
+zet de plugin de SDK en de pixelfonts uit `sdk/` erbij.
