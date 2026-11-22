@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.7.1
+Version: 1.7.2
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -440,8 +440,11 @@ textarea.input { resize: vertical; }
 
 /* blok Topscores (erelijst) */
 /* Topscorepagina: filters bovenaan, daarna alle lijsten onder elkaar. */
-.pf-hiscores { display: flex; flex-direction: column; gap: 20px; max-width: 760px; }
-.hs-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 16px; margin: 4px 4px 12px; background: #0b0b0b; box-shadow: 0 0 0 4px var(--yellow), 6px 6px 0 4px #5a4a1a; }
+/* De kaders zijn zo breed als de site; de inhoud staat in een kolom van --hs-w in het midden. */
+.page-wrap:has(.pf-hiscores) { max-width: none; }
+.page-wrap:has(.pf-hiscores) .entry > :not(.pf-hiscores) { max-width: 720px; }
+.pf-hiscores { --hs-w: 684px; /* procenten in padding rekenen met de breedte van .pf-hiscores, 8px meer dan het kader */ --hs-pad: max(18px, calc((100% - var(--hs-w)) / 2)); display: flex; flex-direction: column; gap: 20px; }
+.hs-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 20px var(--hs-pad); margin: 4px 4px 12px; background: #0b0b0b; box-shadow: 0 0 0 4px var(--yellow), 6px 6px 0 4px #5a4a1a; }
 .hs-filter label, .hs-filter-game { display: flex; flex-direction: column; gap: 6px; }
 .hs-filter label > span, .hs-filter-game > span { font-family: var(--pix); font-size: 10px; color: var(--yellow); }
 .hs-filter-game { flex: 1 1 220px; min-width: 0; }
@@ -474,11 +477,11 @@ textarea.input { resize: vertical; }
 .js .hs-filter-go { display: none; } /* met JavaScript gaat het vanzelf */
 .hs-filter-reset { align-self: center; color: var(--dim); }
 .hs-filter-mine { font-size: 9px; }
-.pf-hiscore { box-shadow: 0 0 0 4px var(--c, var(--line)); padding: 14px 18px 16px; margin: 4px; display: flex; flex-direction: column; gap: 10px; }
+.pf-hiscore { box-shadow: 0 0 0 4px var(--c, var(--line)); padding: 28px var(--hs-pad) 30px; margin: 4px; display: flex; flex-direction: column; gap: 10px; }
 .pf-hiscore h3 { margin: 0; font-family: var(--pix); font-size: 12px; line-height: 1.6; }
 .pf-hiscore h3 a { color: var(--c, var(--ink)); }
 .pf-hiscore .hs-empty, .hs-none, .hs-open { margin: 0; color: var(--mute); }
-.hs-open { margin: 4px; line-height: 1.4; }
+.hs-open, .hs-none { margin: 4px; padding: 0 var(--hs-pad); line-height: 1.4; }
 .hs-open a { color: var(--dim); }
 .pf-hiscores .hiscore-list li { grid-template-columns: 2.6em 4em 1fr auto; gap: 0 12px; color: var(--dim); }
 .pf-hiscores .hiscore-list li.is-top1 { color: var(--yellow); }
