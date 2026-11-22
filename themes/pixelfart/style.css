@@ -475,8 +475,7 @@ textarea.input { resize: vertical; }
 .pxsel-list li.is-active .pxsel-dot { box-shadow: 0 0 0 2px #000; }
 .hs-filter-name .input { width: 6.5em; font-family: var(--pix); letter-spacing: 3px; text-transform: uppercase; }
 .js .hs-filter-go { display: none; } /* met JavaScript gaat het vanzelf */
-.hs-filter-reset { align-self: center; color: var(--dim); }
-.hs-filter-mine { font-size: 9px; }
+.hs-filter-reset { align-self: flex-end; display: inline-flex; align-items: center; height: 40px; margin: 4px 0; color: var(--dim); } /* op één lijn met de velden */
 .pf-hiscore { box-shadow: 0 0 0 4px var(--c, var(--line)); padding: 28px var(--hs-pad) 30px; margin: 4px; display: flex; flex-direction: column; gap: 10px; }
 .pf-hiscore h3 { margin: 0; font-family: var(--pix); font-size: 12px; line-height: 1.6; }
 .pf-hiscore h3 a { color: var(--c, var(--ink)); }
