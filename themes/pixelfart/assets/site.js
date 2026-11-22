@@ -508,12 +508,18 @@
 			const d = e.data;
 			if (d === 'pixelfart:back' || (d && d.pixelfart === 1 && d.type === 'back')) location.href = back.href;
 			if (d && d.pixelfart === 1 && d.type === 'score') onScore(d.score);
+			if (d && d.pixelfart === 1 && (d.type === 'topscores' || d.type === 'ready')) sendTops();
 		});
 
 		// topscores aller tijden
 		const hs = player.dataset.scores ? JSON.parse(player.dataset.scores) : null;
 		const entry = $('[data-hs-entry]', player);
 		let onScore = () => {};
+		// De topscorelijst ook in de game (Pixelfart.topscores): alleen rang, 3 letters en score.
+		const sendTops = () => {
+			if (!hs || !frame) return;
+			try { frame.contentWindow.postMessage({ pixelfart: 1, type: 'topscores', top: hs.top.map((s) => ({ rank: s.rank, name: s.name, score: s.score })) }, PF.games || '*'); } catch (e) { /* */ }
+		};
 		if (hs && entry) {
 			const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 			const list = $('[data-hiscores]', player);
@@ -584,6 +590,7 @@
 					run = r.run; hs.top = r.scores;
 					store.set('pf_initials', name);
 					render(r.entry);
+					sendTops();
 					close();
 				} catch (x) { err.textContent = x.message; err.hidden = false; save.disabled = false; }
 			});

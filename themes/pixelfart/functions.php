@@ -5,7 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PF_THEME_VERSION = '1.7.2';
+const PF_THEME_VERSION = '1.7.3';
 
 /** Pixel-bitmaps voor iconen in het thema ('#' = pixel). */
 const PF_BMP = [

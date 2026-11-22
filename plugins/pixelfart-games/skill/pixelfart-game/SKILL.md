@@ -126,6 +126,7 @@ const PF = window.Pixelfart || (() => {
     onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
     fonts: () => Promise.resolve(),
     text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
+    topscores() {}, // los geopend is er geen topscorelijst
     score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
     back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
     store: {
@@ -167,6 +168,7 @@ Op de site is `PF` de Pixelfart SDK; los geopend de platformbrug. De game merkt 
 | `PF.fonts([namen])` | Laadt Pixelfart-fonts en geeft een Promise. Nodig vóór je ze op een canvas gebruikt: `PF.fonts(['Press Start 2P']).then(start)`. |
 | `PF.text(ctx, tekst, x, y)` | Zoals `ctx.fillText`, maar **haarscherp** (zonder wazige randjes). Gebruikt `ctx.font`, `fillStyle`, `textAlign` en `textBaseline`. Wordt onthouden, dus zuinig. Gebruik dit voor alle tekst op het canvas. |
 | `PF.score(n)` | Eindscore van een potje (geheel getal ≥ 0). De site vraagt de speler om 3 letters als de score de lijst haalt. |
+| `PF.topscores(fn)` | De topscorelijst van de site, om in de game te tonen (bijv. op het titel- of game-overscherm). `fn` krijgt `[{ rank, name, score }]`, beste eerst, en opnieuw zodra er een nieuwe topscore bij komt. Los geopend wordt `fn` nooit aangeroepen: toon dan bijv. je eigen records uit `PF.store`. |
 | `PF.back()` | Terug naar de site (bijv. een knop "Menu verlaten" of de Escape-toets). |
 | `PF.store.get(key, standaard)` / `.set(key, waarde)` | Opslag voor deze game (record, instellingen). |
 | `PF.inSite` | `true` als de game op de site draait, `false` als je hem los opent. Verberg bijv. "Terug naar de site" als dit `false` is. |

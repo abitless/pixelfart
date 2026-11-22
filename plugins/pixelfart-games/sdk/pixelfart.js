@@ -1,5 +1,5 @@
 /*!
- * Pixelfart SDK 1.1 — klein hulpscript voor games op pixelfart.nl. Licentie: GPL-2.0-or-later.
+ * Pixelfart SDK 1.2 — klein hulpscript voor games op pixelfart.nl. Licentie: GPL-2.0-or-later.
  *
  * Een game laadt dit script niet zelf: de site zet het bovenin elke game (met de pixelfonts ernaast).
  * Games zijn los ook speelbaar; ze gebruiken window.Pixelfart als het er is, en anders een eigen
@@ -12,6 +12,7 @@
  *   Pixelfart.text(ctx, 'SCORE', x, y)           haarscherpe pixeltekst op een canvas
  *   Pixelfart.score(1234)                        eindscore melden (één keer per potje, bij game over)
  *   Pixelfart.back()                             terug naar de site (bijv. vanuit je menu)
+ *   Pixelfart.topscores(fn)                      topscorelijst van de site: fn([{ rank, name, score }])
  *   Pixelfart.store.get(key) / .set(key, value)  eigen opslag (instellingen, eigen record)
  *   Pixelfart.inSite                             true als de game op de site draait
  */
@@ -34,6 +35,7 @@
 	var textCache = new Map();
 	var paused = false;
 	var pauseFns = [];
+	var tops = null, topFns = [];
 	var resumeFns = [];
 
 	function send(type, data) {
@@ -53,10 +55,17 @@
 		if (e.source !== window.parent || !e.data || e.data.pixelfart !== 1) return;
 		if (e.data.type === 'pause') setPaused(true);
 		if (e.data.type === 'resume') setPaused(document.hidden);
+		if (e.data.type === 'topscores' && Array.isArray(e.data.top)) {
+			// Alleen wat een game nodig heeft, en netjes begrensd: 3 letters, hele getallen.
+			tops = e.data.top.slice(0, 10).map(function (s) {
+				return { rank: Math.floor(+s.rank) || 0, name: String(s.name || '').replace(/[^A-Z]/g, '').slice(0, 3), score: Math.floor(+s.score) || 0 };
+			});
+			topFns.forEach(function (fn) { try { fn(tops); } catch (err) { console.error(err); } });
+		}
 	});
 
 	var Pixelfart = {
-		version: '1.1.0',
+		version: '1.2.0',
 		inSite: inSite,
 		get paused() { return paused; },
 
@@ -179,6 +188,15 @@
 		},
 
 		back: function () { send('back', {}); },
+
+		/**
+		 * De topscorelijst van de site (beste eerst), om in de game te tonen. fn krijgt [{ rank, name, score }]
+		 * meteen (als de lijst er al is) en opnieuw zodra er een nieuwe topscore bij komt. Los geopend: nooit.
+		 */
+		topscores: function (fn) {
+			topFns.push(fn);
+			if (tops) fn(tops); else send('topscores', {}); // vraag de site om de lijst
+		},
 		ready: function () { send('ready', {}); },
 
 		/** Opslag per game (localStorage met eigen voorvoegsel). Faalt stil in een privévenster. */
