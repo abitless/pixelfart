@@ -9,6 +9,9 @@ Pixelfart is de gamesite van een vader en zoon. Elke game is **één los HTML-be
 site in een beveiligd venster (iframe) draait, ook schermvullend op telefoon, tablet en computer. Deze skill
 beschrijft het format. Volg het precies: de site controleert het bij het uploaden.
 
+**Voor wie maakt deze skill games?** Ook voor makers zonder toegang tot de site. Je maakt en test de game op je eigen
+computer, met alleen deze skill. Klaar? Dan stuur je het HTML-bestand naar Pixelfart en zetten wij hem online.
+
 **Standalone, met platform erbij.** Een game heeft geen andere bestanden nodig: dubbelklik het HTML-bestand en hij
 speelt. Draait hij op pixelfart.nl, dan zet de site zelf de Pixelfart SDK (`window.Pixelfart`) en de pixelfonts
 klaar, vóór de code van de game. De game gebruikt de SDK als die er is, en anders een kleine ingebouwde vervanging
@@ -77,12 +80,27 @@ PF.fonts(['Press Start 2P']).then(() => PF.loop(update, { draw }));
 Zet dit **letterlijk** bovenaan het script van de game. Op pixelfart.nl is `window.Pixelfart` er al (de echte SDK,
 met pixelfonts, topscores en pauze vanuit de site). Los geopend neemt deze vervanging het over: de game schaalt,
 pauzeert en onthoudt instellingen, alleen zonder topscorelijst en met een noodfont in plaats van de pixelfonts.
+Bovenin staat dan een gele **testmelding** die dat uitlegt; die laat ook zien welke score de game meldt. Op de site
+verschijnt die melding nooit. Haal de melding niet weg en bouw geen eigen versie: hij hoort bij het format.
 
 ```js
 // Pixelfart-platformbrug: op pixelfart.nl de echte SDK, los geopend deze eenvoudige vervanging.
 const PF = window.Pixelfart || (() => {
   const onP = [], onR = [];
   document.addEventListener('visibilitychange', () => (document.hidden ? onP : onR).forEach((f) => f()));
+  const note = (t) => { // testmelding bovenin; alleen los geopend, nooit op de site
+    let n = document.getElementById('pf-test');
+    if (!n) {
+      n = document.createElement('div'); n.id = 'pf-test'; n.title = 'Klik om te verbergen';
+      n.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;padding:4px 8px;background:#ffcf4a;color:#000;'
+        + 'font:12px/1.4 monospace;text-align:center;cursor:pointer';
+      n.onclick = () => n.remove(); document.body.appendChild(n);
+    }
+    n.textContent = t;
+  };
+  const intro = () => note('TESTVERSIE · Topscores en pixelfonts werken pas als de game op pixelfart.nl staat. '
+    + 'Klaar? Stuur dit HTML-bestand naar Pixelfart. (klik om te verbergen)');
+  if (document.body) intro(); else addEventListener('DOMContentLoaded', intro);
   return {
     inSite: false,
     get paused() { return document.hidden; },
@@ -108,7 +126,8 @@ const PF = window.Pixelfart || (() => {
     onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
     fonts: () => Promise.resolve(),
     text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
-    score() {}, back() {},
+    score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
+    back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
     store: {
       get(k, d) { try { const v = localStorage.getItem('pf:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
       set(k, v) { try { localStorage.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} },
@@ -289,14 +308,16 @@ Vraagt iemand om de computer als tegenstander (of zit er een computerspeler in d
 3. Verander niets aan de manier van score-melden zonder dat expliciet te zeggen: oude topscores moeten vergelijkbaar blijven.
 4. Na het uploaden bewaart de site de vorige versie automatisch; terugzetten kan altijd.
 
-## Lokaal testen
+## Testen op je eigen computer
 
-- Open het HTML-bestand gewoon in de browser: er hoeft niets naast. Je ziet dan het noodfont en er is geen
-  topscorelijst; de rest werkt zoals op de site.
+- Open het HTML-bestand gewoon in de browser (dubbelklikken). Er hoeft niets naast en je hebt geen toegang tot de
+  site nodig.
+- Bovenin staat de gele testmelding. Je ziet een noodfont in plaats van de pixelfonts en er is geen topscorelijst;
+  de rest werkt zoals op de site. Meldt de game een score, dan zie je die in de testmelding: zo controleer je
+  `PF.score`.
 - Controleer: schaalt mee bij het verkleinen van het venster? Werkt het met de muis als "vinger"? Pauzeert het als je
   van tabblad wisselt? Gaat het geluid uit met de knop én met `M`, en blijft het uit na herladen? Geen fouten in de
   console, geen verzoeken naar internet (tabblad Netwerk)?
-- Op de site (na uploaden) zie je de echte pixelfonts en werkt de topscorelijst.
 
 ## Licentie
 
@@ -311,8 +332,13 @@ Maak geen namaak van bestaande, bekende games (namen, figuren, levels): bedenk i
 
 ## Afleveren
 
-Lever het HTML-bestand op. Uploaden kan in WordPress: **Games › Nieuwe game uploaden** (nieuw) of bij een bestaande game
-een nieuw HTML-bestand kiezen. De site vult het formulier uit het manifest, maakt een thumbnail en meldt wat er nog
+**Ben je maker (zonder toegang tot de site)?** Stuur het HTML-bestand naar Pixelfart. Hoe? Dat spreek je af via de
+contactpagina op pixelfart.nl. Wij bekijken de game en zetten hem online. Dan werken de pixelfonts en topscores
+vanzelf en verdwijnt de testmelding. Stuur alleen het HTML-bestand: er hoort niets anders bij.
+
+**Beheer je de site?** Upload in WordPress: **Games › Nieuwe game uploaden** (nieuw) of bij een bestaande game een
+nieuw HTML-bestand kiezen. De site vult het formulier uit het manifest, maakt een thumbnail en meldt wat er nog
 beter kan.
 
-Voor je oplevert, loop de checklist bovenaan na en zeg kort wat je hebt gecontroleerd.
+Voor je oplevert, loop de checklist bovenaan na en zeg kort wat je hebt gecontroleerd. Vertel de maker ook dat de
+game klaar is om op te sturen.

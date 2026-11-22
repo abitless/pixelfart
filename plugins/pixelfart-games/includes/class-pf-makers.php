@@ -33,6 +33,7 @@ class PF_Makers {
 			<ul style="list-style:disc;padding-left:20px;max-width:720px">
 				<li><strong>Claude-app of claude.ai:</strong> Instellingen › Mogelijkheden › Skills › Skill uploaden, en kies de zip (daarin zit alleen <code>SKILL.md</code>).</li>
 				<li><strong>Claude Code:</strong> zet <code>SKILL.md</code> in <code>~/.claude/skills/pixelfart-game/</code>.</li>
+				<li><strong>Makers zonder toegang tot de site:</strong> stuur ze <code>SKILL.md</code>. Ze testen de game op hun eigen computer (bovenin staat dan een gele testmelding) en sturen jullie het HTML-bestand. Dat upload je hier.</li>
 				<li><strong>Andere AI of een mens:</strong> <code>SKILL.md</code> is gewoon leesbare tekst. Plak hem in het gesprek of lees hem zelf.</li>
 				<li>Vraag daarna gewoon: <em>"Maak een Pixelfart-game waarin…"</em> of <em>"Maak deze game klaar voor Pixelfart"</em>.</li>
 			</ul>
