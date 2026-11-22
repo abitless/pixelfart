@@ -147,8 +147,14 @@
 		}
 		stage.innerHTML = '';
 		stage.hidden = true;
-		setThumb(data || placeholder());
-		if (!data) alert('Geen speelveld gevonden om vast te leggen; er staat nu een plaatshouder. Je kunt ook zelf een afbeelding uploaden.');
+		if (data) setThumb(data);
+		else if (!file && btn.dataset.code) {
+			// Bestaande game zonder canvas (bijv. een bord van HTML-knoppen): de huidige afbeelding niet overschrijven.
+			alert('Geen canvas gevonden om vast te leggen. Deze game is opgebouwd uit HTML in plaats van een canvas, dus een automatische screenshot lukt niet. De huidige afbeelding blijft staan; je kunt ook zelf een afbeelding uploaden.');
+		} else {
+			setThumb(placeholder());
+			alert('Geen canvas gevonden om vast te leggen; er staat nu een plaatshouder. Je kunt ook zelf een afbeelding uploaden.');
+		}
 
 		btn.disabled = false;
 		btn.textContent = 'Opnieuw';
