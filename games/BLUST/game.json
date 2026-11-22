@@ -7,7 +7,7 @@
         "Avontuur"
     ],
     "published": "2026-11-15",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Er is brand! Rij met je brandweerwagen naar het gebouw, red de slachtoffers en blus de vlammen. Verdien geld voor een sterkere wagen, want elke brand is groter.",
     "author": "",
     "age": "ALL",
@@ -19,6 +19,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.2.0",
+            "date": "2026-11-22",
+            "notes": "Helemaal in pixelstijl: dikke pixelranden en harde schaduwen, pixelfonts op scherpe maten."
+        },
         {
             "version": "1.1.0",
             "date": "2026-11-22",
