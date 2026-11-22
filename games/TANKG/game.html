@@ -9,14 +9,15 @@
 {
 	"title": "Tankgarage",
 	"code": "TANKG",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Bouw je tank om in de garage, ga het slagveld op en verdien nieuwe onderdelen. Hoeveel golven overleef jij?",
 	"categories": [
 		"Snel",
 		"Actie",
 		"Strategie"
 	],
-	"age": "ALL"
+	"age": "ALL",
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -338,7 +339,7 @@ function drawPreview(){
 }
 pv.addEventListener('pointermove',e=>{const r=pv.getBoundingClientRect();padAng=Math.atan2(e.clientY-(r.top+r.height*.59),e.clientX-(r.left+r.width/2));});
 pv.addEventListener('pointerleave',()=>{padAng=null;});
-setInterval(()=>{if(mode==='garage')drawPreview();},50);
+setInterval(()=>{if(mode==='garage'&&!PF.paused)drawPreview();},50);
 function renderGarage(){
   $('money').textContent=save.money;
   const s=stats(save.lv);
@@ -389,7 +390,13 @@ $('reset').addEventListener('click',()=>{
   if(!resetArm){resetArm=1;b.textContent='Zeker weten? Klik nog eens';setTimeout(()=>{resetArm=0;b.textContent='Alles wissen';},3000);return;}
   save=fresh();persist();resetArm=0;b.textContent='Alles wissen';renderGarage();
 });
-$('snd').addEventListener('click',()=>{snd=!snd;$('snd').textContent='Geluid: '+(snd?'aan':'uit');wakeAudio();});
+// Geluid: knop en toets M, keuze onthouden (standaard aan), stil tijdens een pauze.
+function pfMute(m) { snd=!m;$('snd').textContent='Geluid: '+(m?'uit':'aan'); PF.store.set('muted', m); }
+pfMute(!!PF.store.get('muted', false));
+$('snd').addEventListener('click', () => { wakeAudio(); pfMute(!!snd); });
+addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) { wakeAudio(); pfMute(!!snd); } });
+PF.onPause(() => { if (AC) AC.suspend(); });
+PF.onResume(() => { if (AC && !!snd) AC.resume(); });
 
 /* ---------- slagveld ---------- */
 const cv=$('cv'),cx=cv.getContext('2d');
@@ -601,7 +608,10 @@ function draw(){
   $('hrun').textContent='€'+G.run;
   $('money').textContent=save.money;
 }
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); raf = requestAnimationFrame(frame); } });
 function frame(t){
+  if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
   if(mode!=='battle')return;
   const dt=Math.min(.05,(t-last)/1000||0);last=t;
   update(dt);

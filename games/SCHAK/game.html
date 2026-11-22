@@ -9,7 +9,7 @@
 {
 	"title": "Schaken 2.0",
 	"code": "SCHAK",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Schaken, maar dan als oorlog op het bord. Zet tanks, turrets en saboteurs slim in en vernietig het vijandelijke konvooi.",
 	"categories": [
 		"Puzzel",
@@ -17,7 +17,8 @@
 		"Strategie"
 	],
 	"age": "ALL",
-	"author": "Bert"
+	"author": "Bert",
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, niveaus Makkelijk, Gemiddeld en Moeilijk (keuze onthouden), alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -204,7 +205,7 @@ select{font:500 .95rem var(--font-body); color:var(--fg); background:var(--bg); 
           <label for="level">Niveau</label>
           <select id="level">
             <option value="1">Makkelijk</option>
-            <option value="2" selected>Normaal</option>
+            <option value="2">Gemiddeld</option>
             <option value="3">Moeilijk</option>
           </select>
         </div>
@@ -503,7 +504,9 @@ function fresh(mode,level){
   return {board:b,turn:'w',sel:null,moves:[],legalAll:gen(b,'w'),last:null,pop:-1,over:null,busy:false,
     mode:mode,level:level,capW:[],capB:[],log:[],gid:++gidCounter};
 }
-S=fresh('cpu',2);
+var LEVEL_NAME=['','Makkelijk','Gemiddeld','Moeilijk'];
+var startLevel=+PF.store.get('niveau',1); if(!(startLevel>=1&&startLevel<=3)) startLevel=1; // eerste keer Makkelijk, daarna de laatste keuze
+S=fresh('cpu',startLevel); $('#level').value=String(startLevel);
 
 function humanTurn(){ return !S.over && !S.busy && (S.mode==='two' || S.turn==='w'); }
 
@@ -578,7 +581,7 @@ function renderOver(){
   var t=S.over, title, text;
   if(t.type==='mate'){
     title='Konvooi vernietigd';
-    if(S.mode==='cpu') text=t.winner==='w'?'Jij wint. Het vijandelijke konvooi is weg.':'De computer wint deze ronde.';
+    if(S.mode==='cpu') text=(t.winner==='w'?'Jij wint. Het vijandelijke konvooi is weg.':'De computer wint deze ronde.')+' Niveau: '+LEVEL_NAME[S.level]+'.';
     else text=(t.winner==='w'?'Wit':'Zwart')+' wint.';
   } else if(t.type==='stalemate'){ title='Vastgelopen'; text='De speler aan zet heeft geen acties meer. Gelijkspel.'; }
   else { title='Remise'; text='Er zijn alleen nog konvooien over. Gelijkspel.'; }
@@ -738,7 +741,7 @@ function setMode(m){
 }
 $('#mCpu').addEventListener('click',function(){ setMode('cpu'); });
 $('#mTwo').addEventListener('click',function(){ setMode('two'); });
-$('#level').addEventListener('change',function(e){ S.level=+e.target.value; });
+$('#level').addEventListener('change',function(e){ S.level=+e.target.value; PF.store.set('niveau',S.level); });
 
 render();
 })();

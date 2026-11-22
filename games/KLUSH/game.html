@@ -9,7 +9,7 @@
 {
 	"title": "Klusheld",
 	"code": "KLUSH",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Een riool is verstopt en jij bent de klusheld! Spring over putten, mep met je hamer en red de dag.",
 	"categories": [
 		"Arcade",
@@ -19,7 +19,8 @@
 		"Rustig",
 		"Avontuur"
 	],
-	"age": "ALL"
+	"age": "ALL",
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -147,8 +148,29 @@ document.querySelectorAll('#pad button').forEach(b=>{const k=b.dataset.k;
  b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointerleave',off);b.addEventListener('pointercancel',off)});
 cv.addEventListener('pointerdown',()=>{startEdge=1;initAudio()});
 // ---- audio ----
+// Geluid aan/uit: luidsprekerknop in beeld en toets M. Standaard aan, keuze onthouden.
+const pfSound = (() => {
+  let muted = !!PF.store.get('muted', false);
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.style.cssText = 'position:fixed;z-index:60;right:8px;bottom:8px;width:34px;height:34px;padding:3px;border:0;background:#000;'
+    + 'box-shadow:0 0 0 3px #6a6a6a;cursor:pointer;touch-action:manipulation;line-height:0';
+  const icon = (m) => '<svg viewBox="0 0 9 8" width="28" height="25" shape-rendering="crispEdges" fill="#f2f2f2" aria-hidden="true">'
+    + '<path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3z"/>'
+    + (m ? '<path fill="#ff5c8a" d="M5 2h1v1H5zM8 2h1v1H8zM6 3h2v2H6zM5 5h1v1H5zM8 5h1v1H8z"/>'
+         : '<path d="M5 3h1v2H5zM7 1h1v1H7zM8 2h1v4H8zM7 6h1v1H7z"/>') + '</svg>';
+  const show = () => { b.innerHTML = icon(muted); b.title = muted ? 'Geluid aan (M)' : 'Geluid uit (M)'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(muted)); };
+  const set = (m) => { muted = m; PF.store.set('muted', m); show(); if (pfSound.onChange) pfSound.onChange(m); };
+  b.addEventListener('pointerdown', (e) => e.stopPropagation());
+  b.addEventListener('click', (e) => { e.stopPropagation(); set(!muted); b.blur(); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) set(!muted); });
+  show();
+  (document.body ? Promise.resolve() : new Promise((r) => addEventListener('DOMContentLoaded', r))).then(() => document.body.appendChild(b));
+  return { get muted() { return muted; }, onChange: null };
+})();
+PF.onPause(()=>{if(AC)AC.suspend()});PF.onResume(()=>{if(AC&&!pfSound.muted)AC.resume()});
 let AC=null;function initAudio(){try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
-function beep(f,d=.08,type='square',v=.05){try{if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
+function beep(f,d=.08,type='square',v=.05){try{if(!AC||pfSound.muted)return;const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
 // ---- state ----
 let hams=[];let scene='title',L=STREET,cam=0,frame=0,P,rats=[],coins=[],lives=3,bolts=0,msg='',msgT=0,fade=0,safe={x:20,y:100},shake=0;
 function say(t,n=180){msg=t;msgT=n}
@@ -276,7 +298,9 @@ function render(){
  if(fade>0){box(0,0,W,H,'rgba(0,0,0,'+fade/40+')');fade--}}
 // ---- loop ----
 let last=performance.now(),acc=0;
-function loop(t){acc+=Math.min(100,t-last);last=t;while(acc>=1000/60){update();acc-=1000/60;if(scene==='title')frame++}render();requestAnimationFrame(loop)}
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(loop); } });
+function loop(t){if(PF.paused){pfHeld=true;return}acc+=Math.min(100,t-last);last=t;while(acc>=1000/60){update();acc-=1000/60;if(scene==='title')frame++}render();requestAnimationFrame(loop)}
 load('street');P=newPlayer(24,128);requestAnimationFrame(loop);
 </script>
 

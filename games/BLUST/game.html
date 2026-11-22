@@ -9,14 +9,15 @@
 {
 	"title": "Blusteam",
 	"code": "BLUST",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Er is brand! Rij met je brandweerwagen naar het gebouw, red de slachtoffers en blus de vlammen. Verdien geld voor een sterkere wagen, want elke brand is groter.",
 	"categories": [
 		"Snel",
 		"Actie",
 		"Avontuur"
 	],
-	"age": "ALL"
+	"age": "ALL",
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -463,7 +464,10 @@ function updateRescue(dt){
 }
 
 /* ---------- update ---------- */
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); raf = requestAnimationFrame(frame); } });
 function frame(ts){
+  if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
   raf=requestAnimationFrame(frame);
   var dt=Math.min(0.05,(ts-last)/1000||0.016);last=ts;
   update(dt);draw();hud();

@@ -9,7 +9,7 @@
 {
 	"title": "Pixelreis",
 	"code": "PREIS",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Ontsnap aan school! Spring op leraren, ontwijk punaises, versla de directeur en beleef daarna nog een heel avontuur, tot op schoolreisje.",
 	"categories": [
 		"Actie",
@@ -19,7 +19,8 @@
 	"score": {
 		"order": "desc",
 		"label": "punten"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -576,7 +577,10 @@ const PF = window.Pixelfart || (() => {
     else if (name === 'clear') { [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep(f, 0.18, 'square', 0.05); }, i * 120); }); }
     else if (name === 'over') { [392, 330, 262, 196].forEach(function (f, i) { setTimeout(function () { beep(f, 0.25, 'triangle', 0.07); }, i * 200); }); }
   }
-  function setMuted(m) { muted = m; el.mute.textContent = muted ? 'Geluid uit' : 'Geluid aan'; }
+  function setMuted(m) { muted = m; PF.store.set('muted', m); el.mute.textContent = muted ? 'Geluid uit' : 'Geluid aan'; } // pfMute: onthouden
+  setMuted(!!PF.store.get('muted', false));
+  PF.onPause(function () { if (ac) ac.suspend(); });
+  PF.onResume(function () { if (ac && !muted) ac.resume(); });
   el.mute.addEventListener('click', function () { initAudio(); setMuted(!muted); el.mute.blur(); });
 
   /* ---------- World helpers ---------- */
@@ -3935,7 +3939,10 @@ const PF = window.Pixelfart || (() => {
 
   /* ---------- Loop ---------- */
   var last = performance.now(), acc = 0, STEP = 1000 / 60;
+  let pfHeld = false;
+  PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(loop); } });
   function loop(t) {
+    if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
     var dt = Math.min(100, t - last); last = t; acc += dt;
     while (acc >= STEP) { update(); acc -= STEP; }
     draw();

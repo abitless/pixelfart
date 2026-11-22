@@ -9,13 +9,14 @@
 {
 	"title": "Hete Pizza",
 	"code": "PIZZA",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Bezorg pizza's op je scooter door de stad. Hoe warmer de pizza aankomt, hoe hoger de fooi. Daarmee koop je een snellere scooter.",
 	"categories": [
 		"Snel",
 		"Rustig"
 	],
-	"age": "ALL"
+	"age": "ALL",
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -670,6 +671,10 @@ function updateWallet() {
   $('#btnStart').textContent = save.delivered ? 'Verder rijden' : 'Start bezorging';
 }
 function updateSoundBtn() { $('#btnSound').textContent = muted ? 'GELUID UIT' : 'GELUID AAN'; }
+// pfMute: toets M doet hetzelfde als de knop; stil tijdens een pauze.
+addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) $('#btnSound').click(); });
+PF.onPause(() => { if (ac) ac.suspend(); });
+PF.onResume(() => { if (ac && !muted) ac.resume(); });
 
 function renderGarage() {
   $('#upgradeList').innerHTML = '';
@@ -991,7 +996,10 @@ function render() {
 
 /* ===== loop ===== */
 let last = 0;
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(frame); } });
 function frame(ts) {
+  if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
   const dt = Math.min(0.05, (ts - last) / 1000 || 0);
   last = ts; S.t += dt;
   if (S.mode === 'play') { update(dt); if (S.mode === 'play') render(); }

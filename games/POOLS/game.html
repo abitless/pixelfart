@@ -1,6 +1,5 @@
 <!doctype html>
 <!-- Pixelfart · Pixelpool · © 2026 JOZ · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
-<!-- Pixelfart · Pixel Pool · © 2026 Pixelfart · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
 <html lang="nl">
 <head>
 <meta charset="utf-8">
@@ -10,7 +9,7 @@
 {
 	"title": "Pixelpool",
 	"code": "POOLS",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Speel pool tegen de computer of met z'n tweeën. Of probeer alleen alle ballen in zo min mogelijk slagen in de gaten te krijgen!",
 	"categories": [
 		"2 spelers",
@@ -21,7 +20,8 @@
 	"score": {
 		"order": "asc",
 		"label": "slagen"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>
@@ -495,13 +495,33 @@ function cpuStart() {
 }
 
 /* ---------- geluid ---------- */
+// Geluid aan/uit: luidsprekerknop in beeld en toets M. Standaard aan, keuze onthouden.
+const pfSound = (() => {
+  let muted = !!PF.store.get('muted', false);
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.style.cssText = 'position:fixed;z-index:60;right:8px;bottom:8px;width:34px;height:34px;padding:3px;border:0;background:#000;'
+    + 'box-shadow:0 0 0 3px #6a6a6a;cursor:pointer;touch-action:manipulation;line-height:0';
+  const icon = (m) => '<svg viewBox="0 0 9 8" width="28" height="25" shape-rendering="crispEdges" fill="#f2f2f2" aria-hidden="true">'
+    + '<path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3z"/>'
+    + (m ? '<path fill="#ff5c8a" d="M5 2h1v1H5zM8 2h1v1H8zM6 3h2v2H6zM5 5h1v1H5zM8 5h1v1H8z"/>'
+         : '<path d="M5 3h1v2H5zM7 1h1v1H7zM8 2h1v4H8zM7 6h1v1H7z"/>') + '</svg>';
+  const show = () => { b.innerHTML = icon(muted); b.title = muted ? 'Geluid aan (M)' : 'Geluid uit (M)'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(muted)); };
+  const set = (m) => { muted = m; PF.store.set('muted', m); show(); if (pfSound.onChange) pfSound.onChange(m); };
+  b.addEventListener('pointerdown', (e) => e.stopPropagation());
+  b.addEventListener('click', (e) => { e.stopPropagation(); set(!muted); b.blur(); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) set(!muted); });
+  show();
+  (document.body ? Promise.resolve() : new Promise((r) => addEventListener('DOMContentLoaded', r))).then(() => document.body.appendChild(b));
+  return { get muted() { return muted; }, onChange: null };
+})();
 var actx = null;
 function initAudio() {
   if (actx) { if (actx.state === 'suspended' && actx.resume) actx.resume(); return; }
   try { var A = window.AudioContext || window.webkitAudioContext; if (A) actx = new A(); } catch (e) { actx = null; }
 }
 function beep(f, d, type, vol, slide) {
-  if (!actx) return;
+  if (!actx || pfSound.muted) return;
   try {
     var t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
     o.type = type || 'square';
@@ -528,7 +548,7 @@ function playSounds(q) {
   q.length = 0;
 }
 if (PF.onPause) PF.onPause(function () { if (actx && actx.suspend) actx.suspend(); });
-if (PF.onResume) PF.onResume(function () { if (actx && actx.resume) actx.resume(); });
+if (PF.onResume) PF.onResume(function () { if (actx && actx.resume && !pfSound.muted) actx.resume(); });
 
 /* ---------- sprites ---------- */
 var MASK = ['..XXXX..', '.XXXXXX.', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', 'XXXXXXXX', '.XXXXXX.', '..XXXX..'];

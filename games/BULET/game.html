@@ -9,7 +9,7 @@
 {
 	"title": "Pixelbulets",
 	"code": "BULET",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Jij bent de boordschutter met onbeperkt vuur. Vlieg, schiet alles uit de lucht en vang de pakketjes.",
 	"categories": [
 		"Actie"
@@ -18,7 +18,8 @@
 	"score": {
 		"order": "desc",
 		"label": "punten"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -159,16 +160,37 @@ const near=layer(x=>{let sx=3;while(sx<W){const w=7+(sx*5%9),h=8+(sx*11%20);x.fi
  x.fillStyle='#120d1c';x.fillRect(0,GROUND,W,H-GROUND);x.fillStyle='#3d2c52';x.fillRect(0,GROUND,W,1);for(let i=0;i<W;i+=6)x.fillRect(i,GROUND+4,3,1)});
 const clouds=[...Array(6)].map((_,i)=>({x:i*50,y:10+((i*37)%40),w:16+((i*13)%20)}));
 
+// Geluid aan/uit: luidsprekerknop in beeld en toets M. Standaard aan, keuze onthouden.
+const pfSound = (() => {
+  let muted = !!PF.store.get('muted', false);
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.style.cssText = 'position:fixed;z-index:60;right:8px;bottom:8px;width:34px;height:34px;padding:3px;border:0;background:#000;'
+    + 'box-shadow:0 0 0 3px #6a6a6a;cursor:pointer;touch-action:manipulation;line-height:0';
+  const icon = (m) => '<svg viewBox="0 0 9 8" width="28" height="25" shape-rendering="crispEdges" fill="#f2f2f2" aria-hidden="true">'
+    + '<path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3z"/>'
+    + (m ? '<path fill="#ff5c8a" d="M5 2h1v1H5zM8 2h1v1H8zM6 3h2v2H6zM5 5h1v1H5zM8 5h1v1H8z"/>'
+         : '<path d="M5 3h1v2H5zM7 1h1v1H7zM8 2h1v4H8zM7 6h1v1H7z"/>') + '</svg>';
+  const show = () => { b.innerHTML = icon(muted); b.title = muted ? 'Geluid aan (M)' : 'Geluid uit (M)'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(muted)); };
+  const set = (m) => { muted = m; PF.store.set('muted', m); show(); if (pfSound.onChange) pfSound.onChange(m); };
+  b.addEventListener('pointerdown', (e) => e.stopPropagation());
+  b.addEventListener('click', (e) => { e.stopPropagation(); set(!muted); b.blur(); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) set(!muted); });
+  show();
+  (document.body ? Promise.resolve() : new Promise((r) => addEventListener('DOMContentLoaded', r))).then(() => document.body.appendChild(b));
+  return { get muted() { return muted; }, onChange: null };
+})();
 // geluid
 let ac=null,rotorGain=null;
+PF.onPause(()=>{if(ac)ac.suspend()});PF.onResume(()=>{if(ac&&!pfSound.muted)ac.resume()});
 function audio(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)();
   const o=ac.createOscillator(),lfo=ac.createOscillator(),lg=ac.createGain(),f=ac.createBiquadFilter();rotorGain=ac.createGain();
   o.type='sawtooth';o.frequency.value=55;lfo.frequency.value=14;lg.gain.value=.5;f.type='lowpass';f.frequency.value=180;rotorGain.gain.value=0;
   const am=ac.createGain();am.gain.value=.5;lfo.connect(lg).connect(am.gain);o.connect(f).connect(am).connect(rotorGain).connect(ac.destination);o.start();lfo.start()}catch(e){}}
  if(ac&&ac.state==='suspended')ac.resume()}
-function beep(f1,f2,dur,vol,type='square'){if(!ac)return;const o=ac.createOscillator(),q=ac.createGain();o.type=type;o.frequency.setValueAtTime(f1,ac.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(20,f2),ac.currentTime+dur);q.gain.setValueAtTime(vol,ac.currentTime);q.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dur);o.connect(q).connect(ac.destination);o.start();o.stop(ac.currentTime+dur)}
-function crunch(dur,vol){if(!ac)return;const n=ac.createBufferSource(),b=ac.createBuffer(1,ac.sampleRate*dur,ac.sampleRate),d=b.getChannelData(0);let v=0;for(let i=0;i<d.length;i++){if(i%40===0)v=Math.random()*2-1;d[i]=v*(1-i/d.length)}n.buffer=b;const q=ac.createGain();q.gain.value=vol;n.connect(q).connect(ac.destination);n.start()}
-function rotor(on){if(rotorGain)rotorGain.gain.setTargetAtTime(on?.05:0,ac.currentTime,.2)}
+function beep(f1,f2,dur,vol,type='square'){if(!ac||pfSound.muted)return;const o=ac.createOscillator(),q=ac.createGain();o.type=type;o.frequency.setValueAtTime(f1,ac.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(20,f2),ac.currentTime+dur);q.gain.setValueAtTime(vol,ac.currentTime);q.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dur);o.connect(q).connect(ac.destination);o.start();o.stop(ac.currentTime+dur)}
+function crunch(dur,vol){if(!ac||pfSound.muted)return;const n=ac.createBufferSource(),b=ac.createBuffer(1,ac.sampleRate*dur,ac.sampleRate),d=b.getChannelData(0);let v=0;for(let i=0;i<d.length;i++){if(i%40===0)v=Math.random()*2-1;d[i]=v*(1-i/d.length)}n.buffer=b;const q=ac.createGain();q.gain.value=vol;n.connect(q).connect(ac.destination);n.start()}
+function rotor(on){if(rotorGain)rotorGain.gain.setTargetAtTime(on&&!pfSound.muted?.05:0,ac.currentTime,.2)}
 
 let best=0;try{best=+localStorage.getItem('hagel-heli-best')||0}catch(e){}
 let state='title',P,bul,foes,shots,parts,shells,items,score,wave,mag,reload,cd,spawnLeft,spawnT,banner,shake,t=0,combo,comboT,scrollX=0,bossWave=false;
@@ -344,7 +366,9 @@ function draw(){
 reset();state='title';P.x=60;P.y=60;
 foes.push({k:'tank',x:170,y:GROUND-6,w:14,h:6,hp:14,max:14,f:0,hit:0},{k:'jeep',x:120,y:GROUND-5,w:10,h:5,hp:5,f:0,hit:0});
 let last=0;
-function loop(now){const dt=Math.min(.033,(now-last)/1000||0);last=now;t+=dt;
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(loop); } });
+function loop(now){if(PF.paused){pfHeld=true;return}const dt=Math.min(.033,(now-last)/1000||0);last=now;t+=dt;
  if(state==='play')update(dt);
  else if(state==='title'){scrollX+=SCROLL*dt;for(const f of foes)f.f+=dt;P.y=60+Math.sin(t*2)*3}
  else if(state==='over'){scrollX+=SCROLL*dt*.3;for(const p of parts){p.vy+=160*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.l-=dt}parts=parts.filter(p=>p.l>0)}

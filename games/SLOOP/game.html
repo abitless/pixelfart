@@ -9,7 +9,7 @@
 {
 	"title": "Sloopkogel",
 	"code": "SLOOP",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Zwaai met de sloopkogel van je kraan en sloop zoveel mogelijk van de bebouwing. Neem er rustig de tijd voor.",
 	"categories": [
 		"Rustig"
@@ -18,7 +18,8 @@
 	"score": {
 		"order": "desc",
 		"label": "punten"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -218,7 +219,13 @@ $('fs').addEventListener('click',()=>{try{
   if(document.fullscreenElement){document.exitFullscreen()}else{const p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(()=>{$('fs').textContent='NIET MOGELIJK'})}
 }catch(e){$('fs').textContent='NIET MOGELIJK'}});
 document.addEventListener('fullscreenchange',()=>{$('fs').textContent=document.fullscreenElement?'KLEINER':'VOLLEDIG SCHERM'});
-$('mute').addEventListener('click',()=>{muted=!muted;$('mute').textContent=muted?'GELUID UIT':'GELUID AAN';ensureAudio()});
+// Geluid: knop en toets M, keuze onthouden (standaard aan), stil tijdens een pauze.
+function pfMute(m) { muted=m;$('mute').textContent=m?'GELUID UIT':'GELUID AAN'; PF.store.set('muted', m); }
+pfMute(!!PF.store.get('muted', false));
+$('mute').addEventListener('click', () => { ensureAudio(); pfMute(!muted); });
+addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) { ensureAudio(); pfMute(!muted); } });
+PF.onPause(() => { if (actx) actx.suspend(); });
+PF.onResume(() => { if (actx && !muted) actx.resume(); });
 
 // ---------- particles ----------
 function addPart(x,y,vx,vy,col,size,life){ if(parts.length>2600)parts.shift(); parts.push({x,y,vx,vy,col,s:size,life,rest:false}); }
@@ -444,7 +451,10 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
 
 // ---------- loop ----------
 let last=performance.now(),acc=0;
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(frame); } });
 function frame(now){
+  if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
   let dt=Math.min(0.05,(now-last)/1000);last=now;acc+=dt;
   while(acc>=DT){step();acc-=DT}
   curSpeed=Math.hypot(ball.x-ball.px,ball.y-ball.py)*HZ;

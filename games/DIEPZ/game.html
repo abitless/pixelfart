@@ -9,7 +9,7 @@
 {
 	"title": "Diepzee Patrouille",
 	"code": "DIEPZ",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Vaar de basis uit en graaf met je klauwen door het zand naar verstopte schatten. Ontwijk kogelvissen of schiet ze weg met torpedo's.",
 	"categories": [
 		"Actie",
@@ -20,7 +20,8 @@
 	"score": {
 		"order": "desc",
 		"label": "punten"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -1098,11 +1099,13 @@ bindBtn($('tbtn'),'t',false);
 bindBtn($('cbtn'),'c',false);
 
 $('go').addEventListener('click',start);
-$('mute').addEventListener('click',()=>{
-  muted=!muted;
-  $('mute').setAttribute('aria-pressed',String(muted));
-  $('mute').textContent=muted?'GELUID UIT':'GELUID AAN';
-});
+// Geluid: knop en toets M, keuze onthouden (standaard aan), stil tijdens een pauze.
+function pfMute(m) { muted=m;$('mute').setAttribute('aria-pressed',String(m));$('mute').textContent=m?'GELUID UIT':'GELUID AAN'; PF.store.set('muted', m); }
+pfMute(!!PF.store.get('muted', false));
+$('mute').addEventListener('click', () => { pfMute(!muted); });
+addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) { pfMute(!muted); } });
+PF.onPause(() => { if (ac) ac.suspend(); });
+PF.onResume(() => { if (ac && !muted) ac.resume(); });
 
 /* Schaal: hele pixels waar het kan */
 const stage=$('stage'),cab=$('cab');
@@ -1119,7 +1122,10 @@ addEventListener('resize',fit);
 newMission(1);
 refreshMap();
 let prev=performance.now();
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; prev = performance.now(); requestAnimationFrame(frame); } });
 function frame(now){
+  if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
   const dt=Math.min(.05,(now-prev)/1000);
   prev=now;
   if(!document.hidden){update(dt);draw();hud()}

@@ -9,7 +9,7 @@
 {
 	"title": "Harpoenklim",
 	"code": "HARPO",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Klim een rotswand op met je harpoen: schiet, laat de lier je omhoog trekken en zet af tegen de wand. Pas op voor brokkelend gruis en steenslag.",
 	"categories": [
 		"Snel",
@@ -20,7 +20,8 @@
 	"score": {
 		"order": "asc",
 		"label": "seconden"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -755,7 +756,10 @@ bAgain.addEventListener('click',()=>{reset();});
 /* ---------- start ---------- */
 resize(); reset();
 let last=performance.now();
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(frame); } });
 function frame(now){
+  if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
   const dt=Math.min((now-last)/1000,1/30); last=now;
   update(dt); draw(); requestAnimationFrame(frame);
 }

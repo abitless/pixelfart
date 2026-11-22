@@ -1,6 +1,5 @@
 <!doctype html>
 <!-- Pixelfart · Landjepik · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
-<!-- Pixelfart · Landjepik · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
 <html lang="nl">
 <head>
 <meta charset="utf-8">
@@ -10,7 +9,7 @@
 {
 	"title": "Landjepik",
 	"code": "LANDJ",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Verover land en verdedig wat je hebt! Stuur je soldaten slim rond en laat de dobbelstenen beslissen. Tegen de computer of met z'n tweeën.",
 	"categories": [
 		"2 spelers",
@@ -21,7 +20,8 @@
 	"score": {
 		"order": "desc",
 		"label": "punten"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>
@@ -110,7 +110,7 @@ const PF = window.Pixelfart || (() => {
 		{ naam: 'ROOD', licht: '#ff5c8a', base: '#9a2f48', speck: '#b03a56', donker: '#4a1020' },
 		{ naam: 'BLAUW', licht: '#6ec9ff', base: '#2d5d92', speck: '#386fab', donker: '#0e2a4a' },
 	];
-	const F_TITLE = '16px "Press Start 2P"', F_BIG = '8px "Press Start 2P"', F_HUD = '8px Silkscreen', F_SM = '8px Tiny5';
+	const F_TITLE = '16px "Press Start 2P", monospace', F_BIG = '8px "Press Start 2P", monospace', F_HUD = '8px Silkscreen, monospace', F_SM = '8px Tiny5, monospace';
 	function txt(s, x, y, c, f = F_HUD, al = 'left') {
 		g.font = f; g.fillStyle = c; g.textAlign = al; g.textBaseline = 'top';
 		PF.text(g, s, Math.round(x), Math.round(y));
@@ -124,13 +124,33 @@ const PF = window.Pixelfart || (() => {
 	const P = { wit: makePat(C.wit), geel: makePat(C.geel), groen: makePat(C.groen), dim: makePat(C.zwart) };
 
 	// ---------- geluid (Web Audio, pas na eerste tik) ----------
+	// Geluid aan/uit: luidsprekerknop in beeld en toets M. Standaard aan, keuze onthouden.
+	const pfSound = (() => {
+	  let muted = !!PF.store.get('muted', false);
+	  const b = document.createElement('button');
+	  b.type = 'button';
+	  b.style.cssText = 'position:fixed;z-index:60;right:8px;bottom:8px;width:34px;height:34px;padding:3px;border:0;background:#000;'
+	    + 'box-shadow:0 0 0 3px #6a6a6a;cursor:pointer;touch-action:manipulation;line-height:0';
+	  const icon = (m) => '<svg viewBox="0 0 9 8" width="28" height="25" shape-rendering="crispEdges" fill="#f2f2f2" aria-hidden="true">'
+	    + '<path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3z"/>'
+	    + (m ? '<path fill="#ff5c8a" d="M5 2h1v1H5zM8 2h1v1H8zM6 3h2v2H6zM5 5h1v1H5zM8 5h1v1H8z"/>'
+	         : '<path d="M5 3h1v2H5zM7 1h1v1H7zM8 2h1v4H8zM7 6h1v1H7z"/>') + '</svg>';
+	  const show = () => { b.innerHTML = icon(muted); b.title = muted ? 'Geluid aan (M)' : 'Geluid uit (M)'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(muted)); };
+	  const set = (m) => { muted = m; PF.store.set('muted', m); show(); if (pfSound.onChange) pfSound.onChange(m); };
+	  b.addEventListener('pointerdown', (e) => e.stopPropagation());
+	  b.addEventListener('click', (e) => { e.stopPropagation(); set(!muted); b.blur(); });
+	  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) set(!muted); });
+	  show();
+	  (document.body ? Promise.resolve() : new Promise((r) => addEventListener('DOMContentLoaded', r))).then(() => document.body.appendChild(b));
+	  return { get muted() { return muted; }, onChange: null };
+	})();
 	let ac = null;
 	function audio() {
 		if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
 		if (ac && ac.state === 'suspended' && !PF.paused) ac.resume();
 	}
 	function tone(f, d, type = 'square', v = 0.04, when = 0, slide = 0) {
-		if (!ac || SIM) return;
+		if (!ac || SIM || pfSound.muted) return;
 		const t = ac.currentTime + when, o = ac.createOscillator(), gn = ac.createGain();
 		o.type = type; o.frequency.setValueAtTime(f, t);
 		if (slide) o.frequency.linearRampToValueAtTime(f + slide, t + d);
@@ -149,7 +169,7 @@ const PF = window.Pixelfart || (() => {
 		err: () => tone(110, 0.12, 'square', 0.04),
 	};
 	PF.onPause(() => { if (ac) ac.suspend(); });
-	PF.onResume(() => { if (ac) ac.resume(); });
+	PF.onResume(() => { if (ac && !pfSound.muted) ac.resume(); });
 
 	// ---------- kansen bij dobbelen (exact uitgerekend) ----------
 	// OUT[a][d] = lijst {la, ld, p}: verliezen aanvaller/verdediger in één worp met a en d stenen.

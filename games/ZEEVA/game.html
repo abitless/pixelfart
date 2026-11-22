@@ -9,7 +9,7 @@
 {
 	"title": "Operatie Zeevalk",
 	"code": "ZEEVA",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Je fregat patrouilleert bij zonsondergang. Schiet vliegtuigen uit de lucht en gooi dieptebommen op onderzeeërs.",
 	"categories": [
 		"Snel",
@@ -19,7 +19,8 @@
 	"score": {
 		"order": "desc",
 		"label": "punten"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -559,7 +560,10 @@ const PF = window.Pixelfart || (() => {
 
   /* ---------- loop ---------- */
   var last = 0, acc = 0, STEP = 1000 / 60;
+  let pfHeld = false;
+  PF.onResume(() => { if (pfHeld) { pfHeld = false; last = 0; requestAnimationFrame(frame); } });
   function frame(ts) {
+    if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
     if (!last) last = ts;
     acc += Math.min(100, ts - last); last = ts;
     while (acc >= STEP) { update(); acc -= STEP; }
@@ -595,7 +599,13 @@ const PF = window.Pixelfart || (() => {
   });
   startBtn.addEventListener('click', start);
   var muteBtn = document.getElementById('mute');
-  muteBtn.addEventListener('click', function () { muted = !muted; muteBtn.textContent = 'Geluid: ' + (muted ? 'uit' : 'aan'); });
+  // Geluid: knop en toets M, keuze onthouden (standaard aan), stil tijdens een pauze.
+  function pfMute(m) { muted = m; muteBtn.textContent = 'Geluid: ' + (m ? 'uit' : 'aan'); PF.store.set('muted', m); }
+  pfMute(!!PF.store.get('muted', false));
+  muteBtn.addEventListener('click', () => { audio(); pfMute(!muted); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) { audio(); pfMute(!muted); } });
+  PF.onPause(() => { if (ac) ac.suspend(); });
+  PF.onResume(() => { if (ac && !muted) ac.resume(); });
 
   requestAnimationFrame(frame);
 })();

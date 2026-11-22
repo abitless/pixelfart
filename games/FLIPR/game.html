@@ -1,6 +1,5 @@
 <!doctype html>
 <!-- Pixelfart · Flipperkoorts · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
-<!-- Pixelfart · Flipperkoorts · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 -->
 <html lang="nl">
 <head>
 <meta charset="utf-8">
@@ -10,7 +9,7 @@
 {
 	"title": "Flipperkoorts",
 	"code": "FLIPR",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Een flipperkast vol kittens die met je bolletje wol willen spelen. Flipper met linker en rechter Shift en speel door tot je ballen op zijn.",
 	"categories": [
 		"Arcade",
@@ -21,7 +20,8 @@
 	"score": {
 		"order": "desc",
 		"label": "punten"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden; rechterflipper niet meer op M (M is nu geluid), alleen pixelfonts."
 }
 </script>
 <style>
@@ -101,7 +101,7 @@ const PF = window.Pixelfart || (() => {
 		geel: '#ffcf4a', mint: '#9be3d0', lila: '#c9a6ff', oranje: '#ff9a4a', oranjeDonker: '#c8622a',
 		bruin: '#8a5a2a', bruinLicht: '#b07a3a', blauw: '#6ec9ff', groen: '#5dde7a', dmd: '#1e0d02', dmdUit: '#4a2408',
 	};
-	const BIG = '8px "Press Start 2P"', SMALL = '8px Tiny5';
+	const BIG = '8px "Press Start 2P", monospace', SMALL = '8px Tiny5, monospace';
 
 	// ---------- natuurkunde ----------
 	const BALL_R = 2.5, GRAV = 380, VMAX = 600, SUB = 12;
@@ -184,7 +184,7 @@ const PF = window.Pixelfart || (() => {
 	const keys = new Set();
 	const pointers = new Map();
 	let touchMode = false;
-	const KEY_L = ['ShiftLeft', 'ArrowLeft', 'KeyZ'], KEY_R = ['ShiftRight', 'ArrowRight', 'Slash', 'KeyM'], KEY_P = ['Space', 'Enter', 'ArrowDown'];
+	const KEY_L = ['ShiftLeft', 'ArrowLeft', 'KeyZ'], KEY_R = ['ShiftRight', 'ArrowRight', 'Slash'], KEY_P = ['Space', 'Enter', 'ArrowDown'];
 	const held = (list, side) => list.some((k) => keys.has(k)) || [...pointers.values()].includes(side);
 	const sideHeld = (s) => (s === 'L' ? held(KEY_L, 'L') : held(KEY_R, 'R'));
 	const laneBall = () => balls.find((b) => b.st === 'lane');
@@ -232,10 +232,30 @@ const PF = window.Pixelfart || (() => {
 	PF.onResume(() => { if (ac) ac.resume(); });
 
 	// ---------- geluid ----------
+	// Geluid aan/uit: luidsprekerknop in beeld en toets M. Standaard aan, keuze onthouden.
+	const pfSound = (() => {
+	  let muted = !!PF.store.get('muted', false);
+	  const b = document.createElement('button');
+	  b.type = 'button';
+	  b.style.cssText = 'position:fixed;z-index:60;right:8px;bottom:8px;width:34px;height:34px;padding:3px;border:0;background:#000;'
+	    + 'box-shadow:0 0 0 3px #6a6a6a;cursor:pointer;touch-action:manipulation;line-height:0';
+	  const icon = (m) => '<svg viewBox="0 0 9 8" width="28" height="25" shape-rendering="crispEdges" fill="#f2f2f2" aria-hidden="true">'
+	    + '<path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3z"/>'
+	    + (m ? '<path fill="#ff5c8a" d="M5 2h1v1H5zM8 2h1v1H8zM6 3h2v2H6zM5 5h1v1H5zM8 5h1v1H8z"/>'
+	         : '<path d="M5 3h1v2H5zM7 1h1v1H7zM8 2h1v4H8zM7 6h1v1H7z"/>') + '</svg>';
+	  const show = () => { b.innerHTML = icon(muted); b.title = muted ? 'Geluid aan (M)' : 'Geluid uit (M)'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(muted)); };
+	  const set = (m) => { muted = m; PF.store.set('muted', m); show(); if (pfSound.onChange) pfSound.onChange(m); };
+	  b.addEventListener('pointerdown', (e) => e.stopPropagation());
+	  b.addEventListener('click', (e) => { e.stopPropagation(); set(!muted); b.blur(); });
+	  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) set(!muted); });
+	  show();
+	  (document.body ? Promise.resolve() : new Promise((r) => addEventListener('DOMContentLoaded', r))).then(() => document.body.appendChild(b));
+	  return { get muted() { return muted; }, onChange: null };
+	})();
 	let ac = null;
 	function audio() { if (!ac) { try { ac = new AudioContext(); } catch (e) { ac = null; } } else if (ac.state === 'suspended') ac.resume(); }
 	function beep(f, d, type = 'square', vol = 0.04, to = 0, delay = 0) {
-		if (!ac || ac.state !== 'running') return;
+		if (!ac || ac.state !== 'running' || pfSound.muted) return;
 		const o = ac.createOscillator(), v = ac.createGain(), s = ac.currentTime + delay;
 		o.type = type; o.frequency.setValueAtTime(f, s);
 		if (to) o.frequency.exponentialRampToValueAtTime(to, s + d);

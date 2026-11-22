@@ -9,14 +9,15 @@
 {
 	"title": "Pixelpiloot",
 	"code": "PILOT",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Kies je toestel en vlieg door vijandelijk gebied. Blaas bases, geschutstorens en luchtafweer op voor extra punten.",
 	"categories": [
 		"Arcade",
 		"Snel",
 		"Actie"
 	],
-	"age": "ALL"
+	"age": "ALL",
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -816,6 +817,8 @@ function noise(d, vol){
 function setMute(m){ muted = m; store.set('pp-mute', m ? '1' : '0'); $('mute').textContent = m ? 'GELUID UIT' : 'GELUID AAN'; }
 setMute(muted);
 $('mute').addEventListener('click', e => { e.stopPropagation(); ensureAudio(); setMute(!muted); });
+PF.onPause(() => { if (actx) actx.suspend(); }); // pfMute: stil tijdens een pauze
+PF.onResume(() => { if (actx && !muted) actx.resume(); });
 
 // ---------- input ----------
 function begin(){
@@ -886,7 +889,10 @@ $('switch').addEventListener('click', toMenu);
 // ---------- loop ----------
 reset(); showBest(); hud(true);
 let last = performance.now(), acc = 0;
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(frame); } });
 function frame(now){
+  if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
   acc += Math.min(100, now - last); last = now;
   while (acc >= 1000 / 60){ update(); acc -= 1000 / 60; }
   if (st === 'menu'){

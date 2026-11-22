@@ -9,7 +9,7 @@
 {
 	"title": "Paradrop",
 	"code": "PARAD",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Vlieg boven vijandelijke bases, drop je para's en spring daarna zelf. Neem de basis in en laat je ophalen door de helikopter.",
 	"categories": [
 		"Actie",
@@ -19,7 +19,8 @@
 	"score": {
 		"order": "desc",
 		"label": "punten"
-	}
+	},
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -152,10 +153,31 @@ const hash=n=>{n=Math.sin(n*127.1)*43758.5453;return n-Math.floor(n)};
 const rnd=(a,b)=>a+Math.random()*(b-a);
 
 /* ---------- geluid ---------- */
-let AC=null,muted=false;
+// Geluid aan/uit: luidsprekerknop in beeld en toets M. Standaard aan, keuze onthouden.
+const pfSound = (() => {
+  let muted = !!PF.store.get('muted', false);
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.style.cssText = 'position:fixed;z-index:60;left:8px;bottom:8px;width:34px;height:34px;padding:3px;border:0;background:#000;'
+    + 'box-shadow:0 0 0 3px #6a6a6a;cursor:pointer;touch-action:manipulation;line-height:0';
+  const icon = (m) => '<svg viewBox="0 0 9 8" width="28" height="25" shape-rendering="crispEdges" fill="#f2f2f2" aria-hidden="true">'
+    + '<path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3z"/>'
+    + (m ? '<path fill="#ff5c8a" d="M5 2h1v1H5zM8 2h1v1H8zM6 3h2v2H6zM5 5h1v1H5zM8 5h1v1H8z"/>'
+         : '<path d="M5 3h1v2H5zM7 1h1v1H7zM8 2h1v4H8zM7 6h1v1H7z"/>') + '</svg>';
+  const show = () => { b.innerHTML = icon(muted); b.title = muted ? 'Geluid aan (M)' : 'Geluid uit (M)'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(muted)); };
+  const set = (m) => { muted = m; PF.store.set('muted', m); show(); if (pfSound.onChange) pfSound.onChange(m); };
+  b.addEventListener('pointerdown', (e) => e.stopPropagation());
+  b.addEventListener('click', (e) => { e.stopPropagation(); set(!muted); b.blur(); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) set(!muted); });
+  show();
+  (document.body ? Promise.resolve() : new Promise((r) => addEventListener('DOMContentLoaded', r))).then(() => document.body.appendChild(b));
+  return { get muted() { return muted; }, onChange: null };
+})();
+let AC=null;
+PF.onPause(()=>{if(AC)AC.suspend()});PF.onResume(()=>{if(AC&&!pfSound.muted)AC.resume()});
 function initAudio(){if(AC)return;try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){AC=null}}
 function tone(f1,f2,dur,type='square',vol=.06,delay=0){
-  if(!AC||muted)return;try{
+  if(!AC||pfSound.muted)return;try{
     const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+delay;
     o.type=type;o.frequency.setValueAtTime(f1,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f2),t+dur);
     g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
@@ -163,7 +185,7 @@ function tone(f1,f2,dur,type='square',vol=.06,delay=0){
   }catch(e){}
 }
 function noise(dur,vol=.08){
-  if(!AC||muted)return;try{
+  if(!AC||pfSound.muted)return;try{
     const n=Math.floor(AC.sampleRate*dur),b=AC.createBuffer(1,n,AC.sampleRate),d=b.getChannelData(0);
     for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
     const s=AC.createBufferSource(),g=AC.createGain();s.buffer=b;g.gain.value=vol;s.connect(g).connect(AC.destination);s.start();
@@ -188,7 +210,6 @@ addEventListener('keydown',e=>{
   if(!ov.hidden&&(e.code==='Space'||e.code==='Enter')){e.preventDefault();initAudio();const b=$('b1');if(b&&!e.repeat)b.click();return}
   const k=keymap[e.code];
   if(k){e.preventDefault();initAudio();if(k==='fire'&&!K.fire&&!e.repeat)fireEdge=true;K[k]=1}
-  else if(e.code==='KeyM')muted=!muted;
   else if(e.code==='KeyR'&&!e.repeat){initAudio();restart()}
 });
 addEventListener('keyup',e=>{const k=keymap[e.code];if(k)K[k]=0});
@@ -1091,7 +1112,10 @@ function update(dt){
   fireEdge=false;
 }
 let last=performance.now();
+let pfHeld = false;
+PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(loop); } });
 function loop(now){
+  if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
   const dt=Math.min(.05,(now-last)/1000);last=now;
   try{update(dt);draw()}catch(e){console.error(e)}
   requestAnimationFrame(loop);

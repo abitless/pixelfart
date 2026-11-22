@@ -9,13 +9,14 @@
 {
 	"title": "Diepe Mijn",
 	"code": "DMIJN",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Graaf steeds dieper naar erts, verkoop het bij de winkel en koop een beter houweel. Hoe diep durf jij te gaan?",
 	"categories": [
 		"Rustig",
 		"Avontuur"
 	],
-	"age": "ALL"
+	"age": "ALL",
+	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, alleen pixelfonts."
 }
 </script>
 <style>[hidden]:not([hidden=until-found i]){display:none!important}</style>
@@ -812,7 +813,10 @@ const PF = window.Pixelfart || (() => {
   newWorld();
   updateHud();
   var last = performance.now(), acc = 0;
+  let pfHeld = false;
+  PF.onResume(() => { if (pfHeld) { pfHeld = false; last = performance.now(); requestAnimationFrame(frame); } });
   function frame(now) {
+    if (PF.paused) { pfHeld = true; return; } // pauze (site of tabblad): loop staat stil
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now; timeNow += dt;
     if (!shopOpen) {
