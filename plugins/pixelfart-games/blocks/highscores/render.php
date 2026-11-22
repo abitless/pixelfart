@@ -33,14 +33,14 @@ $pf_base = strtok( (string) get_permalink(), '?' );
 ?>
 <div <?php echo get_block_wrapper_attributes( [ 'class' => 'pf-hiscores' ] ); // phpcs:ignore ?>>
 	<form class="hs-filter" method="get" action="<?php echo esc_url( $pf_base ); ?>" data-hs-filter role="search" aria-label="Topscores filteren">
-		<label class="hs-filter-game"><span>Game</span>
-			<select name="game" class="input">
+		<div class="hs-filter-game"><span id="hs-game-label">Game</span>
+			<select name="game" class="input" data-pixel-select aria-labelledby="hs-game-label">
 				<option value="">Alle games</option>
 				<?php foreach ( $pf_games as $pf_g ) : ?>
-					<option value="<?php echo esc_attr( $pf_g['code'] ); ?>"<?php selected( $pf_g['code'], $pf_want ); ?>><?php echo esc_html( $pf_g['title'] ); ?></option>
+					<option value="<?php echo esc_attr( $pf_g['code'] ); ?>" data-color="<?php echo esc_attr( $pf_g['color'] ); ?>"<?php selected( $pf_g['code'], $pf_want ); ?>><?php echo esc_html( $pf_g['title'] ); ?></option>
 				<?php endforeach; ?>
 			</select>
-		</label>
+		</div>
 		<label class="hs-filter-name"><span>Naam</span>
 			<input class="input initials" name="naam" value="<?php echo esc_attr( $pf_naam ); ?>" maxlength="3" placeholder="ABC" autocomplete="off" spellcheck="false" pattern="[A-Za-z]{3}" title="Drie letters">
 		</label>

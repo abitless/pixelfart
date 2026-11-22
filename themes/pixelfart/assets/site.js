@@ -663,6 +663,120 @@
 		}
 	}
 
+	/* ---------- keuzelijst in pixelstijl (select[data-pixel-select]) ----------
+	 * Het echte <select> blijft in het formulier (zonder JavaScript werkt alles gewoon), maar verborgen.
+	 * Ervoor in de plaats: een knop met een eigen lijst (listbox), te bedienen met muis, vinger en toetsenbord. */
+	let pxselN = 0;
+	$$('select[data-pixel-select]').forEach((sel) => {
+		const id = 'pxsel' + ++pxselN;
+		const opts = [...sel.options];
+		const wrap = document.createElement('div');
+		wrap.className = 'pxsel';
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'input pxsel-btn';
+		btn.id = id + '-btn';
+		btn.setAttribute('aria-haspopup', 'listbox');
+		btn.setAttribute('aria-expanded', 'false');
+		const lab = sel.getAttribute('aria-labelledby');
+		btn.setAttribute('aria-labelledby', (lab ? lab + ' ' : '') + btn.id);
+		btn.innerHTML = '<span class="pxsel-dot" aria-hidden="true"></span><span class="pxsel-val"></span><span class="pxsel-arrow" aria-hidden="true"></span>';
+		const list = document.createElement('ul');
+		list.className = 'pxsel-list';
+		list.id = id + '-list';
+		list.setAttribute('role', 'listbox');
+		list.tabIndex = -1;
+		if (lab) list.setAttribute('aria-labelledby', lab);
+		list.hidden = true;
+		btn.setAttribute('aria-controls', list.id);
+		const items = opts.map((o, i) => {
+			const li = document.createElement('li');
+			li.id = id + '-' + i;
+			li.setAttribute('role', 'option');
+			const dot = document.createElement('span');
+			dot.className = 'pxsel-dot';
+			dot.setAttribute('aria-hidden', 'true');
+			if (o.dataset.color) dot.style.background = o.dataset.color; else dot.classList.add('is-none');
+			li.append(dot, document.createTextNode(o.textContent));
+			li.addEventListener('click', () => choose(i));
+			li.addEventListener('pointermove', () => mark(i));
+			list.append(li);
+			return li;
+		});
+		wrap.append(btn, list);
+		sel.after(wrap);
+		sel.hidden = true;
+		sel.tabIndex = -1;
+
+		let active = -1;
+		const show = () => {
+			const o = opts[sel.selectedIndex] || opts[0];
+			$('.pxsel-val', btn).textContent = o.textContent;
+			$('.pxsel-dot', btn).style.background = o.dataset.color || '';
+			$('.pxsel-dot', btn).hidden = !o.dataset.color;
+			items.forEach((li, i) => li.setAttribute('aria-selected', String(i === sel.selectedIndex)));
+		};
+		const mark = (i) => {
+			active = Math.max(0, Math.min(items.length - 1, i));
+			items.forEach((li, j) => li.classList.toggle('is-active', j === active));
+			list.setAttribute('aria-activedescendant', items[active].id);
+			const li = items[active];
+			if (li.offsetTop < list.scrollTop) list.scrollTop = li.offsetTop;
+			else if (li.offsetTop + li.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = li.offsetTop + li.offsetHeight - list.clientHeight;
+		};
+		const open = () => {
+			if (!list.hidden) return;
+			list.hidden = false;
+			wrap.classList.add('is-open');
+			btn.setAttribute('aria-expanded', 'true');
+			mark(sel.selectedIndex);
+			list.focus();
+		};
+		const close = (focus = true) => {
+			if (list.hidden) return;
+			list.hidden = true;
+			wrap.classList.remove('is-open');
+			btn.setAttribute('aria-expanded', 'false');
+			if (focus) btn.focus();
+		};
+		const choose = (i) => {
+			const changed = i !== sel.selectedIndex;
+			sel.selectedIndex = i;
+			show();
+			close();
+			if (changed) sel.dispatchEvent(new Event('change', { bubbles: true }));
+		};
+
+		btn.addEventListener('click', () => (list.hidden ? open() : close()));
+		btn.addEventListener('keydown', (e) => {
+			if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); open(); }
+		});
+		let typed = '', typedAt = 0;
+		list.addEventListener('keydown', (e) => {
+			const k = e.key;
+			if (k === 'ArrowDown') mark(active + 1);
+			else if (k === 'ArrowUp') mark(active - 1);
+			else if (k === 'Home') mark(0);
+			else if (k === 'End') mark(items.length - 1);
+			else if (k === 'PageDown') mark(active + 8);
+			else if (k === 'PageUp') mark(active - 8);
+			else if (k === 'Enter' || k === ' ') choose(active);
+			else if (k === 'Escape') close();
+			else if (k === 'Tab') { close(false); return; }
+			else if (k.length === 1 && /\S/.test(k)) { // typen springt naar de eerste game die zo begint
+				const now = Date.now();
+				typed = (now - typedAt < 700 ? typed : '') + k.toLowerCase();
+				typedAt = now;
+				const hit = opts.findIndex((o) => o.textContent.trim().toLowerCase().startsWith(typed));
+				if (hit >= 0) mark(hit);
+			} else return;
+			e.preventDefault();
+		});
+		document.addEventListener('pointerdown', (e) => { if (!wrap.contains(e.target)) close(false); });
+		list.addEventListener('focusout', (e) => { if (!wrap.contains(e.relatedTarget)) close(false); });
+		show();
+	});
+
 	/* ---------- topscores: filter op game en naam (gewoon GET-formulier, hier alleen vanzelf versturen) ---------- */
 	const hsf = $('[data-hs-filter]');
 	if (hsf) {

@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.7.0
+Version: 1.7.1
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -442,10 +442,34 @@ textarea.input { resize: vertical; }
 /* Topscorepagina: filters bovenaan, daarna alle lijsten onder elkaar. */
 .pf-hiscores { display: flex; flex-direction: column; gap: 20px; max-width: 760px; }
 .hs-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 16px; margin: 4px 4px 12px; background: #0b0b0b; box-shadow: 0 0 0 4px var(--yellow), 6px 6px 0 4px #5a4a1a; }
-.hs-filter label { display: flex; flex-direction: column; gap: 6px; }
-.hs-filter label > span { font-family: var(--pix); font-size: 10px; color: var(--yellow); }
-.hs-filter-game { flex: 1 1 220px; }
-.hs-filter-game select { width: 100%; }
+.hs-filter label, .hs-filter-game { display: flex; flex-direction: column; gap: 6px; }
+.hs-filter label > span, .hs-filter-game > span { font-family: var(--pix); font-size: 10px; color: var(--yellow); }
+.hs-filter-game { flex: 1 1 220px; min-width: 0; }
+.hs-filter-game select { width: calc(100% - 8px); }
+
+/* Keuzelijst in pixelstijl (site.js bouwt hem op een select[data-pixel-select]) */
+.pxsel { position: relative; }
+.pxsel-btn { display: flex; align-items: center; gap: 10px; width: calc(100% - 8px); text-align: left; cursor: pointer; line-height: 1.2; }
+.pxsel-btn:hover { box-shadow: 0 0 0 4px var(--dim); }
+.pxsel-btn:focus-visible, .pxsel.is-open .pxsel-btn { box-shadow: 0 0 0 4px var(--yellow); outline: none; }
+.pxsel-val { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pxsel-dot { flex: none; width: 12px; height: 12px; background: var(--line); }
+.pxsel-dot[hidden] { display: none; }
+.pxsel-list .pxsel-dot.is-none { visibility: hidden; } /* "Alle games": geen kleur, wel uitgelijnd */
+/* Pijltje van 5×3 pixels (blokjes van 3px), gewoon met schaduwen: geen icoonfont of plaatje nodig. */
+.pxsel-arrow { flex: none; width: 3px; height: 3px; margin: 0 14px 6px 0; background: currentColor; color: var(--yellow);
+	box-shadow: 3px 0, 6px 0, 9px 0, 12px 0, 3px 3px, 6px 3px, 9px 3px, 6px 6px; }
+.pxsel.is-open .pxsel-arrow { transform: scaleY(-1) translateY(-6px); }
+.pxsel-list { position: absolute; z-index: 20; left: 4px; right: 12px; top: calc(100% + 10px); margin: 0; padding: 4px 0; list-style: none;
+	max-height: min(60vh, 420px); overflow-y: auto; background: #000; outline: none;
+	box-shadow: 0 0 0 4px var(--yellow), 8px 8px 0 4px #5a4a1a; scrollbar-color: var(--yellow) #000; }
+.pxsel .pxsel-list { padding: 4px 0; } /* wint van de lijststijl in .entry */
+.pxsel-list li { margin: 0; display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-family: var(--txt); font-size: 22px; color: var(--ink); cursor: pointer; }
+.pxsel-list li[aria-selected="true"] { color: var(--yellow); }
+.pxsel-list li[aria-selected="true"]::after { content: ''; margin-left: auto; width: 3px; height: 3px; background: currentColor;
+	box-shadow: 3px 3px, 6px 6px, 9px 3px, 12px 0, 15px -3px; transform: translate(-18px, -2px); } /* vinkje van pixels */
+.pxsel-list li.is-active { background: var(--yellow); color: #000; }
+.pxsel-list li.is-active .pxsel-dot { box-shadow: 0 0 0 2px #000; }
 .hs-filter-name .input { width: 6.5em; font-family: var(--pix); letter-spacing: 3px; text-transform: uppercase; }
 .js .hs-filter-go { display: none; } /* met JavaScript gaat het vanzelf */
 .hs-filter-reset { align-self: center; color: var(--dim); }
