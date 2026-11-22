@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.7.3
+Version: 1.7.4
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -408,8 +408,8 @@ textarea.input { resize: vertical; }
 .hiscore-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .hiscore-list li { display: grid; grid-template-columns: 2.2em 3.2em 1fr; align-items: baseline; padding: 2px 0; }
 .hiscore-list li:nth-child(1) { color: var(--yellow); }
-.hiscore-list li:nth-child(2) { color: var(--ink); }
-.hiscore-list li:nth-child(3) { color: var(--orange, #ff9a4a); }
+.hiscore-list li:nth-child(2) { color: #ffe08a; } /* plek 1 tot 3: geel, minder geel, heel lichtgeel */
+.hiscore-list li:nth-child(3) { color: #fff1c4; }
 .hiscore-list li:nth-child(n+4) { color: var(--dim); }
 .hiscore-list .hs-rank { font-family: var(--pix); font-size: 10px; color: var(--line); }
 .hiscore-list .hs-name { font-family: var(--pix); font-size: 12px; letter-spacing: 2px; }
@@ -485,8 +485,13 @@ textarea.input { resize: vertical; }
 .hs-open a { color: var(--dim); }
 .pf-hiscores .hiscore-list li { grid-template-columns: 2.6em 4em 1fr auto; gap: 0 12px; color: var(--dim); }
 .pf-hiscores .hiscore-list li.is-top1 { color: var(--yellow); }
-.pf-hiscores .hiscore-list li.is-top2 { color: var(--ink); }
-.pf-hiscores .hiscore-list li.is-top3 { color: var(--orange, #ff9a4a); }
+.pf-hiscores .hiscore-list li { padding: 2px 8px; }
+.pf-hiscores .hiscore-list li.is-top2 { color: #ffe08a; }
+.pf-hiscores .hiscore-list li.is-top3 { color: #fff1c4; }
+/* gefilterde naam: oranje balk, zwarte letters */
+.pf-hiscores .hiscore-list li.is-me { background: var(--orange, #ff9a4a); color: #000; }
+.pf-hiscores .hiscore-list li.is-me .hs-rank, .pf-hiscores .hiscore-list li.is-me .hs-date, .pf-hiscores .hiscore-list li.is-me small { color: #000; }
+.pf-hiscores .hiscore-list li.hs-gap { display: block; padding: 0 8px; color: var(--mute); line-height: 1; }
 .hiscore-list .hs-date { color: var(--mute); font-size: .8em; text-align: right; min-width: 7.5em; }
 @media (max-width: 560px) { .hiscore-list .hs-date { display: none; } .pf-hiscores .hiscore-list li { grid-template-columns: 2.2em 3.6em 1fr; } }
 

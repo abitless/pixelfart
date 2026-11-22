@@ -6,7 +6,8 @@
  * de link delen. site.js verstuurt het vanzelf zodra je een game kiest of drie letters hebt getypt.
  * - Geen filter: per game de beste $limit.
  * - Eén game: de beste 25 van die game.
- * - Een naam: per game alle scores van die naam (uit de bewaarde KEEP), met hun plaats.
+ * - Een naam: alleen de games waarin die naam voorkomt, met de gewone lijst (alle namen) en die naam gemarkeerd.
+ *   Staat de naam lager dan de lijst, dan komt zijn beste score er los onder, met zijn plaats.
  *
  * @var array $attributes
  */
@@ -56,10 +57,16 @@ $pf_base = strtok( (string) get_permalink(), '?' );
 
 	<?php foreach ( $pf_show as $pf_g ) : ?>
 		<?php
+		$pf_extra = [];
 		if ( $pf_naam ) {
-			$pf_top = array_values( array_filter( PF_Scores::top( $pf_g['id'], PF_Scores::KEEP ), fn( $s ) => $s['name'] === $pf_naam ) );
-			if ( ! $pf_top ) {
+			$pf_all  = PF_Scores::top( $pf_g['id'], PF_Scores::KEEP );
+			$pf_mine = array_values( array_filter( $pf_all, fn( $s ) => $s['name'] === $pf_naam ) );
+			if ( ! $pf_mine ) {
 				continue;
+			}
+			$pf_top = array_slice( $pf_all, 0, $pf_want ? 25 : 10 );
+			if ( ! array_filter( $pf_top, fn( $s ) => $s['name'] === $pf_naam ) ) {
+				$pf_extra = [ $pf_mine[0] ]; // niet in de lijst: zijn beste score los eronder
 			}
 		} else {
 			$pf_top = PF_Scores::top( $pf_g['id'], $pf_want ? 25 : $pf_limit );
@@ -74,8 +81,12 @@ $pf_base = strtok( (string) get_permalink(), '?' );
 			<h3><a href="<?php echo esc_url( $pf_g['permalink'] ); ?>"><?php echo esc_html( mb_strtoupper( $pf_g['title'] ) ); ?></a></h3>
 			<?php if ( $pf_top ) : ?>
 				<ol class="hiscore-list">
-					<?php foreach ( $pf_top as $pf_s ) : ?>
-						<li class="<?php echo $pf_s['rank'] <= 3 ? 'is-top' . (int) $pf_s['rank'] : ''; ?>"><span class="hs-rank"><?php echo (int) $pf_s['rank']; ?></span><span class="hs-name"><?php echo esc_html( $pf_s['name'] ); ?></span><span class="hs-score"><?php echo esc_html( number_format_i18n( $pf_s['score'] ) ); ?> <small><?php echo esc_html( $pf_g['score']['label'] ); ?></small></span><span class="hs-date"><?php echo esc_html( wp_date( 'j M Y', strtotime( $pf_s['date'] . ' 12:00 UTC' ) ) ); ?></span></li>
+					<?php foreach ( $pf_extra ? array_merge( $pf_top, [ null ], $pf_extra ) : $pf_top as $pf_s ) : ?>
+						<?php if ( null === $pf_s ) : ?>
+							<li class="hs-gap" aria-hidden="true">…</li>
+							<?php continue; ?>
+						<?php endif; ?>
+						<li class="<?php echo esc_attr( trim( ( $pf_s['rank'] <= 3 ? 'is-top' . (int) $pf_s['rank'] : '' ) . ( $pf_naam && $pf_s['name'] === $pf_naam ? ' is-me' : '' ) ) ); ?>"><span class="hs-rank"><?php echo (int) $pf_s['rank']; ?></span><span class="hs-name"><?php echo esc_html( $pf_s['name'] ); ?></span><span class="hs-score"><?php echo esc_html( number_format_i18n( $pf_s['score'] ) ); ?> <small><?php echo esc_html( $pf_g['score']['label'] ); ?></small></span><span class="hs-date"><?php echo esc_html( wp_date( 'j M Y', strtotime( $pf_s['date'] . ' 12:00 UTC' ) ) ); ?></span></li>
 					<?php endforeach; ?>
 				</ol>
 			<?php else : ?>
