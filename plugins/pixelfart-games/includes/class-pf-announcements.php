@@ -1,6 +1,6 @@
 <?php
 /**
- * Aankondigingen: een korte melding bovenaan de site ("Nieuwe game!", "Even onderhoud").
+ * Aankondigingen: een korte melding bovenaan de homepage ("Nieuwe game!", "Even onderhoud").
  *
  * - Los van de games, met een eigen menu in WP-admin.
  * - Er staat er hooguit één: de nieuwste gepubliceerde. Een nieuwe aankondiging vervangt de vorige meteen.
@@ -208,7 +208,7 @@ class PF_Announcements {
 		}
 	}
 
-	/** De aankondiging staat op elke pagina: bij een wijziging de hele paginacache legen. */
+	/** Bij een wijziging de hele paginacache legen (de homepage, en een nieuwe game staat ook in de lijsten). */
 	public static function purge() {
 		do_action( 'litespeed_purge_all', 'Pixelfart: aankondiging gewijzigd' );
 	}

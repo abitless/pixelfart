@@ -39,7 +39,7 @@
 		</nav>
 		</div>
 	</header>
-	<?php $pf_ann = class_exists( 'PF_Announcements' ) ? PF_Announcements::current() : null; ?>
+	<?php $pf_ann = ( is_front_page() && class_exists( 'PF_Announcements' ) ) ? PF_Announcements::current() : null; // alleen op de homepage ?>
 	<?php if ( $pf_ann ) : ?>
 		<?php $pf_ann_vast = PF_Announcements::important( $pf_ann ); // belangrijke mededeling: niet weg te klikken ?>
 		<aside class="announce" id="aankondiging" data-ann="<?php echo (int) $pf_ann->ID; ?>" aria-label="Aankondiging">
