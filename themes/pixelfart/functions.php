@@ -5,7 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PF_THEME_VERSION = '1.7.4';
+const PF_THEME_VERSION = '1.7.5';
 
 /** Pixel-bitmaps voor iconen in het thema ('#' = pixel). */
 const PF_BMP = [
@@ -22,6 +22,7 @@ const PF_BMP = [
 	'kDown'    => [ '#####', '.###.', '..#..' ],
 	'heart'    => [ '.##.##.', '#######', '#######', '.#####.', '..###..', '...#...' ],
 	'megaphone' => [ '.......##', '.....####', '#.#######', '#.#######', '#.#######', '.....####', '.......##', '..##.....', '..##.....' ],
+	'gear'     => [ '....###....', '.#..###..#.', '.#########.', '..##...##..', '###.....###', '###.....###', '###.....###', '..##...##..', '.#########.', '.#..###..#.', '....###....' ],
 	'mail'     => [ '##########', '##......##', '#.#....#.#', '#..#..#..#', '#...##...#', '#........#', '##########' ],
 ];
 
@@ -94,6 +95,18 @@ remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
 remove_action( 'wp_print_styles', 'print_emoji_styles' );
 remove_action( 'wp_head', 'feed_links_extra', 3 );
 remove_action( 'wp_head', 'wp_generator' );
+
+// Beheerders zien de adminbalk niet op de site (Admin Site Enhancements). Daarom rechtsboven een tandwiel naar het beheer.
+add_action( 'wp_footer', function () {
+	if ( is_admin_bar_showing() || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	printf(
+		'<a class="admin-gear" href="%s" title="Naar het beheer" aria-label="Naar het beheer">%s</a>',
+		esc_url( admin_url() ),
+		pf_icon( 'gear', 2 ) // phpcs:ignore -- eigen bitmap
+	);
+} );
 
 add_filter( 'document_title_separator', fn() => '·' );
 
