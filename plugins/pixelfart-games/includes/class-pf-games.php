@@ -279,6 +279,9 @@ class PF_Games {
 		$notes[] = [ 'success', sprintf( 'Game %s staat online als %s/game.html.', $version, $code ) ];
 		self::write_json( $id );
 		do_action( 'litespeed_purge_post', $id );
+		if ( $is_update ) {
+			do_action( 'pf_game_updated', $id, $version, $note ); // o.a. een aankondiging "Game-update: …"
+		}
 		return $notes;
 	}
 

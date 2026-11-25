@@ -3,6 +3,7 @@
  * Header met logo en de grijpmachine als menu.
  */
 [ $pf_items, $pf_active ] = pf_nav_items();
+$pf_news_latest           = class_exists( 'PF_Announcements' ) ? PF_Announcements::latest() : 0;
 ?><!doctype html>
 <html <?php language_attributes(); ?> class="no-js">
 <head>
@@ -33,14 +34,29 @@
 			</div>
 			<ul class="claw-menu">
 				<?php foreach ( $pf_items as $i => $item ) : ?>
-					<li><a href="<?php echo esc_url( $item['url'] ); ?>" data-i="<?php echo (int) $i; ?>" class="<?php echo $i === $pf_active ? 'is-active' : ''; ?>" <?php echo $i === $pf_active ? 'aria-current="page"' : ''; ?>><?php echo esc_html( $item['label'] ); ?></a></li>
+					<li><a href="<?php echo esc_url( $item['url'] ); ?>" data-i="<?php echo (int) $i; ?>" class="<?php echo $i === $pf_active ? 'is-active' : ''; ?>" <?php echo $i === $pf_active ? 'aria-current="page"' : ''; ?>><?php if ( 'nieuws' === $item['slug'] && $pf_news_latest ) : // rood bolletje: site.js vergelijkt met wat deze browser al gelezen heeft ?><span class="claw-label"><?php echo esc_html( $item['label'] ); ?><span class="news-dot" data-news-dot data-latest="<?php echo (int) $pf_news_latest; ?>" hidden><span class="screen-reader-text"> (ongelezen nieuws)</span></span></span><?php else : ?><?php echo esc_html( $item['label'] ); ?><?php endif; ?></a></li>
 				<?php endforeach; ?>
 			</ul>
 		</nav>
 		</div>
 	</header>
 	<?php $pf_ann = ( is_front_page() && class_exists( 'PF_Announcements' ) ) ? PF_Announcements::current() : null; // alleen op de homepage ?>
-	<?php if ( $pf_ann ) : ?>
+	<?php if ( $pf_ann && PF_Announcements::is_auto( $pf_ann ) ) : // nieuwe game of update: één regel, met "Lees meer" naar de nieuwspagina ?>
+		<?php $pf_ann_game = PF_Announcements::game( $pf_ann ); ?>
+		<aside class="announce announce-line is-<?php echo esc_attr( PF_Announcements::type( $pf_ann ) ); ?>" id="aankondiging" data-ann="<?php echo (int) $pf_ann->ID; ?>" aria-label="Aankondiging">
+			<div class="announce-box">
+				<span class="announce-kind"><?php echo esc_html( mb_strtoupper( PF_Announcements::TYPES[ PF_Announcements::type( $pf_ann ) ] ) ); ?>:</span>
+				<?php if ( $pf_ann_game ) : ?>
+					<a class="announce-game" href="<?php echo esc_url( get_permalink( $pf_ann_game ) ); ?>"><?php echo esc_html( get_the_title( $pf_ann_game ) ); ?></a>
+				<?php else : ?>
+					<span class="announce-game"><?php echo esc_html( get_the_title( $pf_ann ) ); ?></span>
+				<?php endif; ?>
+				<a class="announce-more" href="<?php echo esc_url( PF_Announcements::news_url( $pf_ann ) ); ?>">Lees meer ▶</a>
+				<button type="button" class="announce-close js-only" data-ann-close aria-label="Aankondiging sluiten">×</button>
+			</div>
+		</aside>
+		<script>try{if(localStorage.getItem('pf_ann')==='<?php echo (int) $pf_ann->ID; ?>')document.getElementById('aankondiging').hidden=true}catch(e){}</script>
+	<?php elseif ( $pf_ann ) : ?>
 		<?php $pf_ann_vast = PF_Announcements::important( $pf_ann ); // belangrijke mededeling: niet weg te klikken ?>
 		<aside class="announce" id="aankondiging" data-ann="<?php echo (int) $pf_ann->ID; ?>" aria-label="Aankondiging">
 			<div class="announce-box">

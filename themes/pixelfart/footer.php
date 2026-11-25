@@ -77,7 +77,8 @@ $pf_home = ( is_front_page() || is_tax( 'pf_categorie' ) ) && ! get_query_var( '
 		<div class="foot-left">
 			<span><span style="color:var(--green)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_option( 'pf_source_url' ) ?: ( defined( 'PIXELFART_SOURCE_URL' ) ? PIXELFART_SOURCE_URL : 'https://github.com/abitless/pixelfart' ) ); ?>" rel="noopener">Open source</a></span>
 			<span><span style="color:var(--blue)" aria-hidden="true">■</span> <a href="<?php echo esc_url( get_privacy_policy_url() ?: home_url( '/privacy/' ) ); ?>">Privacy first</a> — geen cookies, geen tracking</span>
-			<span><span style="color:var(--yellow)" aria-hidden="true">■</span> Een vader-zoon hobbyproject</span>
+			<?php $pf_over = get_page_by_path( 'over-ons' ); ?>
+			<span><span style="color:var(--yellow)" aria-hidden="true">■</span> <a href="<?php echo esc_url( $pf_over ? get_permalink( $pf_over ) : home_url( '/over-ons/' ) ); ?>">Over ons</a></span>
 			<?php $pf_ouders = get_page_by_path( 'ouders' ); ?>
 			<span><span style="color:var(--pink)" aria-hidden="true">■</span> <a href="<?php echo esc_url( $pf_ouders ? get_permalink( $pf_ouders ) : home_url( '/ouders/' ) ); ?>">Voor ouders</a></span>
 			<?php $pf_contact = get_page_by_path( 'contact' ); ?>

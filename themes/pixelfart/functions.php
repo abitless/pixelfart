@@ -5,7 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PF_THEME_VERSION = '1.7.5';
+const PF_THEME_VERSION = '1.8.0';
 
 /** Pixel-bitmaps voor iconen in het thema ('#' = pixel). */
 const PF_BMP = [
@@ -123,12 +123,12 @@ function pf_icon( string $name, int $scale = 2, string $class = 'px-icon' ): str
 	return function_exists( 'pf_pixel_icon' ) ? pf_pixel_icon( PF_BMP[ $name ], $scale, $class ) : '';
 }
 
-/** De menu-items (GAMES / TOPSCORES / OVER ONS / CONTACT) en welke actief is (-1 = geen). */
+/** De menu-items (GAMES / TOPSCORES / PIXELMUUR / NIEUWS) en welke actief is (-1 = geen). Over ons staat in de footer. */
 function pf_nav_items(): array {
-	$items  = [ [ 'label' => 'GAMES', 'url' => home_url( '/' ), 'page' => null ] ];
-	foreach ( [ 'topscores' => 'TOPSCORES', 'pixelmuur' => 'PIXELMUUR', 'over-ons' => 'OVER ONS' ] as $slug => $label ) {
+	$items  = [ [ 'label' => 'GAMES', 'url' => home_url( '/' ), 'page' => null, 'slug' => '' ] ];
+	foreach ( [ 'topscores' => 'TOPSCORES', 'pixelmuur' => 'PIXELMUUR', 'nieuws' => 'NIEUWS' ] as $slug => $label ) {
 		$page    = get_page_by_path( $slug );
-		$items[] = [ 'label' => $label, 'url' => $page ? get_permalink( $page ) : home_url( "/$slug/" ), 'page' => $page ];
+		$items[] = [ 'label' => $label, 'url' => $page ? get_permalink( $page ) : home_url( "/$slug/" ), 'page' => $page, 'slug' => $slug ];
 	}
 	$active = is_page() || is_404() || get_query_var( 'pf_nieuwsbrief' ) ? -1 : 0;
 	foreach ( $items as $i => $item ) {

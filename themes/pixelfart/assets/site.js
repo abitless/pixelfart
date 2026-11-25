@@ -94,6 +94,27 @@
 		$('[data-ann-close]', ann).addEventListener('click', () => { ann.hidden = true; store.set('pf_ann', ann.dataset.ann); });
 	}
 
+	/* ---------- nieuws: rood bolletje in het menu, "NIEUW" en "Alles gelezen!" (onthoudt alleen deze browser) ---------- */
+	{
+		const dot = $('[data-news-dot]');
+		const latest = dot ? +dot.dataset.latest : 0;
+		const seen = +store.get('pf_news_seen') || 0;
+		const items = $$('[data-news-ts]');
+		const mark = (li, on) => { li.classList.toggle('is-unread', on); $('.news-new', li).hidden = !on; };
+		if (dot) dot.hidden = latest <= seen;
+		items.forEach((li) => mark(li, +li.dataset.newsTs > seen));
+		const btn = $('[data-news-read]');
+		if (btn) {
+			btn.disabled = latest <= seen;
+			btn.addEventListener('click', () => {
+				store.set('pf_news_seen', String(latest));
+				if (dot) dot.hidden = true;
+				items.forEach((li) => mark(li, false));
+				btn.disabled = true;
+			});
+		}
+	}
+
 	/* ---------- grijpmachine-menu ---------- */
 	const nav = $('.claw-nav');
 	if (nav) {

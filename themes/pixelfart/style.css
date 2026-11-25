@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.7.5
+Version: 1.8.0
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -27,6 +27,7 @@ ALTCHA 3.5.0 (MIT) in assets/vendor/altcha.
 	--blue: #6ec9ff;
 	--yellow: #ffcf4a;
 	--pink: #ff5c8a;
+	--red: #ff3b3b;
 	--pix: 'Press Start 2P', ui-monospace, monospace;
 	--vt: 'VT323', ui-monospace, monospace;
 	--txt: 'Pixelify Sans', system-ui, sans-serif; /* leesletter: pixelig, maar goed leesbaar. Raster = 1/11 em, dus 22px is haarscherp */
@@ -95,6 +96,18 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .announce-close { position: absolute; top: 8px; right: 10px; background: none; border: 0; color: var(--mute); font-family: var(--pix); font-size: 14px; cursor: pointer; padding: 6px; }
 .announce-close:hover { color: var(--ink); }
 @media (max-width: 560px) { .announce-icon { display: none; } .announce-title { font-size: 12px; } }
+/* automatische aankondiging (nieuwe game, update): één regel */
+.announce-line .announce-box { align-items: center; gap: 12px; padding: 10px 44px 10px 16px; white-space: nowrap; }
+.announce-line .announce-close { top: 50%; transform: translateY(-50%); }
+.announce-kind { flex: none; font-family: var(--pix); font-size: 11px; line-height: 1.5; color: var(--k); }
+.announce-game { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.announce-more { flex: none; margin-left: auto; font-family: var(--pix); font-size: 10px; color: var(--k); }
+.announce-more:hover { color: var(--ink); }
+.announce-line.is-game { --k: var(--green); }
+.announce-line.is-update { --k: var(--blue); }
+.announce-line.is-game .announce-box { box-shadow: 0 0 0 4px var(--green), 6px 6px 0 4px #1f5a2a; }
+.announce-line.is-update .announce-box { box-shadow: 0 0 0 4px var(--blue), 6px 6px 0 4px #1d4a66; }
+@media (max-width: 560px) { .announce-kind, .announce-more { font-size: 8px; } .announce-line .announce-box { gap: 8px; padding-left: 12px; font-size: 18px; } }
 
 /* pijltjestoetsen links van de rail: je kunt het menu met het toetsenbord bedienen */
 .nav-wrap { display: flex; align-items: flex-start; gap: 12px; width: min(660px, 100%); }
@@ -121,6 +134,9 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .claw-menu a:hover { color: var(--dim); text-decoration: none; }
 .claw-menu a::after { content: ''; width: 40px; height: 4px; background: transparent; }
 .claw-menu a.is-active { color: var(--ink); }
+/* rood bolletje bij NIEUWS: ongelezen nieuws op dit apparaat (site.js) */
+.claw-label { position: relative; }
+.news-dot { position: absolute; top: -9px; right: -12px; width: 8px; height: 8px; background: var(--red); box-shadow: 2px 0 0 var(--red), -2px 0 0 var(--red), 0 2px 0 var(--red), 0 -2px 0 var(--red); }
 .claw-nav:not([data-phase="release"]):not([data-phase="drop"]) .claw-menu a.is-active::after { background: var(--ink); }
 .claw-nav:not([data-phase]) .claw-menu a.is-active, .claw-nav[data-phase="lift"] .claw-menu a.is-active { transform: translateY(-8px); }
 
@@ -278,6 +294,40 @@ textarea.input { resize: vertical; }
 .page-wrap { max-width: 720px; display: flex; flex-direction: column; gap: 24px; }
 .page-wrap.narrow { max-width: 560px; }
 /* Opmaak van inhoud uit de blokeditor: assets/content.css */
+
+/* ---------- nieuws: tijdlijn, elke soort een eigen kleur ---------- */
+.news-wrap { max-width: 860px; }
+.news-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
+.news-head h1 { margin: 0; }
+.news-head .btn { align-self: center; }
+.news-empty { margin: 0; color: var(--dim); }
+.news-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 28px; position: relative; }
+.news-list::before { content: ''; position: absolute; left: 136px; top: 8px; bottom: 8px; width: 4px; background: var(--dark); }
+.news-item { --k: var(--yellow); --ks: #5a4a1a; display: grid; grid-template-columns: 112px 1fr; gap: 48px; position: relative; scroll-margin-top: 24px; }
+.news-item.is-important { --k: var(--red); --ks: #6a1a1a; }
+.news-item.is-game { --k: var(--green); --ks: #1f5a2a; }
+.news-item.is-update { --k: var(--blue); --ks: #1d4a66; }
+/* blokje op de tijdlijn */
+.news-item::before { content: ''; position: absolute; left: 132px; top: 14px; width: 12px; height: 12px; background: var(--k); }
+.news-date { font-family: var(--pix); font-size: 10px; line-height: 1.6; color: var(--mute); text-align: right; padding-top: 14px; white-space: nowrap; }
+.news-box { margin: 4px; padding: 16px 18px; background: #000; box-shadow: 0 0 0 4px var(--k), 6px 6px 0 4px var(--ks); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.news-item:target .news-box, .news-item.is-unread .news-box { background: #111; }
+.news-meta { display: flex; gap: 12px; align-items: center; }
+.news-kind { font-family: var(--pix); font-size: 9px; color: var(--k); }
+.news-new { font-family: var(--pix); font-size: 9px; color: #000; background: var(--red); padding: 4px 6px 3px; }
+.news-title { margin: 0; font-family: var(--pix); font-size: 14px; font-weight: 400; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+.news-body p { margin: 0 0 8px; color: var(--dim); line-height: 1.3; overflow-wrap: anywhere; }
+.news-body p:last-child { margin-bottom: 0; }
+.news-body a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+.news-body strong { color: var(--ink); font-weight: 400; }
+.news-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.news-count { font-family: var(--pix); font-size: 10px; color: var(--mute); }
+@media (max-width: 640px) {
+	.news-list::before { left: 4px; }
+	.news-item { grid-template-columns: 1fr; gap: 6px; padding-left: 28px; }
+	.news-item::before { left: 0; top: 2px; }
+	.news-date { text-align: left; padding-top: 0; }
+}
 .pf-contact { max-width: 560px; }
 .pf-contact form { display: flex; flex-direction: column; gap: 24px; }
 

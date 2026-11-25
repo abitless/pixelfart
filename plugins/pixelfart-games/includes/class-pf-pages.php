@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 class PF_Pages {
 
-	const VERSION = '1';
+	const VERSION = '2';
 
 	public static function init() {
 		add_action( 'init', [ __CLASS__, 'maybe_upgrade' ], 30 );
@@ -42,6 +42,16 @@ class PF_Pages {
 			if ( $new && $new !== $old ) {
 				wp_update_post( [ 'ID' => $top->ID, 'post_content' => rtrim( $new ) . "\n" ] );
 			}
+		}
+		// 3. Nieuws: alle aankondigingen als tijdlijn (thema: page-nieuws.php). De inhoud is een optionele inleiding.
+		if ( ! get_page_by_path( 'nieuws' ) ) {
+			wp_insert_post( [
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_name'    => 'nieuws',
+				'post_title'   => 'Nieuws',
+				'post_content' => '',
+			] );
 		}
 		do_action( 'litespeed_purge_all', 'Pixelfart: pagina\'s bijgewerkt' );
 	}
