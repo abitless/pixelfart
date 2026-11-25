@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Pixelfart Games
  * Description: Games als losse HTML-bestanden met metadata (game.json), thumbnail, speelteller, sterren, reacties, het idee/contactformulier, donaties en de pixelmuur.
- * Version:     1.9.1
+ * Version:     1.12.0
  * Author:      Bitless
  * Text Domain: pixelfart
  * Requires PHP: 8.2
@@ -14,7 +14,7 @@
 defined( 'ABSPATH' ) || exit;
 
 const PIXELFART_SOURCE_URL = 'https://github.com/abitless/pixelfart'; // standaard voor de link "Open source"
-const PIXELFART_VERSION = '1.9.1';
+const PIXELFART_VERSION = '1.12.0';
 define( 'PIXELFART_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PIXELFART_URL', plugin_dir_url( __FILE__ ) );
 
@@ -37,6 +37,7 @@ require_once PIXELFART_DIR . 'includes/class-pf-donations.php';
 require_once PIXELFART_DIR . 'includes/class-pf-donations-admin.php';
 require_once PIXELFART_DIR . 'includes/class-pf-pages.php';
 require_once PIXELFART_DIR . 'includes/class-pf-mail.php';
+require_once PIXELFART_DIR . 'includes/class-pf-seo.php';
 
 PF_Games::init();
 PF_Hosting::init();
@@ -54,6 +55,7 @@ PF_Newsletter::init();
 PF_Donations::init();
 PF_Pages::init();
 PF_Mail::init();
+PF_SEO::init();
 if ( is_admin() ) {
 	PF_Donations_Admin::init();
 }

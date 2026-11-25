@@ -614,7 +614,7 @@ class PF_Donations {
 			$row['email'],
 			'Bedankt voor je maandelijkse donatie aan Pixelfart',
 			sprintf(
-				"Hoi!\n\nWat leuk dat je Pixelfart steunt met %s per maand. Daar kunnen we de site mee draaiende houden en nieuwe games maken.\n\nDe volgende keer schrijven we het bedrag af rond %s. Wil je stoppen? Dat kan altijd, met één klik:\n%s\n\nBewaar deze mail dus even. Je e-mailadres gebruiken we alleen hiervoor, en we wissen het zodra je stopt.\n\nGroetjes,\nvader & zoon van Pixelfart",
+				"Hoi!\n\nWat leuk dat je Pixelfart steunt met %s per maand. Daar kunnen we de site mee draaiende houden en nieuwe games maken.\n\nDe volgende keer schrijven we het bedrag af rond %s. Wil je stoppen? Dat kan altijd, met één klik:\n%s\n\nBewaar deze mail dus even. Je e-mailadres gebruiken we alleen hiervoor, en we wissen het zodra je stopt.\n\nGroetjes,\nJOZ & NAT van Pixelfart.nl",
 				self::euro( (int) $row['amount'] ),
 				wp_date( 'j F', strtotime( '+1 month' ) ),
 				$url

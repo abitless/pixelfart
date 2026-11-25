@@ -55,6 +55,7 @@ class PF_Admin {
 	public static function meta_boxes() {
 		add_meta_box( 'pf_game_file', 'Game en metadata', [ __CLASS__, 'box_game' ], PF_Games::CPT, 'normal', 'high' );
 		add_meta_box( 'pf_game_thumb', 'Thumbnail (4:3, pixelig)', [ __CLASS__, 'box_thumb' ], PF_Games::CPT, 'normal', 'high' );
+		add_meta_box( 'pf_game_social', 'Afbeelding voor social media (1200×630)', [ __CLASS__, 'box_social' ], PF_Games::CPT, 'normal', 'high' );
 		add_meta_box( 'pf_game_versions', 'Versies', [ __CLASS__, 'box_versions' ], PF_Games::CPT, 'side', 'default' );
 		add_meta_box( 'pf_game_stats', 'Statistieken', [ __CLASS__, 'box_stats' ], PF_Games::CPT, 'side', 'low' );
 	}
@@ -220,6 +221,33 @@ class PF_Admin {
 		<?php
 	}
 
+	/** Wat je ziet als iemand de game deelt. Vanzelf uit de thumbnail, of een eigen afbeelding. */
+	public static function box_social( WP_Post $post ) {
+		$url    = class_exists( 'PF_SEO' ) ? PF_SEO::social_url( $post->ID ) : '';
+		$custom = (bool) get_post_meta( $post->ID, '_pf_social_custom', true );
+		?>
+		<div class="pf-social">
+			<?php if ( $url ) : ?>
+				<p><img src="<?php echo esc_url( $url ); ?>" alt="" style="width:100%;max-width:600px;height:auto;image-rendering:pixelated;display:block"></p>
+			<?php else : ?>
+				<p>Nog geen afbeelding: die komt vanzelf zodra de game een thumbnail heeft.</p>
+			<?php endif; ?>
+			<p class="description">
+				<?php echo $custom ? '<strong>Eigen afbeelding.</strong>' : 'Vanzelf gemaakt uit de thumbnail en vernieuwd als die verandert.'; ?>
+				Wie de game deelt, ziet deze afbeelding met de titel, de omschrijving en "<?php echo esc_html( PF_SEO::PROMISE ); ?>"
+			</p>
+			<p>
+				<label for="pf_social_file">Eigen afbeelding uploaden</label><br>
+				<input type="file" name="pf_social_file" id="pf_social_file" accept="image/png,image/jpeg,image/webp">
+				<span class="description">Wordt bijgesneden tot 1200×630.</span>
+			</p>
+			<?php if ( $custom ) : ?>
+				<label class="pf-check"><input type="checkbox" name="pf_social_reset" value="1"> Terug naar de automatische afbeelding</label>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
 	public static function box_stats( WP_Post $post ) {
 		$g = PF_Games::get( $post );
 		if ( ! $g ) {
@@ -311,6 +339,19 @@ class PF_Admin {
 				$notes[] = [ 'success', 'Thumbnail opgeslagen.' ];
 			} else {
 				$notes[] = [ 'error', 'Thumbnail kon niet worden verwerkt (PNG, JPG of WebP).' ];
+			}
+		}
+
+		// Afbeelding voor social media: eigen upload, of terug naar automatisch. Anders maakt PF_SEO hem vanzelf uit de thumbnail.
+		if ( class_exists( 'PF_SEO' ) ) {
+			if ( ! empty( $_FILES['pf_social_file']['tmp_name'] ) && UPLOAD_ERR_OK === $_FILES['pf_social_file']['error'] ) {
+				$ok      = PF_SEO::install_custom( $id, (string) file_get_contents( $_FILES['pf_social_file']['tmp_name'] ) ); // phpcs:ignore
+				$notes[] = $ok ? [ 'success', 'Afbeelding voor social media opgeslagen.' ] : [ 'error', 'Afbeelding voor social media kon niet worden verwerkt (PNG, JPG of WebP).' ];
+			} elseif ( ! empty( $_POST['pf_social_reset'] ) ) {
+				PF_SEO::reset( $id );
+				$notes[] = [ 'success', 'Afbeelding voor social media komt weer uit de thumbnail.' ];
+			} elseif ( $bytes ) {
+				PF_SEO::ensure( $id );
 			}
 		}
 

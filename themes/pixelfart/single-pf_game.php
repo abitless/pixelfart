@@ -21,8 +21,10 @@ $pf_back = wp_get_referer() && str_starts_with( wp_get_referer(), home_url() ) &
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
+<?php if ( ! defined( 'WPSEO_VERSION' ) ) : // zonder Yoast SEO: de basis zelf (anders doet PF_SEO het via Yoast) ?>
 <?php if ( $g['description'] ) : ?><meta name="description" content="<?php echo esc_attr( $g['description'] ); ?>"><?php endif; ?>
 <?php if ( $g['thumb_url'] ) : ?><meta property="og:image" content="<?php echo esc_url( $g['thumb_url'] ); ?>"><?php endif; ?>
+<?php endif; ?>
 <script>document.documentElement.classList.replace('no-js','js');</script>
 <?php wp_head(); ?>
 </head>

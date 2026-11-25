@@ -5,7 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const PF_THEME_VERSION = '1.8.1';
+const PF_THEME_VERSION = '1.9.0';
 
 /** Pixel-bitmaps voor iconen in het thema ('#' = pixel). */
 const PF_BMP = [
@@ -28,6 +28,7 @@ const PF_BMP = [
 
 add_action( 'after_setup_theme', function () {
 	add_theme_support( 'title-tag' );
+	add_theme_support( 'post-thumbnails', [ 'page' ] ); // uitgelichte afbeelding: alleen voor social media (Yoast), niet op de pagina zelf
 	add_theme_support( 'html5', [ 'style', 'script', 'navigation-widgets' ] );
 	add_theme_support( 'responsive-embeds' );
 

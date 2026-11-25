@@ -72,3 +72,10 @@
 :is(.entry, .editor-styles-wrapper) :is(code, pre) { font-family: var(--wp--preset--font-family--terminal); background: var(--wp--preset--color--dark); color: var(--wp--preset--color--green); }
 :is(.entry, .editor-styles-wrapper) code { padding: 0 6px; }
 :is(.entry, .editor-styles-wrapper) pre { padding: 16px; box-shadow: 0 0 0 4px var(--wp--preset--color--line); margin-inline: 4px; overflow-x: auto; }
+
+/* Veelgestelde vragen (Yoast FAQ-blok, levert ook de FAQPage-structured data) */
+.schema-faq { display: flex; flex-direction: column; gap: 16px; }
+.schema-faq-section { margin: 4px; padding: 16px 18px; background: #000; box-shadow: 0 0 0 4px var(--dark); }
+.schema-faq-question { display: block; margin-bottom: 8px; font-family: var(--pix); font-size: 13px; font-weight: 400; line-height: 1.6; color: var(--yellow); -webkit-font-smoothing: none; }
+.schema-faq-answer { margin: 0; color: var(--dim); line-height: 1.3; }
+.schema-faq-answer a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }

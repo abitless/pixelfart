@@ -5,6 +5,7 @@
  *   uploads/pixelfart-games/<CODE>/game.html   de game (fonts lokaal)
  *   uploads/pixelfart-games/<CODE>/game.json   statische metadata
  *   uploads/pixelfart-games/<CODE>/thumb.png   pixelige thumbnail (4:3)
+ *   uploads/pixelfart-games/<CODE>/social.png  afbeelding voor social media (1200x630, PF_SEO)
  *   uploads/pixelfart-games/_fonts/            vangnet: lokale kopie van andere fonts in oudere games
  *   uploads/pixelfart-games/_sdk/              SDK + Pixelfart-pixelfonts
  *
@@ -203,6 +204,7 @@ class PF_Games {
 			'author'      => $g['author'],
 			'age'         => $g['age'],
 			'thumbnail'   => 'thumb.png',
+			'social'      => file_exists( self::dir( $g['code'] ) . 'social.png' ) ? 'social.png' : null, // 1200x630 voor social media (PF_SEO)
 			'file'        => 'game.html',
 			'score'       => $g['score']['order'] ? $g['score'] : null,
 			'license'     => [ 'code' => self::LICENSE_CODE, 'art' => self::LICENSE_ART ],

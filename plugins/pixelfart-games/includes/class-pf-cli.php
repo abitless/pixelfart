@@ -265,4 +265,42 @@ class PF_CLI {
 		}
 		WP_CLI::success( "$code bijgewerkt." );
 	}
+
+	/**
+	 * Maak de afbeeldingen voor social media (1200x630) opnieuw uit de thumbnails.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [<code>...]
+	 * : Alleen deze games. Standaard alle.
+	 *
+	 * [--force]
+	 * : Ook games met een eigen afbeelding (die wordt dan vervangen door de automatische).
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp pixelfart social
+	 *     wp pixelfart social STADS --force
+	 */
+	public function social( $args, $assoc ) {
+		$ids = get_posts( [ 'post_type' => PF_Games::CPT, 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids' ] );
+		foreach ( $ids as $id ) {
+			$code = (string) PF_Games::meta( $id, 'code' );
+			if ( $args && ! in_array( $code, array_map( 'strtoupper', $args ), true ) ) {
+				continue;
+			}
+			if ( get_post_meta( $id, '_pf_social_custom', true ) && empty( $assoc['force'] ) ) {
+				WP_CLI::log( "$code: eigen afbeelding, overgeslagen (--force om te vervangen)" );
+				continue;
+			}
+			delete_post_meta( $id, '_pf_social_custom' );
+			$ok = PF_SEO::generate( $id );
+			if ( $ok ) {
+				PF_Games::write_json( $id );
+			}
+			WP_CLI::log( $code . ': ' . ( $ok ? 'gemaakt' : 'geen thumbnail' ) );
+		}
+		do_action( 'litespeed_purge_all', 'Pixelfart: social-afbeeldingen' );
+		WP_CLI::success( 'Klaar.' );
+	}
 }
