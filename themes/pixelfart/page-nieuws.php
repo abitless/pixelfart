@@ -2,7 +2,8 @@
 /**
  * Nieuwspagina: alle aankondigingen als tijdlijn, nieuwste bovenaan, tien per pagina (?pagina=2).
  * Ouder dan zes maanden staat er niet meer op (archief). De inhoud van de pagina zelf is een optionele inleiding.
- * Wat deze browser nog niet gelezen heeft krijgt "NIEUW"; "Alles gelezen!" onthoudt dat (site.js, localStorage).
+ * Elk bericht heeft links een vinkje "gelezen"; wat nog niet gelezen is krijgt "NIEUW". "Alles gelezen!" vinkt alles af.
+ * Alleen deze browser onthoudt het (site.js, localStorage).
  */
 get_header();
 $pf_page = max( 1, absint( $_GET[ class_exists( 'PF_Announcements' ) ? PF_Announcements::PAGE_VAR : 'pagina' ] ?? 1 ) ); // phpcs:ignore -- alleen een paginanummer
@@ -30,7 +31,8 @@ while ( have_posts() ) :
 					$pf_type = PF_Announcements::type( $pf_item );
 					$pf_ts   = (int) get_post_timestamp( $pf_item );
 					?>
-					<li class="news-item is-<?php echo esc_attr( $pf_type ); ?>" id="nieuws-<?php echo (int) $pf_item->ID; ?>" data-news-ts="<?php echo (int) $pf_ts; ?>">
+					<li class="news-item is-<?php echo esc_attr( $pf_type ); ?>" id="nieuws-<?php echo (int) $pf_item->ID; ?>" data-news-id="<?php echo (int) $pf_item->ID; ?>">
+						<input type="checkbox" class="news-check js-only" data-news-check aria-label="<?php echo esc_attr( 'Gelezen: ' . get_the_title( $pf_item ) ); ?>" title="Gelezen">
 						<time class="news-date" datetime="<?php echo esc_attr( wp_date( 'c', $pf_ts ) ); ?>"><?php echo esc_html( wp_date( 'j M Y', $pf_ts ) ); ?></time>
 						<div class="news-box">
 							<div class="news-meta">

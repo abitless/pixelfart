@@ -165,6 +165,18 @@ class PF_Announcements {
 		return $manual && get_post_timestamp( $manual ) > get_post_timestamp( $auto ) ? null : $auto;
 	}
 
+	/**
+	 * Reserve als een bezoeker de huidige (handmatige, wegklikbare) aankondiging heeft weggeklikt:
+	 * de nieuwste automatische die nog geen AUTO_DAYS dagen oud is. Zo staat er na wegklikken nog steeds één.
+	 */
+	public static function fallback( WP_Post $current ): ?WP_Post {
+		if ( self::is_auto( $current ) || self::important( $current ) ) {
+			return null;
+		}
+		$auto = self::newest( [ 'meta_query' => self::auto_query( true ) ] );
+		return $auto && self::until( $auto ) > time() ? $auto : null;
+	}
+
 	/** Tekst van de aankondiging: alleen eenvoudige opmaak en links. */
 	public static function html( WP_Post $p ): string {
 		return wp_kses( wpautop( $p->post_content ), [ 'p' => [], 'br' => [], 'strong' => [], 'em' => [], 'a' => [ 'href' => true ] ] );
@@ -200,6 +212,14 @@ class PF_Announcements {
 	public static function latest(): int {
 		$p = get_posts( self::news_args() + [ 'numberposts' => 1 ] );
 		return $p ? (int) get_post_timestamp( $p[0] ) : 0;
+	}
+
+	/** Alle berichten op de nieuwspagina als [ id, tijdstip ], voor het bolletje in het menu (site.js weet welke gelezen zijn). */
+	public static function recent(): array {
+		return array_map(
+			fn( WP_Post $p ) => [ $p->ID, (int) get_post_timestamp( $p ) ],
+			get_posts( self::news_args() + [ 'numberposts' => -1 ] )
+		);
 	}
 
 	public static function page_url( int $page = 1 ): string {

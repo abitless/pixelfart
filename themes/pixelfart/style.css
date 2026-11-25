@@ -1,7 +1,7 @@
 /*
 Theme Name: Pixelfart
 Description: Pixel-art thema voor Pixelfart, de spelletjessite van vader & zoon. Werkt samen met de plugin Pixelfart Games.
-Version: 1.8.0
+Version: 1.8.1
 Author: Bitless
 Requires PHP: 8.2
 Text Domain: pixelfart
@@ -312,6 +312,15 @@ textarea.input { resize: vertical; }
 .news-date { font-family: var(--pix); font-size: 10px; line-height: 1.6; color: var(--mute); text-align: right; padding-top: 14px; white-space: nowrap; }
 .news-box { margin: 4px; padding: 16px 18px; background: #000; box-shadow: 0 0 0 4px var(--k), 6px 6px 0 4px var(--ks); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .news-item:target .news-box, .news-item.is-unread .news-box { background: #111; }
+/* vinkje "gelezen" op de tijdlijn, in de kleur van de soort (zonder JavaScript: het blokje) */
+.js .news-item::before { display: none; }
+.news-check { appearance: none; -webkit-appearance: none; position: absolute; left: 122px; top: 4px; z-index: 1; width: 32px; height: 32px; margin: 0; background: #000; box-shadow: inset 0 0 0 4px var(--k); cursor: pointer; }
+.news-check:hover { background: #1a1a1a; }
+.news-check:checked { background: var(--k); }
+/* pixelvinkje */
+.news-check:checked::after { content: ''; position: absolute; left: 6px; top: 16px; width: 4px; height: 4px; background: #000; box-shadow: 4px 4px 0 #000, 8px 0 0 #000, 12px -4px 0 #000, 16px -8px 0 #000; }
+.news-check:focus-visible { outline: 4px solid var(--ink); outline-offset: 2px; }
+.js .news-item:not(.is-unread) .news-box { opacity: .75; }
 .news-meta { display: flex; gap: 12px; align-items: center; }
 .news-kind { font-family: var(--pix); font-size: 9px; color: var(--k); }
 .news-new { font-family: var(--pix); font-size: 9px; color: #000; background: var(--red); padding: 4px 6px 3px; }
@@ -326,6 +335,8 @@ textarea.input { resize: vertical; }
 	.news-list::before { left: 4px; }
 	.news-item { grid-template-columns: 1fr; gap: 6px; padding-left: 28px; }
 	.news-item::before { left: 0; top: 2px; }
+	.news-item { padding-left: 48px; }
+	.news-check { left: -10px; top: 0; }
 	.news-date { text-align: left; padding-top: 0; }
 }
 .pf-contact { max-width: 560px; }

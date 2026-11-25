@@ -88,31 +88,63 @@
 
 	window.pfRobot = robot; // ook voor de doneerformulieren (plugin)
 
-	/* ---------- aankondiging bovenaan: wegklikken (onthoudt alleen deze browser) ---------- */
-	const ann = $('#aankondiging');
-	if (ann && $('[data-ann-close]', ann)) {
-		$('[data-ann-close]', ann).addEventListener('click', () => { ann.hidden = true; store.set('pf_ann', ann.dataset.ann); });
+	/* ---------- aankondiging bovenaan: wegklikken (onthoudt alleen deze browser). Wie de handmatige wegklikt, ziet de automatische regel eronder. ---------- */
+	{
+		const gone = () => { try { const v = JSON.parse(store.get('pf_ann') || '[]'); return Array.isArray(v) ? v.map(String) : [String(v)]; } catch (e) { return [store.get('pf_ann')]; } };
+		const line = $('#aankondiging-regel');
+		$$('.announce').forEach((el) => {
+			const close = $('[data-ann-close]', el);
+			if (!close) return;
+			close.addEventListener('click', () => {
+				el.hidden = true;
+				store.set('pf_ann', JSON.stringify([...gone(), el.dataset.ann].slice(-20)));
+				if (el !== line && line && !gone().includes(line.dataset.ann)) line.hidden = false;
+			});
+		});
 	}
 
-	/* ---------- nieuws: rood bolletje in het menu, "NIEUW" en "Alles gelezen!" (onthoudt alleen deze browser) ---------- */
+	/* ---------- nieuws: vinkje per bericht, "Alles gelezen!" en het rode bolletje in het menu (onthoudt alleen deze browser) ---------- */
 	{
 		const dot = $('[data-news-dot]');
-		const latest = dot ? +dot.dataset.latest : 0;
+		let list = [];
+		try { list = dot ? JSON.parse(dot.dataset.news) : []; } catch (e) { list = []; }
+		let read;
+		try { read = new Set(JSON.parse(store.get('pf_news_read') || '[]').map(Number)); } catch (e) { read = new Set(); }
+		// van de vorige versie: alles tot en met dit tijdstip was gelezen
 		const seen = +store.get('pf_news_seen') || 0;
-		const items = $$('[data-news-ts]');
-		const mark = (li, on) => { li.classList.toggle('is-unread', on); $('.news-new', li).hidden = !on; };
-		if (dot) dot.hidden = latest <= seen;
-		items.forEach((li) => mark(li, +li.dataset.newsTs > seen));
+		if (seen) list.forEach(([id, ts]) => { if (ts <= seen) read.add(id); });
+		const save = () => {
+			const ids = new Set(list.map(([id]) => id)); // alleen wat nog op de nieuwspagina staat
+			store.set('pf_news_read', JSON.stringify([...read].filter((id) => !ids.size || ids.has(id))));
+		};
+		if (seen) { save(); try { localStorage.removeItem('pf_news_seen'); } catch (e) { /* privé-venster */ } }
+
+		const items = $$('[data-news-id]');
 		const btn = $('[data-news-read]');
-		if (btn) {
-			btn.disabled = latest <= seen;
-			btn.addEventListener('click', () => {
-				store.set('pf_news_seen', String(latest));
-				if (dot) dot.hidden = true;
-				items.forEach((li) => mark(li, false));
-				btn.disabled = true;
+		const paint = () => {
+			items.forEach((li) => {
+				const on = read.has(+li.dataset.newsId);
+				li.classList.toggle('is-unread', !on);
+				$('.news-new', li).hidden = on;
+				$('[data-news-check]', li).checked = on;
 			});
-		}
+			const unread = list.some(([id]) => !read.has(id)) || items.some((li) => !read.has(+li.dataset.newsId));
+			if (dot) dot.hidden = !unread;
+			if (btn) btn.disabled = !unread;
+		};
+		items.forEach((li) => {
+			$('[data-news-check]', li).addEventListener('change', (e) => {
+				const id = +li.dataset.newsId;
+				e.target.checked ? read.add(id) : read.delete(id);
+				save(); paint();
+			});
+		});
+		if (btn) btn.addEventListener('click', () => {
+			list.forEach(([id]) => read.add(id));
+			items.forEach((li) => read.add(+li.dataset.newsId));
+			save(); paint();
+		});
+		paint();
 	}
 
 	/* ---------- grijpmachine-menu ---------- */
