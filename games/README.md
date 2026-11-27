@@ -8,11 +8,22 @@ De broncode van alle games op [Pixelfart](https://pixelfart.nl). Elke map is é�
 
 ## Bijwerken
 
-Deze map is een kopie van wat er op de site staat. Na een nieuwe game of versie in WP-admin schrijf je hem terug met:
+Deze map is de bron van wat er live staat. Een game aanpassen gaat zo:
 
-```bash
-wp pixelfart export wp-content/games
-```
+1. Wijzig `<CODE>/game.html`, hoog `version` op en vul `changelog` in het manifest in.
+2. Zet hem live: `games/bin/game deploy <CODE>` (eventueel met `--note "…"` voor een andere tekst in de
+   aankondiging). Het script:
+   - stopt als live intussen gewijzigd is (bijv. via WP-admin geüpload), zodat je niets overschrijft;
+   - controleert dat de versie hoger is dan live;
+   - uploadt met `wp pixelfart update` (de site bewaart de vorige versie en maakt een aankondiging);
+   - schrijft de live stand terug (ook `game.json` en `thumb.png`), en commit en pusht.
+
+Toch iets via WP-admin geüpload, of een nieuwe game toegevoegd? Haal de live stand op met
+`games/bin/game pull` (dat is `wp pixelfart export` op de server, terug in deze map, gecommit en gepusht).
+`games/bin/game status` laat per game zien wat er verschilt.
+
+Een nieuwe game komt de eerste keer via WP-admin online (Games › Nieuwe game uploaden: categorieën,
+thumbnail); daarna `pull`, en vanaf dan gaat hij via `deploy`.
 
 Op een nieuwe of andere site zet je alle games erop met:
 
