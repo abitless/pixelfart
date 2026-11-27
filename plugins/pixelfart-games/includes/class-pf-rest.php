@@ -53,6 +53,7 @@ class PF_Rest {
 			'permission_callback' => '__return_true',
 			'args'                => $id + [
 				'stars' => [ 'required' => true, 'type' => 'integer', 'minimum' => 1, 'maximum' => 5 ],
+				'version' => [ 'type' => 'string', 'default' => '' ],
 			],
 		] );
 		register_rest_route( self::NS, '/games/(?P<id>\d+)/comments', [
@@ -175,8 +176,46 @@ class PF_Rest {
 		update_post_meta( $id, '_pf_rating_sum', $sum );
 		update_post_meta( $id, '_pf_rating_count', $count );
 		set_transient( $key, $stars, 30 * DAY_IN_SECONDS );
+		self::mail_rating( $id, $stars, $prev, $sum, $count, (string) $r['version'] );
 
 		return [ 'avg' => $count ? round( $sum / $count, 1 ) : 0, 'count' => $count, 'mine' => $stars ];
+	}
+
+	/**
+	 * Mail naar de beheerder bij elke stem, zodat je kunt zien of ratings goed binnenkomen.
+	 * Verstuurd na het antwoord aan de browser, zodat de bezoeker niet op de mailserver wacht.
+	 */
+	public static function mail_rating( int $id, int $stars, int $prev, int $sum, int $count, string $version ) {
+		$to = get_option( 'pf_mail_to' ) ?: get_option( 'admin_email' );
+		if ( ! is_email( $to ) ) {
+			return;
+		}
+		$title = get_the_title( $id );
+		$what  = $prev
+			? sprintf( "Aangepast: van %d naar %d sterren.\nLet op: vanaf dit netwerk (zelfde IP-adres) was al eerder gestemd, dus het aantal stemmen blijft gelijk.", $prev, $stars )
+			: sprintf( 'Nieuwe stem: %d %s.', $stars, 1 === $stars ? 'ster' : 'sterren' );
+		$body  = sprintf(
+			"%s\n\nGame: %s%s\nGemiddelde nu: %s uit %d %s (som %d)\nTijd: %s\n\n%s\n%s\n",
+			$what,
+			$title,
+			$version ? ' (versie ' . self::played_version( $id, $version ) . ')' : '',
+			$count ? number_format( $sum / $count, 1, ',', '' ) : '–',
+			$count,
+			1 === $count ? 'stem' : 'stemmen',
+			$sum,
+			wp_date( 'j F Y H:i:s' ),
+			get_permalink( $id ),
+			admin_url( 'post.php?post=' . $id . '&action=edit' )
+		);
+		$subject = sprintf( '[Pixelfart] %s: %s %d★', $title, $prev ? 'stem aangepast naar' : 'nieuwe stem', $stars );
+		add_action( 'shutdown', function () use ( $to, $subject, $body ) {
+			if ( function_exists( 'litespeed_finish_request' ) ) {
+				litespeed_finish_request();
+			} elseif ( function_exists( 'fastcgi_finish_request' ) ) {
+				fastcgi_finish_request();
+			}
+			wp_mail( $to, $subject, $body );
+		} );
 	}
 
 	public static function comment( WP_REST_Request $r ) {

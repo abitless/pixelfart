@@ -57,7 +57,7 @@ class PF_Settings {
 
 	public static function field_mail_to() {
 		printf(
-			'<input type="email" class="regular-text" id="pf_mail_to" name="pf_mail_to" value="%s" placeholder="%s"><p class="description">Ideeën en contactberichten. Leeg = het beheerdersadres.</p>',
+			'<input type="email" class="regular-text" id="pf_mail_to" name="pf_mail_to" value="%s" placeholder="%s"><p class="description">Ideeën, contactberichten en een melding bij elke rating. Leeg = het beheerdersadres.</p>',
 			esc_attr( get_option( 'pf_mail_to' ) ),
 			esc_attr( get_option( 'admin_email' ) )
 		);

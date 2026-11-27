@@ -688,7 +688,7 @@
 				const n = +s.dataset.star;
 				mine = n; paint(n); store.set(key, n);
 				try {
-					const r = await api(`games/${id}/rate`, { stars: n });
+					const r = await api(`games/${id}/rate`, { stars: n, version: player.dataset.version });
 					paintAvg($('[data-rating-stars]', player), r.avg, r.count);
 					$('[data-cnt]', player).textContent = r.count;
 					note.textContent = noteFor(n);
