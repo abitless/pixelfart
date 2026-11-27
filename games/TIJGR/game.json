@@ -1,0 +1,34 @@
+{
+    "title": "Geiten en Tijgers",
+    "code": "TIJGR",
+    "categories": [
+        "2 spelers",
+        "Rustig",
+        "Strategie"
+    ],
+    "published": "2026-11-25",
+    "version": "1.1.0",
+    "description": "Vier tijgers jagen op twintig geiten. Vangen de tijgers er vijf, of zetten de geiten alle tijgers klem? Het oude bordspel Bagh Chal uit Nepal, tegen de computer of met z'n tweeën.",
+    "author": "NAT",
+    "age": "ALL",
+    "thumbnail": "thumb.png",
+    "social": "social.png",
+    "file": "game.html",
+    "score": null,
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.1.0",
+            "date": "2026-11-27",
+            "notes": "Menuknop = pauze. Nog een tik en je speelt verder."
+        },
+        {
+            "version": "1.0.0",
+            "date": "2026-11-25",
+            "notes": "Eerste versie."
+        }
+    ]
+}

@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# Pixelfart-games: deze map (wp-content/games) is de open-source bron van wat er live staat.
+#
+#   games/bin/game status               per game: versie hier en live, en wat er verschilt
+#   games/bin/game pull                 live stand ophalen (wp pixelfart export) en committen + pushen
+#   games/bin/game deploy <CODE> [--note "…"]
+#                                       games/<CODE>/game.html live zetten (met aankondiging),
+#                                       daarna de live stand terugschrijven, committen en pushen
+#
+# Is live gewijzigd sinds de laatste commit (bijv. via WP-admin geüpload), dan weigert deploy:
+# haal dan eerst op met pull en zet je wijziging daar bovenop.
+set -euo pipefail
+
+GAMES="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(git -C "$GAMES" rev-parse --show-toplevel)"
+REL="${GAMES#"$REPO"/}"                     # games
+SSH_HOST="${PF_SSH_HOST:-pixelfart.nl}"
+WP="cd /home/pixelfart.nl/public_html && /usr/local/lsws/lsphp85/bin/php /usr/local/bin/wp"
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+CO="Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+
+die() { echo "FOUT: $*" >&2; exit 1; }
+manifest() { # manifest <bestand> <veld>: uit het pixelfart-manifest in de HTML
+  python3 -I - "$1" "$2" <<'PY'
+import json, re, sys
+s = open(sys.argv[1], encoding='utf-8').read()
+m = re.search(r'<script type="application/json" id="pixelfart">(.*?)</script>', s, re.S)
+print(json.loads(m.group(1)).get(sys.argv[2], '') if m else '')
+PY
+}
+# Live stand naar $TMP/live/<CODE>/{game.html,game.json,thumb.png}, precies zoals `wp pixelfart export` hem schrijft.
+export_live() {
+  rm -rf "$TMP/live"; mkdir -p "$TMP/live"
+  ssh "$SSH_HOST" "rm -rf ~/pf-export && $WP pixelfart export ~/pf-export >/dev/null && cd ~/pf-export && tar cf - . && rm -rf ~/pf-export" | tar xf - -C "$TMP/live"
+  ls "$TMP/live"/*/game.html >/dev/null 2>&1 || die "export van de site is leeg"
+}
+committed() { git -C "$REPO" show "HEAD:$REL/$1" 2>/dev/null || true; } # committed <CODE>/game.html
+same_as_commit() { # same_as_commit <live-bestand> <CODE>/<bestand>
+  [ "$(committed "$2" | shasum -a 256)" = "$(shasum -a 256 < "$1")" ]
+}
+push_commit() { # push_commit <bericht>
+  git -C "$REPO" add -A -- "$REL"
+  if git -C "$REPO" diff --cached --quiet -- "$REL"; then echo "Niets te committen: $REL is gelijk aan live."; return; fi
+  git -C "$REPO" commit -q -m "$1" -m "$CO" -- "$REL"
+  git -C "$REPO" push -q && echo "Gecommit en gepusht: $1" || echo "Gecommit, maar pushen mislukte: $1"
+}
+copy_live() { # copy_live <CODE>…: live stand over de repo heen zetten
+  local c
+  for c in "$@"; do
+    rm -rf "${GAMES:?}/$c"; cp -R "$TMP/live/$c" "$GAMES/$c"
+  done
+}
+
+cmd_status() {
+  export_live
+  printf '%-6s %-22s %-8s %-8s %s\n' CODE TITEL HIER LIVE STAAT
+  local d c here live st
+  for d in "$TMP/live"/*/; do
+    c="$(basename "$d")"
+    live="$(manifest "$d/game.html" version)"
+    here="-"; [ -f "$GAMES/$c/game.html" ] && here="$(manifest "$GAMES/$c/game.html" version)"
+    if [ ! -f "$GAMES/$c/game.html" ]; then st="nieuw live: games/bin/game pull"
+    elif cmp -s "$d/game.html" "$GAMES/$c/game.html"; then
+      cmp -s "$d/game.json" "$GAMES/$c/game.json" && st="gelijk" || st="gegevens live gewijzigd: games/bin/game pull"
+    elif ! same_as_commit "$d/game.html" "$c/game.html"; then st="LIVE GEWIJZIGD: eerst games/bin/game pull"
+    else st="hier gewijzigd: klaar voor deploy"; fi
+    printf '%-6s %-22s %-8s %-8s %s\n' "$c" "$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["title"][:22])' "$d/game.json")" "$here" "$live" "$st"
+  done
+}
+
+cmd_pull() {
+  export_live
+  local codes=() d c
+  for d in "$TMP/live"/*/; do codes+=("$(basename "$d")"); done
+  # Lokale, nog niet uitgerolde wijzigingen niet stilletjes overschrijven.
+  local dirty; dirty="$(git -C "$REPO" status --porcelain -- "$REL" | grep -v ' games/bin/' || true)"
+  [ -z "$dirty" ] || die "er staan niet-gecommitte wijzigingen in $REL; commit of deploy die eerst:
+$dirty"
+  copy_live "${codes[@]}"
+  local changed; changed="$(git -C "$REPO" status --porcelain -- "$REL" | awk '{print $2}' | cut -d/ -f2 | sort -u | grep -v '^bin$' | tr '\n' ' ')"
+  push_commit "Games: live stand van pixelfart.nl (${changed% })"
+}
+
+cmd_deploy() {
+  local code="${1:-}"; shift || true
+  local note=""
+  while [ $# -gt 0 ]; do case "$1" in --note) note="$2"; shift 2;; *) die "onbekende optie $1";; esac; done
+  code="$(basename "${code%/}")"; code="$(echo "$code" | tr '[:lower:]' '[:upper:]')"
+  local file="$GAMES/$code/game.html"
+  [ -n "$code" ] && [ -f "$file" ] || die "gebruik: games/bin/game deploy <CODE> (bijv. FLIPR); $REL/$code/game.html bestaat niet"
+  [ "$(manifest "$file" code)" = "$code" ] || die "het manifest in $file heeft code $(manifest "$file" code), niet $code"
+  local version; version="$(manifest "$file" version)"
+
+  export_live
+  local live="$TMP/live/$code/game.html"
+  [ -f "$live" ] || die "$code staat nog niet online. Upload een nieuwe game de eerste keer via WP-admin (Games › Nieuwe game uploaden), daarna: games/bin/game pull"
+  local live_version; live_version="$(manifest "$live" version)"
+  cmp -s "$live" "$file" && { echo "$code $version staat al precies zo online."; return; }
+  same_as_commit "$live" "$code/game.html" || die "live is $code ($live_version) gewijzigd sinds de laatste commit (bijv. via WP-admin). Zet je wijziging opzij (git stash), haal op met games/bin/game pull en zet hem daar weer bovenop (git stash pop)."
+  local newest; newest="$(printf '%s\n%s\n' "$live_version" "$version" | sort -V | tail -1)"
+  [ "$version" != "$live_version" ] && [ "$newest" = "$version" ] || die "versie $version moet hoger zijn dan live ($live_version). Hoog \"version\" op in het manifest en vul \"changelog\" in."
+  ! grep -q '<script src="pixelfart.js"' "$file" || die "$file laadt zelf pixelfart.js; haal die regel weg (de site zet de SDK er zelf in)."
+
+  echo "Uploaden: $code $live_version → $version"
+  scp -q "$file" "$SSH_HOST:pf-deploy-$code.html"
+  local noteArg=""; [ -n "$note" ] && noteArg="--note=$(printf '%q' "$note")"
+  ssh "$SSH_HOST" "$WP pixelfart update ~/pf-deploy-$code.html $noteArg; s=\$?; rm -f ~/pf-deploy-$code.html; [ \$s = 0 ] && $WP litespeed-purge all >/dev/null && sleep 5 && $WP litespeed-purge all >/dev/null; exit \$s"
+
+  export_live
+  cmp -s "$TMP/live/$code/game.html" "$file" || die "na het uploaden is live niet gelijk aan $REL/$code/game.html; controleer de site."
+  copy_live "$code"                         # game.json (versiegeschiedenis) en thumbnail van de site
+  local cl; cl="$(manifest "$file" changelog)"
+  push_commit "$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["title"])' "$GAMES/$code/game.json") $version${cl:+: $cl}"
+}
+
+case "${1:-}" in
+  status) shift; cmd_status "$@";;
+  pull) shift; cmd_pull "$@";;
+  deploy) shift; cmd_deploy "$@";;
+  *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1;;
+esac

@@ -1,0 +1,802 @@
+<!doctype html>
+<!-- Pixelfart · Geiten en Tijgers · © 2026 NAT · code: GPL-3.0-or-later · graphics & geluid: CC BY-SA 4.0 · spelregels: Bagh Chal, traditioneel bordspel uit Nepal -->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Geiten en Tijgers</title>
+<script type="application/json" id="pixelfart">
+{
+	"title": "Geiten en Tijgers",
+	"code": "TIJGR",
+	"version": "1.1.0",
+	"description": "Vier tijgers jagen op twintig geiten. Vangen de tijgers er vijf, of zetten de geiten alle tijgers klem? Het oude bordspel Bagh Chal uit Nepal, tegen de computer of met z'n tweeën.",
+	"categories": ["Strategie", "2 spelers", "Rustig", "Puzzel"],
+	"age": "6+",
+	"author": "NAT",
+	"changelog": "De menuknop pauzeert nu: tik er nog eens op (of op VERDER) en je speelt gewoon verder."
+}
+</script>
+<style>
+	html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+	body { display: grid; place-items: center; }
+	canvas { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="game" width="320" height="180" aria-label="Geiten en Tijgers, een bordspel met geiten en tijgers"></canvas>
+<script>
+// Pixelfart-platformbrug: op pixelfart.nl de echte SDK, los geopend deze eenvoudige vervanging.
+const PF = window.Pixelfart || (() => {
+  const onP = [], onR = [];
+  document.addEventListener('visibilitychange', () => (document.hidden ? onP : onR).forEach((f) => f()));
+  const note = (t) => { // testmelding bovenin; alleen los geopend, nooit op de site
+    let n = document.getElementById('pf-test');
+    if (!n) {
+      n = document.createElement('div'); n.id = 'pf-test'; n.title = 'Klik om te verbergen';
+      n.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;padding:4px 8px;background:#ffcf4a;color:#000;'
+        + 'font:12px/1.4 monospace;text-align:center;cursor:pointer';
+      n.onclick = () => n.remove(); document.body.appendChild(n);
+    }
+    n.textContent = t;
+  };
+  const intro = () => note('TESTVERSIE · Topscores en pixelfonts werken pas als de game op pixelfart.nl staat. '
+    + 'Klaar? Stuur dit HTML-bestand naar Pixelfart. (klik om te verbergen)');
+  if (document.body) intro(); else addEventListener('DOMContentLoaded', intro);
+  return {
+    inSite: false,
+    get paused() { return document.hidden; },
+    fit(cv, o = {}) {
+      const go = () => {
+        let s = Math.min(innerWidth / cv.width, innerHeight / cv.height);
+        if (o.mode === 'integer' && s >= 1) s = Math.floor(s);
+        cv.style.width = Math.floor(cv.width * s) + 'px'; cv.style.height = Math.floor(cv.height * s) + 'px';
+      };
+      cv.style.imageRendering = 'pixelated'; addEventListener('resize', go); go(); return go;
+    },
+    loop(update, o = {}) {
+      let last = 0, raf = 0, on = true; const gap = 1000 / (o.fps || 60) - 1;
+      const frame = (t) => {
+        raf = 0; if (!on || document.hidden) return; raf = requestAnimationFrame(frame);
+        if (last && t - last < gap) return;
+        const dt = last ? Math.min((t - last) / 1000, 0.1) : 0; last = t; update(dt); if (o.draw) o.draw();
+      };
+      const go = () => { if (!raf && on && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } };
+      onR.push(go); go();
+      return { stop() { on = false; cancelAnimationFrame(raf); raf = 0; }, start() { on = true; go(); } };
+    },
+    onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
+    fonts: () => Promise.resolve(),
+    text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
+    topscores() {}, // los geopend is er geen topscorelijst
+    score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
+    back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
+    store: {
+      get(k, d) { try { const v = localStorage.getItem('pf:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+      set(k, v) { try { localStorage.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} },
+    },
+  };
+})();
+
+// ---- De game ----
+const W = 320, H = 180;
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+PF.fit(cv, { mode: 'integer' });
+
+const F_BIG = '16px "Press Start 2P", monospace';
+const F_P8 = '8px "Press Start 2P", monospace';
+const F_HUD = '8px "Silkscreen", monospace';
+const F_SMALL = '8px "Tiny5", monospace';
+
+const C = {
+  black: '#000000', white: '#f2f2f2', light: '#bdbdbd', grey: '#8a8a8a', line: '#6a6a6a', dark: '#2a2a2a',
+  panel: '#141414', green: '#5dde7a', blue: '#6ec9ff', yellow: '#ffcf4a', pink: '#ff5c8a', orange: '#ff9a4a',
+  wood: '#6b4424', woodDark: '#4a2e18', grass: '#2f5a2a', grassLight: '#3d7035', grassDark: '#1f3d1c', rope: '#e8d8a0',
+};
+
+// ---------- Bord en regels ----------
+// 5x5 punten. Op punten waar (rij + kolom) even is lopen ook diagonale lijnen (het Alquerque-bord).
+const GOAT = 1, TIGER = 2, TOTAL_GOATS = 20, WIN_CAPS = 5;
+const ADJ = [], JMP = [];
+for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+  const i = r * 5 + c, adj = [], jmp = [];
+  const dirs = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+  if ((r + c) % 2 === 0) dirs.push([1, 1], [1, -1], [-1, 1], [-1, -1]);
+  for (const [dr, dc] of dirs) {
+    const r1 = r + dr, c1 = c + dc, r2 = r + 2 * dr, c2 = c + 2 * dc;
+    if (r1 < 0 || r1 > 4 || c1 < 0 || c1 > 4) continue;
+    adj.push(r1 * 5 + c1);
+    if (r2 >= 0 && r2 <= 4 && c2 >= 0 && c2 <= 4) jmp.push([r1 * 5 + c1, r2 * 5 + c2]);
+  }
+  ADJ.push(adj); JMP.push(jmp);
+}
+
+// Zet als getal: (van + 1) + 32 * naar + 1024 * (geslagen + 1). Van = -1 betekent: geit plaatsen.
+const mFrom = (m) => (m & 31) - 1, mTo = (m) => (m >> 5) & 31, mOver = (m) => (m >> 10) - 1;
+
+function gen(s, out) {
+  out.length = 0;
+  const b = s.b;
+  if (s.turn === GOAT) {
+    if (s.placed < TOTAL_GOATS) { for (let i = 0; i < 25; i++) if (!b[i]) out.push(32 * i); }
+    else for (let i = 0; i < 25; i++) if (b[i] === GOAT) for (const j of ADJ[i]) if (!b[j]) out.push(i + 1 + 32 * j);
+  } else {
+    // Slaan is verplicht: kan een tijger slaan, dan zijn alleen slagzetten toegestaan.
+    for (let i = 0; i < 25; i++) if (b[i] === TIGER) for (const [o, t] of JMP[i]) if (b[o] === GOAT && !b[t]) out.push(i + 1 + 32 * t + 1024 * (o + 1));
+    if (out.length) return out;
+    for (let i = 0; i < 25; i++) if (b[i] === TIGER) for (const j of ADJ[i]) if (!b[j]) out.push(i + 1 + 32 * j);
+  }
+  return out;
+}
+function make(s, m) {
+  const f = mFrom(m), t = mTo(m), o = mOver(m);
+  if (f < 0) { s.b[t] = GOAT; s.placed++; } else { s.b[t] = s.b[f]; s.b[f] = 0; }
+  if (o >= 0) { s.b[o] = 0; s.cap++; }
+  s.turn = 3 - s.turn;
+}
+function unmake(s, m) {
+  const f = mFrom(m), t = mTo(m), o = mOver(m);
+  if (f < 0) { s.b[t] = 0; s.placed--; } else { s.b[f] = s.b[t]; s.b[t] = 0; }
+  if (o >= 0) { s.b[o] = GOAT; s.cap--; }
+  s.turn = 3 - s.turn;
+}
+const posKey = (s) => s.b.join('') + s.turn;
+
+// Zetten die mogen, met de regel dat een stand (na het plaatsen van alle geiten) niet terug mag komen.
+function legalMoves(s) {
+  const raw = gen(s, []);
+  return raw.filter((m) => {
+    make(s, m);
+    const bad = s.placed === TOTAL_GOATS && s.hist.has(posKey(s));
+    unmake(s, m);
+    return !bad;
+  });
+}
+function tigerMoves(b, i) {
+  let n = 0;
+  for (const j of ADJ[i]) if (!b[j]) n++;
+  for (const [o, t] of JMP[i]) if (b[o] === GOAT && !b[t]) n++;
+  return n;
+}
+
+// ---------- Computerspeler ----------
+const S = { b: new Int8Array(25), placed: 0, cap: 0, turn: GOAT };
+const WIN = 100000, INF = 1e9, ABORT = {};
+const bufs = Array.from({ length: 64 }, () => []);
+let nodes = 0, deadline = 0;
+
+// Waardering vanuit de tijgers: gevangen geiten, bedreigde geiten, bewegingsvrijheid, klemgezette tijgers.
+function evalTigers() {
+  const b = S.b;
+  let mob = 0, trapped = 0, mask = 0;
+  for (let i = 0; i < 25; i++) if (b[i] === TIGER) {
+    let n = 0;
+    for (const j of ADJ[i]) if (!b[j]) n++;
+    for (const [o, t] of JMP[i]) if (b[o] === GOAT && !b[t]) { n++; mask |= 1 << o; }
+    if (!n) trapped++;
+    mob += n;
+  }
+  let threats = 0;
+  while (mask) { mask &= mask - 1; threats++; }
+  return S.cap * 400 + threats * 70 + mob * 6 - trapped * 45;
+}
+function negamax(d, a, beta, ply) {
+  if ((++nodes & 2047) === 0 && performance.now() > deadline) throw ABORT;
+  if (S.cap >= WIN_CAPS) return S.turn === TIGER ? WIN - ply : -(WIN - ply);
+  const mv = gen(S, bufs[ply]);
+  if (!mv.length) return -(WIN - ply);
+  // Op diepte 0 nog doorrekenen als de tijgers moeten slaan (rustig zoeken), anders waarderen.
+  if (d <= 0 && !(S.turn === TIGER && mv[0] >= 1024 && ply < 60)) {
+    const e = evalTigers();
+    return S.turn === TIGER ? e : -e;
+  }
+  let best = -INF;
+  for (let k = 0; k < mv.length; k++) {
+    const m = mv[k];
+    make(S, m);
+    const v = -negamax(d - 1, -beta, -a, ply + 1);
+    unmake(S, m);
+    if (v > best) { best = v; if (v > a) { a = v; if (a >= beta) break; } }
+  }
+  return best;
+}
+function loadS(s) { S.b.set(s.b); S.placed = s.placed; S.cap = s.cap; S.turn = s.turn; }
+function search(s, moves, maxDepth, ms) {
+  deadline = performance.now() + ms; nodes = 0;
+  let scored = moves.map((m) => ({ m, v: 0 })), done = null;
+  for (let d = 1; d <= maxDepth; d++) {
+    loadS(s);
+    try {
+      let alpha = -INF;
+      for (const r of scored) {
+        make(S, r.m);
+        // Venster net onder de beste: gelijke zetten krijgen een precieze waarde, slechtere een bovengrens.
+        r.v = -negamax(d - 1, -INF, -(alpha - 1), 1);
+        unmake(S, r.m);
+        if (r.v > alpha) alpha = r.v;
+      }
+    } catch (e) {
+      if (e !== ABORT) throw e;
+      break;
+    }
+    scored = scored.slice().sort((x, y) => y.v - x.v);
+    done = scored.map((r) => ({ m: r.m, v: r.v }));
+    if (Math.abs(done[0].v) > WIN - 100) break;
+  }
+  return done || scored;
+}
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+function chooseMove() {
+  const L = g.legal;
+  if (L.length === 1) return L[0];
+  const lv = settings.level;
+  if (lv === 0 && Math.random() < 0.5) return pick(L); // Makkelijk: vaak een willekeurige zet
+  const res = search(g, L, lv === 0 ? 1 : lv === 1 ? 3 : 14, lv === 2 ? 1000 : 3000);
+  if (lv === 1 && Math.random() < 0.3) { // Gemiddeld: soms een net-niet-beste zet
+    const ok = res.filter((r) => r.v >= res[0].v - 120 && r.v > -WIN + 100);
+    if (ok.length) return pick(ok).m;
+  }
+  return pick(res.filter((r) => r.v === res[0].v)).m;
+}
+
+// ---------- Pixel-sprites ----------
+const TIGER_ROWS = [
+  '..kk........kk..',
+  '.kook......kook.',
+  '.kookkkkkkkkook.',
+  '.koookokkokoook.',
+  '.kkooooooooookk.',
+  '.kooyyooooyyook.',
+  '.kkokyooooykokk.',
+  '.koooooppoooook.',
+  '.kkowwwkkwwwokk.',
+  '.koowwwwwwwwook.',
+  '.kooowwwwwwoook.',
+  '..kooowwwwoook..',
+  '...kkkkkkkkkk...',
+];
+const GOAT_ROWS = [
+  '...hh......hh...',
+  '....hh....hh....',
+  '.....hkkkkh.....',
+  '....kwwwwwwk....',
+  'kggkwwwwwwwwkggk',
+  '.kkwwkwwwwkwwkk.',
+  '...kwwwwwwwwk...',
+  '...kwwwwwwwwk...',
+  '....kwwwwwwk....',
+  '....kgwppwgk....',
+  '.....kggggk.....',
+  '......kwwk......',
+  '.......kk.......',
+];
+const PAL_TIGER = { k: '#000000', o: C.orange, w: C.white, y: C.yellow, p: C.pink };
+const PAL_TIGER_STUCK = { k: '#000000', o: C.grey, w: C.light, y: C.light, p: C.line };
+const PAL_GOAT = { k: '#000000', w: C.white, g: C.light, h: '#d8b878', p: C.pink };
+const PAL_GOAT_GONE = { k: '#000000', w: C.line, g: '#4a4a4a', h: '#5a5040', p: '#5a5a5a' };
+function sprite(rows, pal, sc = 1) {
+  const c = document.createElement('canvas');
+  c.width = 16 * sc; c.height = rows.length * sc;
+  const x = c.getContext('2d');
+  rows.forEach((row, y) => [...row].forEach((ch, i) => {
+    if (pal[ch]) { x.fillStyle = pal[ch]; x.fillRect(i * sc, y * sc, sc, sc); }
+  }));
+  return c;
+}
+const SPR = {
+  tiger: sprite(TIGER_ROWS, PAL_TIGER), tigerStuck: sprite(TIGER_ROWS, PAL_TIGER_STUCK), tiger2: sprite(TIGER_ROWS, PAL_TIGER, 2),
+  goat: sprite(GOAT_ROWS, PAL_GOAT), goatGone: sprite(GOAT_ROWS, PAL_GOAT_GONE), goat2: sprite(GOAT_ROWS, PAL_GOAT, 2),
+};
+
+// ---------- Geluid ----------
+let ac = null, master = null, muted = PF.store.get('muted', false);
+function ensureAudio() {
+  if (ac) { if (ac.state === 'suspended' && !PF.paused) ac.resume(); return; }
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = muted ? 0 : 0.22; master.connect(ac.destination);
+  } catch (e) { ac = null; }
+}
+function tone(f, d, type = 'square', f2 = 0, delay = 0, vol = 0.5) {
+  if (!ac || muted) return;
+  const t = ac.currentTime + delay, o = ac.createOscillator(), gn = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (f2) o.frequency.linearRampToValueAtTime(f2, t + d);
+  gn.gain.setValueAtTime(vol, t); gn.gain.linearRampToValueAtTime(0.0001, t + d);
+  o.connect(gn); gn.connect(master); o.start(t); o.stop(t + d + 0.02);
+}
+const sfx = {
+  click() { tone(990, 0.03); },
+  place() { tone(620, 0.05, 'triangle'); tone(840, 0.07, 'triangle', 0, 0.05); },
+  goat() { tone(520, 0.08, 'triangle', 600); },
+  tiger() { tone(170, 0.12, 'square', 120, 0, 0.35); },
+  capture() { tone(320, 0.22, 'sawtooth', 90, 0, 0.35); tone(110, 0.2, 'square', 60, 0.06, 0.3); },
+  error() { tone(150, 0.12, 'square', 0, 0, 0.3); },
+  win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, 'square', 0, i * 0.12, 0.35)); },
+  lose() { [392, 330, 262, 196].forEach((f, i) => tone(f, 0.18, 'triangle', 0, i * 0.15)); },
+  draw() { tone(440, 0.15, 'triangle'); tone(440, 0.15, 'triangle', 0, 0.2); },
+};
+function toggleMute() {
+  muted = !muted; PF.store.set('muted', muted);
+  if (master) master.gain.value = muted ? 0 : 0.22;
+  if (!muted) { ensureAudio(); sfx.click(); }
+  dirty = true;
+}
+PF.onPause(() => { if (ac) ac.suspend(); });
+PF.onResume(() => { if (ac) ac.resume(); dirty = true; });
+
+// ---------- Toestand ----------
+const LEVELS = ['MAKKELIJK', 'GEMIDDELD', 'MOEILIJK'];
+const settings = Object.assign({ players: 0, side: 0, level: 0 }, PF.store.get('settings', {}));
+let screen = 'menu', dirty = true, time = 0, blink = 0, hits = [];
+let menuFocus = 0, menuBtn = 0, overBtn = 0, showCursor = false;
+let g = null, anim = null;
+const particles = [];
+
+const SPX = 36, X0 = 88, Y0 = 18;
+const px = (i) => X0 + (i % 5) * SPX, py = (i) => Y0 + Math.floor(i / 5) * SPX;
+const humanSide = () => (settings.side === 0 ? GOAT : TIGER);
+const isAI = (side) => settings.players === 0 && side !== humanSide();
+
+function newGame() {
+  const b = new Int8Array(25);
+  b[0] = b[4] = b[20] = b[24] = TIGER;
+  g = { b, placed: 0, cap: 0, turn: GOAT, hist: new Set(), sel: -1, cursor: 12, last: null, over: null,
+    err: null, legal: [], raw: [], aiWait: 0, stuck: 0, cfg: { ...settings } };
+  anim = null; particles.length = 0; overBtn = 0;
+  screen = 'game';
+  startTurn();
+}
+function startTurn() {
+  g.raw = gen(g, []);
+  g.legal = legalMoves(g);
+  g.sel = -1;
+  g.stuck = 0;
+  for (let i = 0; i < 25; i++) if (g.b[i] === TIGER && !tigerMoves(g.b, i)) g.stuck++;
+  dirty = true;
+  if (g.cap >= WIN_CAPS) return finish(TIGER, 'De tijgers hebben 5 geiten gevangen.');
+  if (!g.raw.length) {
+    return g.turn === TIGER ? finish(GOAT, 'Geen enkele tijger kan nog bewegen.')
+      : finish(TIGER, 'De geiten kunnen niet meer bewegen.');
+  }
+  if (!g.legal.length) return finish(0, 'Elke zet zou een stand herhalen.');
+  if (isAI(g.turn)) g.aiWait = settings.level === 0 ? 0.8 : 0.5;
+}
+function finish(winner, reason) {
+  g.over = { winner, reason };
+  overBtn = 0;
+  if (!winner) sfx.draw();
+  else if (settings.players === 0 && winner !== humanSide()) sfx.lose();
+  else sfx.win();
+  dirty = true;
+}
+function applyMove(m) {
+  const f = mFrom(m), t = mTo(m), o = mOver(m);
+  const piece = f < 0 ? GOAT : g.b[f];
+  make(g, m);
+  if (g.placed === TOTAL_GOATS) g.hist.add(posKey(g));
+  g.last = { from: f, to: t };
+  g.sel = -1;
+  if (f < 0) sfx.place(); else if (piece === GOAT) sfx.goat(); else sfx.tiger();
+  anim = {
+    piece, to: t, over: o, t: 0,
+    sx: f < 0 ? px(t) : px(f), sy: f < 0 ? py(t) - 12 : py(f), ex: px(t), ey: py(t),
+    dur: o >= 0 ? 0.34 : f < 0 ? 0.16 : 0.2,
+    done() {
+      if (o >= 0) { poof(px(o), py(o), C.white); sfx.capture(); }
+      if (f < 0) poof(px(t), py(t) + 5, C.grassLight);
+      startTurn();
+    },
+  };
+  dirty = true;
+}
+function poof(x, y, col) {
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2;
+    particles.push({ x, y, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40 - 10, life: 0.4, col });
+  }
+}
+function showErr(text) { g.err = { text, t: 2.2 }; sfx.error(); dirty = true; }
+
+// Spelerszet op punt i (tik, klik of Enter).
+function tapPoint(i) {
+  if (!g || g.over || anim || isAI(g.turn)) return;
+  g.cursor = i;
+  const L = g.legal;
+  if (g.turn === GOAT && g.placed < TOTAL_GOATS) {
+    const m = L.find((x) => mTo(x) === i);
+    if (m !== undefined) applyMove(m); else showErr(g.b[i] ? 'Kies een lege plek.' : 'Hier mag het niet.');
+    return;
+  }
+  if (g.sel >= 0) {
+    const m = L.find((x) => mFrom(x) === g.sel && mTo(x) === i);
+    if (m !== undefined) { applyMove(m); return; }
+  }
+  if (g.b[i] === g.turn) {
+    if (L.some((x) => mFrom(x) === i)) { g.sel = i; sfx.click(); }
+    else {
+      g.sel = -1;
+      if (g.turn === TIGER && g.raw.length && mOver(g.raw[0]) >= 0) showErr('Je moet slaan! Deze tijger kan dat niet.');
+      else if (g.raw.some((x) => mFrom(x) === i)) showErr('Die zet maakt een stand die al was.');
+      else showErr(g.turn === TIGER ? 'Deze tijger zit vast.' : 'Deze geit kan nergens heen.');
+    }
+  } else g.sel = -1;
+  dirty = true;
+}
+
+// ---------- Invoer ----------
+function toCanvas(e) {
+  const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+}
+function nearestPoint(x, y) {
+  let best = -1, bd = 17;
+  for (let i = 0; i < 25; i++) {
+    const d = Math.max(Math.abs(px(i) - x), Math.abs(py(i) - y));
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+addEventListener('pointerdown', (e) => {
+  ensureAudio();
+  const p = toCanvas(e);
+  if (e.pointerType !== 'mouse') showCursor = false;
+  for (const h of hits) if (p.x >= h.x && p.x < h.x + h.w && p.y >= h.y && p.y < h.y + h.h) { h.fn(); dirty = true; return; }
+  if (screen === 'help') { screen = 'menu'; dirty = true; return; }
+  if (screen === 'game' && !g.over) {
+    const i = nearestPoint(p.x, p.y);
+    if (i >= 0) tapPoint(i);
+    else if (g.sel >= 0) { g.sel = -1; dirty = true; }
+  }
+});
+addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse' || screen !== 'game' || !g) return;
+  const p = toCanvas(e), i = nearestPoint(p.x, p.y);
+  if (i >= 0 && (i !== g.cursor || !showCursor)) { g.cursor = i; showCursor = true; dirty = true; }
+});
+addEventListener('keydown', (e) => {
+  const k = e.key;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter'].includes(k)) e.preventDefault();
+  ensureAudio();
+  dirty = true;
+  if (k === 'm' || k === 'M') { toggleMute(); return; }
+  if (screen === 'help') { screen = 'menu'; return; }
+  if (screen === 'menu') return menuKey(k);
+  if (g.over) {
+    if (k === 'ArrowLeft' || k === 'ArrowRight') { overBtn = 1 - overBtn; sfx.click(); }
+    else if (k === 'Enter' || k === ' ') (overBtn === 0 ? newGame : toMenu)();
+    else if (k === 'r' || k === 'R') newGame();
+    else if (k === 'Escape') toMenu();
+    return;
+  }
+  if (k === 'Escape') { if (g.sel >= 0) g.sel = -1; else toMenu(); return; }
+  const r = Math.floor(g.cursor / 5), c = g.cursor % 5;
+  const mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[k];
+  if (mv) {
+    showCursor = true;
+    g.cursor = Math.min(4, Math.max(0, r + mv[0])) * 5 + Math.min(4, Math.max(0, c + mv[1]));
+  } else if (k === 'Enter' || k === ' ') { showCursor = true; tapPoint(g.cursor); }
+});
+// Het menu is een pauze: een lopend spel blijft bewaard tot je VERDER kiest (of nog eens op de menuknop tikt).
+const canResume = () => !!(g && !g.over);
+const cfgChanged = () => canResume() && ['players', 'side', 'level'].some((k) => settings[k] !== g.cfg[k]);
+function toMenu() {
+  if (anim) { const a = anim; anim = null; a.done(); } // lopende zet eerst afmaken
+  screen = 'menu'; menuFocus = 3; menuBtn = 0; dirty = true;
+}
+function resume() {
+  if (!canResume()) return;
+  Object.assign(settings, g.cfg); saveSettings(); // verder met de instellingen van dit spel
+  screen = 'game'; dirty = true;
+}
+function menuButtons() {
+  if (!canResume()) return [
+    ['SPELEN', 84, 92, F_P8, () => newGame()],
+    ['UITLEG', 182, 70, F_HUD, () => { screen = 'help'; }],
+  ];
+  return [
+    ['VERDER', 84, 64, F_P8, resume],
+    ['NIEUW SPEL', 152, 72, F_HUD, () => newGame()],
+    ['UITLEG', 228, 60, F_HUD, () => { screen = 'help'; }],
+  ];
+}
+function saveSettings() { PF.store.set('settings', settings); }
+function rowEnabled(r) { return r === 0 || r === 3 || settings.players === 0; }
+function menuKey(k) {
+  const opts = [2, 2, 3];
+  if (k === 'ArrowUp' || k === 'ArrowDown') {
+    const d = k === 'ArrowUp' ? -1 : 1;
+    let f = menuFocus;
+    do { f = (f + d + 4) % 4; } while (!rowEnabled(f));
+    menuFocus = f; sfx.click();
+  } else if (k === 'ArrowLeft' || k === 'ArrowRight') {
+    const d = k === 'ArrowLeft' ? -1 : 1;
+    if (menuFocus === 3) { const n = menuButtons().length; menuBtn = (menuBtn + d + n) % n; }
+    else {
+      const key = ['players', 'side', 'level'][menuFocus];
+      settings[key] = Math.min(opts[menuFocus] - 1, Math.max(0, settings[key] + d));
+      saveSettings();
+    }
+    sfx.click();
+  } else if (k === 'Enter' || k === ' ') {
+    sfx.click();
+    if (menuFocus === 3) menuButtons()[menuBtn][4](); else (canResume() && !cfgChanged() ? resume : newGame)();
+  } else if (k === 'Escape') { if (canResume()) { sfx.click(); resume(); } else if (PF.inSite) PF.back(); }
+}
+
+// ---------- Update ----------
+function update(dt) {
+  time += dt;
+  const b = Math.floor(time * 2.5) % 2;
+  if (b !== blink) { blink = b; if (screen === 'game') dirty = true; }
+  if (screen === 'game' && g && isAI(g.turn) && !g.over) dirty = true; // denk-puntjes
+  if (particles.length) {
+    for (let k = particles.length - 1; k >= 0; k--) {
+      const p = particles[k];
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; p.life -= dt;
+      if (p.life <= 0) particles.splice(k, 1);
+    }
+    dirty = true;
+  }
+  if (screen !== 'game') return;
+  if (anim) {
+    anim.t += dt; dirty = true;
+    if (anim.t >= anim.dur) { const a = anim; anim = null; a.done(); }
+  }
+  if (g.err) { g.err.t -= dt; if (g.err.t <= 0) { g.err = null; dirty = true; } }
+  if (!anim && !g.over && isAI(g.turn)) {
+    g.aiWait -= dt;
+    if (g.aiWait <= 0) applyMove(chooseMove());
+  }
+}
+
+// ---------- Tekenen ----------
+const rect = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+function text(s, x, y, font, col, align = 'left') {
+  ctx.font = font; ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = 'top';
+  PF.text(ctx, s, x, y);
+}
+function wrap(s, w, font) {
+  ctx.font = font;
+  const lines = []; let cur = '';
+  for (const wd of s.split(' ')) {
+    const t = cur ? cur + ' ' + wd : wd;
+    if (ctx.measureText(t).width > w && cur) { lines.push(cur); cur = wd; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+function frame(x, y, w, h, c) { rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c); rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c); }
+function corners(cx, cy, w, h, c) {
+  const x = cx - (w >> 1), y = cy - (h >> 1);
+  for (const [ax, ay, sx, sy] of [[x, y, 1, 1], [x + w - 1, y, -1, 1], [x, y + h - 1, 1, -1], [x + w - 1, y + h - 1, -1, -1]]) {
+    rect(sx > 0 ? ax : ax - 3, ay, 4, 1, c); rect(ax, sy > 0 ? ay : ay - 3, 1, 4, c);
+  }
+}
+function button(x, y, w, h, label, font, state, fn) {
+  // state: 0 = normaal, 1 = gekozen, 2 = uit
+  const sel = state === 1, off = state === 2;
+  rect(x, y, w, h, sel ? C.green : C.black);
+  frame(x, y, w, h, off ? C.dark : sel ? C.green : C.line);
+  text(label, x + w / 2, y + Math.floor((h - 8) / 2) + 1, font, off ? C.line : sel ? C.black : C.light, 'center');
+  if (fn && !off) hits.push({ x, y, w, h, fn });
+}
+function iconMute(x, y) {
+  const c = muted ? C.grey : C.light;
+  rect(x + 1, y + 4, 3, 4, c); rect(x + 4, y + 3, 1, 6, c); rect(x + 5, y + 2, 1, 8, c); rect(x + 6, y + 1, 1, 10, c);
+  if (muted) for (let k = 0; k < 4; k++) { rect(x + 8 + k, y + 4 + k, 1, 1, C.pink); rect(x + 11 - k, y + 4 + k, 1, 1, C.pink); }
+  else { rect(x + 8, y + 4, 1, 4, c); rect(x + 10, y + 2, 1, 8, c); }
+  hits.push({ x: x - 4, y: y - 4, w: 20, h: 20, fn: toggleMute });
+}
+function iconMenu(x, y, on = false) {
+  if (on) rect(x - 2, y, 16, 12, C.yellow);
+  for (const dy of [2, 5, 8]) rect(x + 1, y + dy, 10, 2, on ? C.black : C.light);
+  hits.push({ x: x - 4, y: y - 4, w: 20, h: 20, fn: () => { sfx.click(); if (screen === 'game') toMenu(); else resume(); } });
+}
+
+// Graspolletjes, met een vaste "willekeur".
+const TUFTS = [];
+{ let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let k = 0; k < 70; k++) TUFTS.push([76 + Math.floor(rnd() * 166), 4 + Math.floor(rnd() * 170)]); }
+
+function drawBoard() {
+  rect(72, 0, 176, 180, C.woodDark);
+  rect(73, 1, 174, 178, C.wood);
+  rect(76, 4, 168, 172, C.grass);
+  for (const [x, y] of TUFTS) { rect(x, y, 1, 2, C.grassLight); rect(x + 2, y + 1, 1, 1, C.grassLight); }
+  // lijnen: eerst schaduw, dan touwkleur
+  for (const [col, off] of [[C.grassDark, 1], [C.rope, 0]]) {
+    for (let k = 0; k < 5; k++) {
+      rect(X0, Y0 + k * SPX + off, 4 * SPX + 1, 1, col);
+      rect(X0 + k * SPX + off, Y0, 1, 4 * SPX + 1, col);
+    }
+    for (let i = 0; i < 25; i++) for (const j of ADJ[i]) {
+      if (j <= i || j - i === 1 || j - i === 5) continue;
+      const dx = Math.sign(px(j) - px(i));
+      for (let s = 0; s <= SPX; s++) rect(px(i) + s * dx, py(i) + s + off, 1, 1, col);
+    }
+  }
+  for (let i = 0; i < 25; i++) {
+    const x = px(i), y = py(i);
+    rect(x - 1, y - 2, 3, 5, C.rope); rect(x - 2, y - 1, 5, 3, C.rope); rect(x, y, 1, 1, C.wood);
+  }
+}
+function drawPiece(kind, x, y, stuck) {
+  rect(x - 6, y + 6, 12, 2, C.grassDark);
+  ctx.drawImage(kind === GOAT ? SPR.goat : stuck ? SPR.tigerStuck : SPR.tiger, Math.round(x - 8), Math.round(y - 7));
+}
+function drawGame() {
+  drawBoard();
+  const humanTurn = !g.over && !anim && !isAI(g.turn);
+  // laatste zet
+  if (g.last && g.last.from >= 0 && !anim) rect(px(g.last.from) - 1, py(g.last.from) - 1, 3, 3, C.yellow);
+  // doelen van de gekozen stukken
+  if (humanTurn) {
+    const placing = g.turn === GOAT && g.placed < TOTAL_GOATS;
+    for (const m of g.legal) {
+      if (!placing && mFrom(m) !== g.sel) continue;
+      const t = mTo(m), cap = mOver(m) >= 0;
+      if (placing && !(showCursor && t === g.cursor)) continue;
+      const col = cap ? C.pink : C.green;
+      if (blink || placing) { rect(px(t) - 3, py(t) - 3, 7, 7, C.black); rect(px(t) - 2, py(t) - 2, 5, 5, col); }
+      if (cap) corners(px(mOver(m)), py(mOver(m)) + 1, 22, 20, C.pink);
+    }
+  }
+  // stukken
+  for (let i = 0; i < 25; i++) {
+    if (!g.b[i] || (anim && anim.to === i)) continue;
+    drawPiece(g.b[i], px(i), py(i), g.b[i] === TIGER && !tigerMoves(g.b, i));
+  }
+  if (anim) {
+    if (anim.over >= 0) drawPiece(GOAT, px(anim.over), py(anim.over));
+    const t = Math.min(1, anim.t / anim.dur), e = t * t * (3 - 2 * t);
+    const x = anim.sx + (anim.ex - anim.sx) * e;
+    let y = anim.sy + (anim.ey - anim.sy) * e;
+    if (anim.over >= 0) y -= Math.round(Math.sin(t * Math.PI) * 10);
+    drawPiece(anim.piece, x, y, false);
+  }
+  if (g.sel >= 0) corners(px(g.sel), py(g.sel) + 1, 22, 20, C.yellow);
+  if (humanTurn && showCursor) corners(px(g.cursor), py(g.cursor) + 1, 26, 24, C.white);
+  for (const p of particles) rect(p.x, p.y, 2, 2, p.col);
+  drawPanel(0, GOAT);
+  drawPanel(248, TIGER);
+  iconMenu(4, 164);
+  iconMute(302, 164);
+  if (g.over) drawOver();
+}
+function who(side) {
+  if (settings.players === 1) return [side === GOAT ? 'SPELER 1' : 'SPELER 2'];
+  return side === humanSide() ? ['JIJ'] : ['COMPUTER', LEVELS[settings.level]];
+}
+function statusText(side) {
+  if (g.err) return [g.err.text, C.pink];
+  if (isAI(side)) return ['Denkt na' + '.'.repeat(1 + Math.floor(time * 3) % 3), C.light];
+  if (side === GOAT) {
+    if (g.placed < TOTAL_GOATS) return ['Zet een geit op een lege plek.', C.white];
+    return [g.sel >= 0 ? 'Tik waar hij heen moet.' : 'Kies een geit om te schuiven.', C.white];
+  }
+  if (g.raw.length && mOver(g.raw[0]) >= 0) return [g.sel >= 0 ? 'Spring over de geit!' : 'Je moet een geit vangen!', C.yellow];
+  return [g.sel >= 0 ? 'Tik waar hij heen moet.' : 'Kies een tijger.', C.white];
+}
+function drawPanel(x, side) {
+  const cx = x + 36, active = !g.over && g.turn === side;
+  rect(x, 0, 72, 180, C.panel);
+  if (active) frame(x + 1, 1, 70, 178, C.yellow);
+  ctx.drawImage(side === GOAT ? SPR.goat2 : SPR.tiger2, cx - 16, 6);
+  text(side === GOAT ? 'GEITEN' : 'TIJGERS', cx, 36, F_P8, active ? C.yellow : C.white, 'center');
+  who(side).forEach((s, k) => text(s, cx, 47 + k * 9, F_SMALL, C.grey, 'center'));
+  if (side === GOAT) {
+    text('TE PLAATSEN', cx, 69, F_SMALL, C.light, 'center');
+    text(String(TOTAL_GOATS - g.placed), cx, 78, F_BIG, g.placed < TOTAL_GOATS ? C.white : C.line, 'center');
+    text('OP HET BORD', cx, 99, F_SMALL, C.light, 'center');
+    text(String(g.placed - g.cap), cx, 108, F_P8, C.white, 'center');
+  } else {
+    text('GEVANGEN', cx, 69, F_SMALL, C.light, 'center');
+    for (let k = 0; k < WIN_CAPS; k++) {
+      const sx = k < 3 ? cx - 28 + k * 19 : cx - 18 + (k - 3) * 19, sy = k < 3 ? 79 : 94;
+      if (k < g.cap) ctx.drawImage(SPR.goatGone, sx, sy);
+      else frame(sx + 2, sy + 1, 12, 12, C.dark);
+    }
+    text('VAST: ' + g.stuck + ' VAN 4', cx, 110, F_SMALL, g.stuck ? C.blue : C.light, 'center');
+  }
+  if (active) {
+    rect(x + 8, 121, 56, 11, C.yellow);
+    text('AAN ZET', cx, 123, F_HUD, C.black, 'center');
+    const [s, col] = statusText(side);
+    wrap(s, 64, F_SMALL).slice(0, 3).forEach((l, k) => text(l, cx, 136 + k * 9, F_SMALL, col, 'center'));
+  }
+}
+function drawOver() {
+  const { winner, reason } = g.over;
+  const x = 86, y = 44, w = 148, h = 92;
+  const col = !winner ? C.light : winner === GOAT ? C.green : C.orange;
+  rect(x, y, w, h, C.black); frame(x, y, w, h, col); frame(x + 2, y + 2, w - 4, h - 4, C.dark);
+  text(!winner ? 'REMISE!' : winner === GOAT ? 'GEITEN WINNEN!' : 'TIJGERS WINNEN!', x + w / 2, y + 9, F_P8, col, 'center');
+  let sub = '';
+  if (settings.players === 0 && winner) sub = winner === humanSide() ? 'JIJ WINT!' : 'DE COMPUTER WINT';
+  if (settings.players === 0) sub += (sub ? ' - ' : '') + LEVELS[settings.level];
+  if (sub) text(sub, x + w / 2, y + 22, F_HUD, C.white, 'center');
+  wrap(reason, w - 16, F_SMALL).slice(0, 2).forEach((l, k) => text(l, x + w / 2, y + 36 + k * 9, F_SMALL, C.light, 'center'));
+  button(x + 10, y + 64, 62, 18, 'OPNIEUW', F_HUD, overBtn === 0 ? 1 : 0, newGame);
+  button(x + 76, y + 64, 62, 18, 'MENU', F_HUD, overBtn === 1 ? 1 : 0, toMenu);
+}
+
+function drawMenu() {
+  rect(0, 0, W, H, C.black);
+  rect(0, 150, W, 30, C.grass);
+  for (const [tx] of TUFTS.slice(0, 40)) rect((tx - 76) * 2 % W, 152 + (tx % 20), 1, 2, C.grassLight);
+  text('GEITEN EN TIJGERS', W / 2, 10, F_BIG, C.yellow, 'center');
+  text('Bagh Chal - een oud bordspel uit Nepal', W / 2, 32, F_SMALL, C.grey, 'center');
+  const rows = [
+    ['SPELERS', ['1 SPELER', '2 SPELERS'], 'players'],
+    ['JIJ BENT', ['GEITEN', 'TIJGERS'], 'side'],
+    ['NIVEAU', LEVELS, 'level'],
+  ];
+  rows.forEach(([label, opts, key], r) => {
+    const y = 48 + r * 22, on = rowEnabled(r);
+    if (menuFocus === r) text('>', 12, y + 4, F_HUD, C.yellow);
+    text(label, 22, y + 4, F_HUD, on ? C.white : C.line);
+    let x = 84;
+    opts.forEach((o, k) => {
+      ctx.font = F_HUD;
+      const w = Math.ceil(ctx.measureText(o).width) + 10;
+      button(x, y, w, 15, o, F_HUD, !on ? 2 : settings[key] === k ? 1 : 0, () => {
+        settings[key] = k; menuFocus = r; saveSettings(); sfx.click();
+      });
+      if (menuFocus === r && settings[key] === k) frame(x - 1, y - 1, w + 2, 17, C.yellow);
+      x += w + 4;
+    });
+  });
+  const y = 118;
+  if (menuFocus === 3) text('>', 12, y + 5, F_HUD, C.yellow);
+  const bs = menuButtons();
+  if (menuBtn >= bs.length) menuBtn = 0;
+  bs.forEach(([label, bx, bw, font, fn], k) => {
+    button(bx, y, bw, 19, label, font, k === 0 ? 1 : 0, () => { sfx.click(); fn(); });
+    if (menuFocus === 3 && menuBtn === k) frame(bx - 1, y - 1, bw + 2, 21, C.yellow);
+  });
+  ctx.drawImage(SPR.tiger2, 22, 140);
+  ctx.drawImage(SPR.goat2, 266, 140);
+  if (canResume()) {
+    const changed = cfgChanged();
+    text(changed ? 'Andere instellingen? Kies NIEUW SPEL.' : 'Spel op pauze. Tik op de menuknop of VERDER.', W / 2, 143, F_SMALL, changed ? C.yellow : C.light, 'center');
+    iconMenu(4, 164, true);
+  }
+  text('Pijltjes + Enter, of tik.  M = geluid aan/uit', W / 2, 168, F_SMALL, C.white, 'center');
+  iconMute(302, 4);
+}
+
+const HELP = [
+  'Vier tijgers jagen op twintig geiten. De een speelt met de geiten, de ander met de tijgers. De geiten beginnen.',
+  'GEITEN: zet eerst alle 20 geiten een voor een op een lege plek. Pas als ze er allemaal staan, mag je een geit een stapje langs een lijn schuiven.',
+  'TIJGERS: schuif een tijger een stap langs een lijn. Staat er een geit naast, met een lege plek erachter? Spring eroverheen en vang hem! Kan een tijger vangen, dan moet het.',
+  'De tijgers winnen als ze 5 geiten vangen. De geiten winnen als geen enkele tijger nog kan bewegen.',
+  'Staan alle geiten op het bord? Dan mag dezelfde stand niet terugkomen. Lukt geen enkele zet meer zonder herhaling, dan is het remise.',
+];
+function drawHelp() {
+  rect(0, 0, W, H, C.black);
+  text('UITLEG', W / 2, 6, F_P8, C.yellow, 'center');
+  let y = 20;
+  for (const p of HELP) {
+    for (const l of wrap(p, 296, F_SMALL)) { text(l, 12, y, F_SMALL, C.white); y += 9; }
+    y += 4;
+  }
+  text('Tik of druk op een toets om terug te gaan', W / 2, 168, F_SMALL, C.grey, 'center');
+}
+
+function draw() {
+  if (!dirty) return;
+  dirty = false;
+  hits = [];
+  ctx.imageSmoothingEnabled = false;
+  if (screen === 'menu') drawMenu();
+  else if (screen === 'help') drawHelp();
+  else drawGame();
+}
+
+PF.fonts(['Press Start 2P', 'Silkscreen', 'Tiny5']).then(() => { dirty = true; PF.loop(update, { fps: 30, draw }); });
+</script>
+</body>
+</html>

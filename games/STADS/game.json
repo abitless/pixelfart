@@ -1,0 +1,30 @@
+{
+    "title": "Stadsslag",
+    "code": "STADS",
+    "categories": [
+        "Actie"
+    ],
+    "published": "2026-11-25",
+    "version": "1.2.0",
+    "description": "Kies je wapen in de barak en vecht door een verwoeste stad. Bestuur tanks, helikopters en Chinooks en vernietig de vijandelijke basis!",
+    "author": "JOZ",
+    "age": "8+",
+    "thumbnail": "thumb.png",
+    "social": "social.png",
+    "file": "game.html",
+    "score": {
+        "order": "desc",
+        "label": "punten"
+    },
+    "license": {
+        "code": "GPL-3.0-or-later",
+        "art": "CC-BY-SA-4.0"
+    },
+    "changelog": [
+        {
+            "version": "1.2.0",
+            "date": "2026-11-25",
+            "notes": "Bazooka, Ranger, uitkijktoren met sniper en granaten erbij."
+        }
+    ]
+}

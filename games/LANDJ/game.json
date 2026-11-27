@@ -3,14 +3,16 @@
     "code": "LANDJ",
     "categories": [
         "2 spelers",
+        "Rustig",
         "Strategie"
     ],
     "published": "2026-11-19",
-    "version": "1.1.0",
+    "version": "1.3.0",
     "description": "Verover land en verdedig wat je hebt! Stuur je soldaten slim rond en laat de dobbelstenen beslissen. Tegen de computer of met z'n tweeën.",
     "author": "NAT",
-    "age": "ALL",
+    "age": "8+",
     "thumbnail": "thumb.png",
+    "social": "social.png",
     "file": "game.html",
     "score": {
         "order": "desc",
@@ -21,6 +23,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.3.0",
+            "date": "2026-11-23",
+            "notes": "Ingraven kan alleen nog als je achterstaat: zo blijft het een kans om terug te komen."
+        },
         {
             "version": "1.1.0",
             "date": "2026-11-22",

@@ -9,19 +9,13 @@
 {
 	"title": "Landjepik",
 	"code": "LANDJ",
-	"version": "1.1.0",
+	"version": "1.3.0",
 	"description": "Verover land en verdedig wat je hebt! Stuur je soldaten slim rond en laat de dobbelstenen beslissen. Tegen de computer of met z'n tweeën.",
-	"categories": [
-		"2 spelers",
-		"Strategie"
-	],
-	"age": "ALL",
+	"categories": ["Strategie", "2 spelers", "Rustig"],
+	"age": "8+",
 	"author": "NAT",
-	"score": {
-		"order": "desc",
-		"label": "punten"
-	},
-	"changelog": "Volgens de nieuwe Pixelfart-regels: ook los te spelen en te testen, pauzeert netjes, geluid altijd uit te zetten (knop of M) en onthouden, alleen pixelfonts."
+	"changelog": "Ingraven kan alleen nog als je achterstaat: zo blijft het een kans om terug te komen.",
+	"score": { "order": "desc", "label": "punten" }
 }
 </script>
 <style>
@@ -33,66 +27,15 @@
 <body>
 <canvas id="game" width="320" height="180" aria-label="Landjepik, een strategiespel om land te veroveren"></canvas>
 <script>
-// Pixelfart-platformbrug: op pixelfart.nl de echte SDK, los geopend deze eenvoudige vervanging.
-const PF = window.Pixelfart || (() => {
-  const onP = [], onR = [];
-  document.addEventListener('visibilitychange', () => (document.hidden ? onP : onR).forEach((f) => f()));
-  const note = (t) => { // testmelding bovenin; alleen los geopend, nooit op de site
-    let n = document.getElementById('pf-test');
-    if (!n) {
-      n = document.createElement('div'); n.id = 'pf-test'; n.title = 'Klik om te verbergen';
-      n.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;padding:4px 8px;background:#ffcf4a;color:#000;'
-        + 'font:12px/1.4 monospace;text-align:center;cursor:pointer';
-      n.onclick = () => n.remove(); document.body.appendChild(n);
-    }
-    n.textContent = t;
-  };
-  const intro = () => note('TESTVERSIE · Topscores en pixelfonts werken pas als de game op pixelfart.nl staat. '
-    + 'Klaar? Stuur dit HTML-bestand naar Pixelfart. (klik om te verbergen)');
-  if (document.body) intro(); else addEventListener('DOMContentLoaded', intro);
-  return {
-    inSite: false,
-    get paused() { return document.hidden; },
-    fit(cv, o = {}) {
-      const go = () => {
-        let s = Math.min(innerWidth / cv.width, innerHeight / cv.height);
-        if (o.mode === 'integer' && s >= 1) s = Math.floor(s);
-        cv.style.width = Math.floor(cv.width * s) + 'px'; cv.style.height = Math.floor(cv.height * s) + 'px';
-      };
-      cv.style.imageRendering = 'pixelated'; addEventListener('resize', go); go(); return go;
-    },
-    loop(update, o = {}) {
-      let last = 0, raf = 0, on = true; const gap = 1000 / (o.fps || 60) - 1;
-      const frame = (t) => {
-        raf = 0; if (!on || document.hidden) return; raf = requestAnimationFrame(frame);
-        if (last && t - last < gap) return;
-        const dt = last ? Math.min((t - last) / 1000, 0.1) : 0; last = t; update(dt); if (o.draw) o.draw();
-      };
-      const go = () => { if (!raf && on && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } };
-      onR.push(go); go();
-      return { stop() { on = false; cancelAnimationFrame(raf); raf = 0; }, start() { on = true; go(); } };
-    },
-    onPause: (f) => onP.push(f), onResume: (f) => onR.push(f),
-    fonts: () => Promise.resolve(),
-    text: (c, s, x, y) => c.fillText(s, Math.round(x), Math.round(y)),
-    score(n) { note('TESTVERSIE · Score ' + Math.floor(n) + ': online vraagt de site nu om 3 letters voor de topscorelijst.'); },
-    back() { note('TESTVERSIE · Online ga je nu terug naar pixelfart.nl.'); },
-    store: {
-      get(k, d) { try { const v = localStorage.getItem('pf:' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-      set(k, v) { try { localStorage.setItem('pf:' + k, JSON.stringify(v)); } catch (e) {} },
-    },
-  };
-})();
-
 (() => {
 	'use strict';
 	// ---------- scherm ----------
 	const W = 320, H = 180, TS = 8, MW = 40, MH = 18, MY = 16, BY = 160;
-	const STEPS = 3, MAXR = 20, START_UNITS = 4;
+	const STEPS = 3, MAXR = 20, START_UNITS = 4, DIG = 3;   // DIG = extra soldaten als je je ingraaft (+1 per land achterstand)
 	const cv = document.getElementById('game');
 	const g = cv.getContext('2d');
 	g.imageSmoothingEnabled = false;
-	PF.fit(cv, { mode: 'integer' });
+	Pixelfart.fit(cv, { mode: 'integer' });
 	// Op kleine schermen (telefoon) liever zo groot mogelijk dan 1× klein.
 	function refit() {
 		const s = Math.min(innerWidth / W, innerHeight / H);
@@ -110,10 +53,10 @@ const PF = window.Pixelfart || (() => {
 		{ naam: 'ROOD', licht: '#ff5c8a', base: '#9a2f48', speck: '#b03a56', donker: '#4a1020' },
 		{ naam: 'BLAUW', licht: '#6ec9ff', base: '#2d5d92', speck: '#386fab', donker: '#0e2a4a' },
 	];
-	const F_TITLE = '16px "Press Start 2P", monospace', F_BIG = '8px "Press Start 2P", monospace', F_HUD = '8px Silkscreen, monospace', F_SM = '8px Tiny5, monospace';
+	const F_TITLE = '16px "Press Start 2P"', F_BIG = '8px "Press Start 2P"', F_HUD = '8px Silkscreen', F_SM = '8px Tiny5';
 	function txt(s, x, y, c, f = F_HUD, al = 'left') {
 		g.font = f; g.fillStyle = c; g.textAlign = al; g.textBaseline = 'top';
-		PF.text(g, s, Math.round(x), Math.round(y));
+		Pixelfart.text(g, s, Math.round(x), Math.round(y));
 	}
 	function tw(s, f) { g.font = f; return Math.ceil(g.measureText(s).width); }
 	function makePat(color) {
@@ -124,33 +67,13 @@ const PF = window.Pixelfart || (() => {
 	const P = { wit: makePat(C.wit), geel: makePat(C.geel), groen: makePat(C.groen), dim: makePat(C.zwart) };
 
 	// ---------- geluid (Web Audio, pas na eerste tik) ----------
-	// Geluid aan/uit: luidsprekerknop in beeld en toets M. Standaard aan, keuze onthouden.
-	const pfSound = (() => {
-	  let muted = !!PF.store.get('muted', false);
-	  const b = document.createElement('button');
-	  b.type = 'button';
-	  b.style.cssText = 'position:fixed;z-index:60;right:8px;bottom:8px;width:34px;height:34px;padding:3px;border:0;background:#000;'
-	    + 'box-shadow:0 0 0 3px #6a6a6a;cursor:pointer;touch-action:manipulation;line-height:0';
-	  const icon = (m) => '<svg viewBox="0 0 9 8" width="28" height="25" shape-rendering="crispEdges" fill="#f2f2f2" aria-hidden="true">'
-	    + '<path d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3z"/>'
-	    + (m ? '<path fill="#ff5c8a" d="M5 2h1v1H5zM8 2h1v1H8zM6 3h2v2H6zM5 5h1v1H5zM8 5h1v1H8z"/>'
-	         : '<path d="M5 3h1v2H5zM7 1h1v1H7zM8 2h1v4H8zM7 6h1v1H7z"/>') + '</svg>';
-	  const show = () => { b.innerHTML = icon(muted); b.title = muted ? 'Geluid aan (M)' : 'Geluid uit (M)'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(muted)); };
-	  const set = (m) => { muted = m; PF.store.set('muted', m); show(); if (pfSound.onChange) pfSound.onChange(m); };
-	  b.addEventListener('pointerdown', (e) => e.stopPropagation());
-	  b.addEventListener('click', (e) => { e.stopPropagation(); set(!muted); b.blur(); });
-	  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) set(!muted); });
-	  show();
-	  (document.body ? Promise.resolve() : new Promise((r) => addEventListener('DOMContentLoaded', r))).then(() => document.body.appendChild(b));
-	  return { get muted() { return muted; }, onChange: null };
-	})();
 	let ac = null;
 	function audio() {
 		if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
-		if (ac && ac.state === 'suspended' && !PF.paused) ac.resume();
+		if (ac && ac.state === 'suspended' && !Pixelfart.paused) ac.resume();
 	}
 	function tone(f, d, type = 'square', v = 0.04, when = 0, slide = 0) {
-		if (!ac || SIM || pfSound.muted) return;
+		if (!ac || SIM) return;
 		const t = ac.currentTime + when, o = ac.createOscillator(), gn = ac.createGain();
 		o.type = type; o.frequency.setValueAtTime(f, t);
 		if (slide) o.frequency.linearRampToValueAtTime(f + slide, t + d);
@@ -168,8 +91,8 @@ const PF = window.Pixelfart || (() => {
 		lose: () => [392, 330, 262].forEach((f, i) => tone(f, 0.14, 'triangle', 0.08, i * 0.12)),
 		err: () => tone(110, 0.12, 'square', 0.04),
 	};
-	PF.onPause(() => { if (ac) ac.suspend(); });
-	PF.onResume(() => { if (ac && !pfSound.muted) ac.resume(); });
+	Pixelfart.onPause(() => { if (ac) ac.suspend(); });
+	Pixelfart.onResume(() => { if (ac) ac.resume(); });
 
 	// ---------- kansen bij dobbelen (exact uitgerekend) ----------
 	// OUT[a][d] = lijst {la, ld, p}: verliezen aanvaller/verdediger in één worp met a en d stenen.
@@ -380,17 +303,19 @@ const PF = window.Pixelfart || (() => {
 	let aiLevel = [-1, 1];      // -1 = mens
 	let turn = 0, starter = 0, round = 1, phase = 'place', placeLeft = 0, placeHist = [], steps = STEPS;
 	let sel = null, pick = null, battle = null, banner = null, aiShow = null, msg = null, roll = null, over = null;
-	let ai = null, aiWait = 0, quitAsk = false, rulesPage = 0;
+	let ai = null, aiWait = 0, quitAsk = false, rulesPage = 0, dig = false, lastDig = [false, false];
 	let T = 0, mapDirty = true, cursorR = 0, lastInput = 'ptr', menuFocus = 0;
 	let fx = [];
 	let SIM = false, simResult = null;
-	let rec = PF.store.get('rec', [0, 0, 0]);
+	let rec = Pixelfart.store.get('rec', [0, 0, 0]);
 
 	const isAI = (p) => aiLevel[p] >= 0;
 	const own = (p) => regions.filter((r) => r.owner === p);
 	const landOf = (p) => own(p).length;
 	const unitsOf = (p) => own(p).reduce((s, r) => s + r.units, 0);
 	const castlesOf = (p) => own(p).filter((r) => r.castle).length;
+	const canDig = (p) => landOf(p) < landOf(1 - p);   // ingraven mag alleen bij achterstand
+	const digBonus = (p) => DIG + Math.max(0, landOf(1 - p) - landOf(p));
 	const reinf = (p) => 2 + Math.floor(landOf(p) / 3) + castlesOf(p);
 	const teamName = (p) => mode === 1 ? (p === 0 ? 'JIJ' : 'COMPUTER') : TEAM[p].naam;
 	const flash = (text) => { msg = { text, t: 1.8 }; sfx.err(); };
@@ -399,6 +324,7 @@ const PF = window.Pixelfart || (() => {
 		mode = m; level = lvl;
 		aiLevel = m === 1 ? [-1, lvl] : [-1, -1];
 		MAP = genMap((Math.random() * 4294967296) >>> 0); regions = MAP.regions; mapDirty = true;
+		lastDig = [false, false];
 		round = 1; sel = pick = battle = banner = aiShow = msg = over = null; ai = null; quitAsk = false; fx = [];
 		let a, b; do { a = 1 + ((Math.random() * 6) | 0); b = 1 + ((Math.random() * 6) | 0); } while (a === b);
 		roll = { t: 0, a, b };
@@ -409,10 +335,18 @@ const PF = window.Pixelfart || (() => {
 	}
 	function startTurn(p) {
 		if (landOf(p) === 0) { finish(1 - p, 'alles'); return; }
-		turn = p; sel = pick = aiShow = null; steps = STEPS; placeLeft = reinf(p); placeHist = []; phase = 'place';
-		banner = { t: 1.2 };
+		turn = p; sel = pick = aiShow = null; steps = STEPS; placeHist = []; dig = false;
 		if (own(p).length && !(regions[cursorR] && regions[cursorR].owner === p)) cursorR = own(p)[0].id;
-		if (isAI(p)) { ai = aiTurn(p); aiWait = 0; } else ai = null;
+		if (isAI(p)) { choose(aiDig(p)); banner = { t: 1.2 }; ai = aiTurn(p); aiWait = 0; }
+		else if (canDig(p)) { ai = null; banner = null; phase = 'choose'; menuFocus = 0; placeLeft = reinf(p); }
+		else { ai = null; banner = null; choose(false); }
+	}
+	// Begin van de beurt: aanvallen (gewoon) of ingraven (alleen bij achterstand: +DIG +achterstand, niet aanvallen).
+	function choose(d) {
+		d = d && canDig(turn);
+		dig = d; placeLeft = reinf(turn) + (d ? digBonus(turn) : 0); phase = 'place';
+		if (d) addFx(W / 2, BY - 14, 'INGEGRAVEN +' + digBonus(turn), C.geel);
+		lastDig[turn] = d;
 	}
 	function endTurn() {
 		if (scene !== 'game') return;
@@ -440,8 +374,8 @@ const PF = window.Pixelfart || (() => {
 			else if (w < 0) sc = land * 5 * (level + 1);
 			else sc = land * 2 * (level + 1);
 			over.score = sc;
-			if (sc > rec[level]) { rec[level] = sc; over.newRec = true; PF.store.set('rec', rec); }
-			PF.score(sc);   // één keer per potje
+			if (sc > rec[level]) { rec[level] = sc; over.newRec = true; Pixelfart.store.set('rec', rec); }
+			Pixelfart.score(sc);   // één keer per potje
 		}
 		if (w === 0 || (mode === 2 && w >= 0)) sfx.win(); else sfx.lose();
 	}
@@ -461,6 +395,7 @@ const PF = window.Pixelfart || (() => {
 		if (!s.adj.has(t.id) || s.units < 1) return null;
 		if (t.owner === p) return 'move';
 		if (t.units === 0) return 'take';
+		if (dig) return 'dig';
 		if (s.units > t.units) return 'attack';
 		return 'weak';
 	}
@@ -572,6 +507,7 @@ const PF = window.Pixelfart || (() => {
 			const keepMove = enN.length ? Math.min(s.units, Math.max(1, Math.ceil(thrS * 0.7))) : 0;
 			const spare = s.units - keepMove;
 			for (const t of s.adjArr) {
+				if (dig && t.owner !== p && t.units > 0) continue;
 				if (t.owner < 0) {
 					const tEn = t.adjArr.some((n) => n.owner === o);
 					const n = spare >= 1 ? (tEn ? spare : 1) : (s.units >= 2 ? 1 : 0);
@@ -634,7 +570,7 @@ const PF = window.Pixelfart || (() => {
 			const su = s.units;
 			for (const t of s.adjArr) {
 				const kind = canTarget(s, t, p);
-				if (!kind || kind === 'weak') continue;
+				if (kind !== 'move' && kind !== 'take' && kind !== 'attack') continue;
 				const min = kind === 'attack' ? t.units + 1 : 1;
 				const opts = new Set([min, Math.ceil(su / 2), su - 1, su].filter((n) => n >= min && n <= su));
 				for (const n of opts) {
@@ -664,6 +600,14 @@ const PF = window.Pixelfart || (() => {
 		return best;
 	}
 
+	function aiDig(p) {
+		const L = aiLevel[p], behind = landOf(1 - p) - landOf(p);
+		if (behind <= 0) return false;
+		if (L === 0) return Math.random() < 0.15;
+		if (L === 1) return behind >= 4 && Math.random() < 0.5;
+		// moeilijk: bij achterstand om en om ingraven en aanvallen (werkte het best in de simulaties)
+		return behind >= 2 && !lastDig[p];
+	}
 	function* aiTurn(p) {
 		yield 1.2;
 		banner = null;
@@ -690,7 +634,7 @@ const PF = window.Pixelfart || (() => {
 		starter = Math.random() < 0.5 ? 0 : 1; turn = starter; round = 1; simResult = null;
 		while (simResult === null) {
 			const p = turn;
-			placeLeft = reinf(p); placeHist = [];
+			placeHist = []; turn = p; choose(aiDig(p));
 			while (placeLeft > 0) placeUnit(aiPlace(p));
 			steps = STEPS;
 			while (steps > 0 && simResult === null) {
@@ -713,7 +657,8 @@ const PF = window.Pixelfart || (() => {
 	if (/debug/.test(location.search)) {
 		window.LJP = {
 			sim(n, la, lb) { const r = { 0: 0, 1: 0, '-1': 0, rounds: 0 }; for (let i = 0; i < n; i++) { const s = simGame(la, lb); r[s.w]++; r.rounds += s.round / n; } scene = 'title'; newTitleMap(); return r; },
-			EW, end: (w) => finish(w, "alles"), state: () => ({ scene, turn, phase, steps, placeLeft, round, regions: regions.length }),
+			EW, end: (w) => finish(w, "alles"),
+			behind(p, n) { own(p).slice(0, n).forEach((r) => { r.owner = 1 - p; }); startTurn(p); }, state: () => ({ scene, turn, phase, steps, placeLeft, round, regions: regions.length }),
 		};
 	}
 
@@ -750,6 +695,7 @@ const PF = window.Pixelfart || (() => {
 	// Eén "tik" in het spel: r = gebied, null = water, undefined = buiten de kaart.
 	function gameTap(r) {
 		if (phase === 'roll') { if (roll.t > 1.2) firstTurn(); return; }
+		if (phase === 'choose') return;
 		if (banner && !isAI(turn)) { banner = null; return; }
 		if (battle) { battle.fast = true; return; }
 		if (isAI(turn) || r === undefined) return;
@@ -771,6 +717,7 @@ const PF = window.Pixelfart || (() => {
 		if (sel) {
 			if (r === sel) { sel = null; return; }
 			const k = canTarget(sel, r, turn);
+			if (k === 'dig') { flash('Je bent ingegraven: deze beurt niet aanvallen. Lege landen mag je wel innemen.'); return; }
 			if (k === 'weak') { flash('Te weinig! Je hebt meer dan ' + r.units + ' soldaten nodig.'); return; }
 			if (k) { openPick(sel, r, k); return; }
 		}
@@ -810,6 +757,8 @@ const PF = window.Pixelfart || (() => {
 			case 'go': if (pick) confirmPick(); break;
 			case 'cancel': pick = null; break;
 			case 'stop': retreat(); break;
+			case 'atk': if (phase === 'choose') choose(false); break;
+			case 'dig': if (phase === 'choose') choose(true); break;
 		}
 	}
 	function moveCursor(dx, dy) {
@@ -827,7 +776,7 @@ const PF = window.Pixelfart || (() => {
 		audio(); lastInput = 'key';
 		const k = e.key;
 		if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace'].includes(k)) e.preventDefault();
-		const menuMode = scene !== 'game' || quitAsk;
+		const menuMode = scene !== 'game' || quitAsk || (phase === 'choose' && !isAI(turn));
 		if (menuMode) {
 			const nav = btns.filter((b) => b.nav);
 			if (k === 'ArrowUp' || k === 'ArrowLeft') menuFocus = (menuFocus + nav.length - 1) % Math.max(1, nav.length);
@@ -835,7 +784,7 @@ const PF = window.Pixelfart || (() => {
 			else if ((k === 'Enter' || k === ' ') && nav[menuFocus]) onBtn(nav[menuFocus].id);
 			else if (k === 'Escape') {
 				if (quitAsk) quitAsk = false;
-				else if (scene === 'title') PF.back();
+				else if (scene === 'title') Pixelfart.back();
 				else if (scene === 'over') onBtn('toMenu');
 				else { scene = 'title'; menuFocus = 0; }
 			}
@@ -861,7 +810,7 @@ const PF = window.Pixelfart || (() => {
 		else if (k === 's' || k === 'S') { if (battle && !battle.ai) retreat(); }
 		else if (k === 'Escape') { if (sel) sel = null; else { quitAsk = true; menuFocus = 1; } }
 	});
-	PF.onPause(() => { /* loop staat vanzelf stil */ });
+	Pixelfart.onPause(() => { /* loop staat vanzelf stil */ });
 
 	// ---------- update ----------
 	function update(dt) {
@@ -1003,6 +952,7 @@ const PF = window.Pixelfart || (() => {
 			['Verover land en houd het vast. Wie na ' + MAXR + ' rondes het meeste land heeft, wint. Pak je al het land van de ander? Dan win je meteen.', C.wit],
 			['', 0],
 			['JOUW BEURT', C.geel],
+			['Heb je minder land dan de ander? Dan kies je eerst: AANVALLEN of INGRAVEN. Ingraven geeft ' + DIG + ' extra soldaten, plus 1 per land achterstand. Dan mag je niet aanvallen, maar lege landen innemen mag wel. Zo kun je terugvechten!', C.wit],
 			['1. Zet je nieuwe soldaten neer: tik op je eigen land. Je krijgt er 2, plus 1 per 3 landen, plus 1 per kasteel.', C.wit],
 			['2. Zet ' + STEPS + ' stappen. Een stap: tik op je land en dan op een buurland. Kies hoeveel soldaten meegaan.', C.wit],
 			['Dezelfde soldaten mogen meerdere stappen lopen.', C.lgrijs],
@@ -1072,6 +1022,7 @@ const PF = window.Pixelfart || (() => {
 		drawBottom();
 		if (battle) drawBattle();
 		if (phase === 'roll') drawRoll();
+		else if (phase === 'choose' && !quitAsk) drawChoose();
 		else if (banner) drawBanner();
 		if (quitAsk) {
 			btns = [];
@@ -1090,8 +1041,9 @@ const PF = window.Pixelfart || (() => {
 			g.fillStyle = t.licht; g.fillRect(4, 4, 7, 7);
 			const name = teamName(turn);
 			txt(name, 15, 4, t.licht);
-			const info = phase === 'place' ? 'PLAATS ' + placeLeft : 'STAPPEN ' + steps + '/' + STEPS;
-			txt(info, 15 + tw(name, F_HUD) + 6, 4, C.wit);
+			const info = phase === 'choose' ? 'KIES' : phase === 'place' ? 'PLAATS ' + placeLeft : 'STAPPEN ' + steps + '/' + STEPS;
+			const ix = 15 + tw(name, F_HUD) + 6;
+			txt(info, ix, 4, C.wit);
 		}
 		txt('RONDE ' + Math.min(round, MAXR) + '/' + MAXR, 178, 5, C.lgrijs, F_SM, 'center');
 		let x = 214;
@@ -1106,9 +1058,9 @@ const PF = window.Pixelfart || (() => {
 		const human = !isAI(turn);
 		let help = '', col = C.lgrijs, bx = W - 4;
 		const rbtn = (id, label, o = {}) => { const w = tw(label, F_HUD) + 12; bx -= w; button(id, label, bx, BY + 4, w, 13, o); bx -= 4; };
-		if (phase === 'roll' || banner) help = '';
+		if (phase === 'roll' || banner || phase === 'choose') help = '';
 		else if (battle) help = battle.ai || battle.phase === 'end' ? '' : 'Tik om sneller te gooien.';
-		else if (!human) help = phase === 'place' ? 'De computer zet soldaten neer...' : 'De computer is aan zet...';
+		else if (!human) { help = (phase === 'place' ? 'De computer zet soldaten neer' : 'De computer is aan zet') + (dig ? ' (ingegraven: valt niet aan)' : '...'); if (dig) col = C.geel; }
 		else if (pick) {
 			const k = pick.k;
 			const label = k === 'attack' ? 'ZIJ ' + pick.t.units + ', JIJ:' : k === 'take' ? 'INNEMEN MET:' : 'VERPLAATS:';
@@ -1122,21 +1074,38 @@ const PF = window.Pixelfart || (() => {
 			if (pick.n === pick.s.units && pick.s.adjArr.some((n) => n.owner === 1 - turn)) txt('leeg!', lx + 100, BY + 7, C.oranje, F_SM);
 			return;
 		} else if (phase === 'place') {
-			help = 'Tik op je land: +1 soldaat (nog ' + placeLeft + ')';
+			help = 'Tik op je land: +1 soldaat (nog ' + placeLeft + ')' + (dig ? ' - ingegraven' : '');
+			if (dig) col = C.geel;
 			if (placeHist.length) rbtn('undo', 'TERUG');
 		} else {
-			help = steps <= 0 ? 'Je stappen zijn op. Tik op KLAAR.' : sel ? 'Kies een buurland. Geel = aanvallen.' : 'Kies een land met soldaten.';
+			if (dig) col = C.geel;
+			help = steps <= 0 ? 'Je stappen zijn op. Tik op KLAAR.' : dig ? (sel ? 'Kies een buurland: eigen of leeg land.' : 'Ingegraven: niet aanvallen, wel lege landen innemen.') : sel ? 'Kies een buurland. Geel = aanvallen.' : 'Kies een land met soldaten.';
 			rbtn('end', 'KLAAR', { blink: steps <= 0 });
 		}
 		if (msg) { help = msg.text; col = C.oranje; }
 		if (help) txt(help, 4, BY + 7, col, F_SM);
+	}
+	function drawChoose() {
+		btns = btns.filter((b) => b.id === 'menu');
+		const t = TEAM[turn], n = reinf(turn);
+		box(52, 38, 216, 98, t.licht);
+		const title = mode === 1 ? 'JOUW BEURT' : 'BEURT ' + t.naam;
+		txt(title, W / 2, 47, t.licht, F_BIG, 'center');
+		txt('ronde ' + round + ' van ' + MAXR + '. Wat ga je doen?', W / 2, 59, C.lgrijs, F_SM, 'center');
+		button('atk', 'AANVALLEN', 62, 72, 94, 15, { nav: true, col: C.geel });
+		button('dig', 'INGRAVEN', 164, 72, 94, 15, { nav: true, col: C.groen });
+		txt('+' + n + ' soldaten', 109, 91, C.wit, F_SM, 'center');
+		txt('veroveren mag', 109, 101, C.grijs, F_SM, 'center');
+		txt('+' + (n + digBonus(turn)) + ' soldaten', 211, 91, C.wit, F_SM, 'center');
+		txt('niet aanvallen', 211, 101, C.grijs, F_SM, 'center');
+		wrap('Je staat ' + (landOf(1 - turn) - landOf(turn)) + ' land achter. Ingegraven mag je wel lege landen innemen.', 200, F_SM).forEach((l, i) => txt(l, W / 2, 113 + i * 9, C.lgrijs, F_SM, 'center'));
 	}
 	function drawBanner() {
 		const t = TEAM[turn];
 		box(90, 62, 140, 40, t.licht);
 		const title = mode === 1 ? (turn === 0 ? 'JOUW BEURT' : 'COMPUTER') : 'BEURT ' + t.naam;
 		txt(title, W / 2, 72, t.licht, F_BIG, 'center');
-		txt('+' + placeLeft + ' soldaten' + (round === 1 && turn === starter ? '' : ' - ronde ' + round), W / 2, 86, C.lgrijs, F_SM, 'center');
+		txt(dig ? 'graaft zich in: +' + placeLeft + ' soldaten' : 'valt aan: +' + placeLeft + ' soldaten', W / 2, 86, dig ? C.geel : C.lgrijs, F_SM, 'center');
 	}
 	function drawRoll() {
 		box(70, 44, 180, 76, C.geel);
@@ -1205,7 +1174,7 @@ const PF = window.Pixelfart || (() => {
 
 	function newTitleMap() { MAP = genMap((Math.random() * 4294967296) >>> 0); regions = MAP.regions; mapDirty = true; }
 	newTitleMap();
-	PF.fonts(['Press Start 2P', 'Silkscreen', 'Tiny5']).then(() => PF.loop(update, { fps: 30, draw }));
+	Pixelfart.fonts(['Press Start 2P', 'Silkscreen', 'Tiny5']).then(() => Pixelfart.loop(update, { fps: 30, draw }));
 })();
 </script>
 </body>

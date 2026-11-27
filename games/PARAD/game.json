@@ -11,6 +11,7 @@
     "author": "",
     "age": "ALL",
     "thumbnail": "thumb.png",
+    "social": "social.png",
     "file": "game.html",
     "score": {
         "order": "desc",

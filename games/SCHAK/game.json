@@ -9,9 +9,10 @@
     "published": "2026-11-15",
     "version": "1.2.0",
     "description": "Schaken, maar dan als oorlog op het bord. Zet tanks, turrets en saboteurs slim in en vernietig het vijandelijke konvooi.",
-    "author": "Bert",
+    "author": "JOZ",
     "age": "ALL",
     "thumbnail": "thumb.png",
+    "social": "social.png",
     "file": "game.html",
     "score": null,
     "license": {

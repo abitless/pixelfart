@@ -6,11 +6,12 @@
         "Retro"
     ],
     "published": "2026-11-18",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "description": "Een flipperkast vol kittens die met je bolletje wol willen spelen. Flipper met linker en rechter Shift en speel door tot je ballen op zijn.",
     "author": "NAT",
     "age": "ALL",
     "thumbnail": "thumb.png",
+    "social": "social.png",
     "file": "game.html",
     "score": {
         "order": "desc",
@@ -21,6 +22,11 @@
         "art": "CC-BY-SA-4.0"
     },
     "changelog": [
+        {
+            "version": "1.4.0",
+            "date": "2026-11-27",
+            "notes": "Twee nieuwe banen boven de kast: de wolbaan en de baan naar het kattenmandje. Schiet je de bal in het mandje, dan krijg je meteen twee extra ballen. Ook valt de bal minder snel langs de zijkant weg en duurt de bal-redder langer."
+        },
         {
             "version": "1.3.0",
             "date": "2026-11-22",
